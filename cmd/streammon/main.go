@@ -13,11 +13,11 @@ func main() {
 	util.PrintBanner()
 
 	// 1. Load Configuration
-	fmt.Println("[INFO] Loading configurations...")
+	fmt.Printf("[%sINFO%s] Loading configurations...\n", util.ColorBlue, util.ColorReset)
 
 	ytCfg, err := config.LoadYTConfig("configs/config_yt.toml")
 	if err != nil {
-		fmt.Printf("%s[WARN] Could not load config_yt.toml: %v. YouTube monitor will not run.%s\n", util.ColorYellow, err, util.ColorReset)
+		fmt.Printf("[%sWARN%s] Could not load config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
 		ytCfg = nil // Ensure it's nil
 	}
 
