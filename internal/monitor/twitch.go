@@ -2,27 +2,55 @@ package monitor
 
 import (
 	"fmt"
+	"os/exec"
 	"time"
 
 	"streammon/internal/config"
 	"streammon/internal/util"
 )
 
-func MonitorTwitch(cfg *config.TwitchConfig) {
-	fmt.Printf("[%sTwitch%s] Monitor started for %d channels.\n", util.ColorBlue, util.ColorReset, len(cfg.Channels))
-	fmt.Printf("[%sTwitch%s] Working Directory: %s\n", util.ColorBlue, util.ColorReset, cfg.StreamMon.WorkingDirectory)
+// TwitchMonitor holds the state and logic for monitoring Twitch.
+type TwitchMonitor struct {
+	cfg             *config.TwitchConfig
+	liveStatus      map[string]LiveInfo  // map[channelID]LiveInfo
+	activeDownloads map[string]*exec.Cmd // map[channelID]process
+}
 
-	// Simulation Loop
+// NewTwitchMonitor creates a new Twitch monitor instance.
+func NewTwitchMonitor(cfg *config.TwitchConfig) *TwitchMonitor {
+	return &TwitchMonitor{
+		cfg:             cfg,
+		liveStatus:      make(map[string]LiveInfo),
+		activeDownloads: make(map[string]*exec.Cmd),
+	}
+}
+
+// Run starts the monitoring loops.
+func (m *TwitchMonitor) Run() {
+	fmt.Printf("[%sTwitch%s] Monitor started for %d channels.\n", util.ColorPurple, util.ColorReset, len(m.cfg.Channels))
+	fmt.Printf("[%sTwitch%s] Working Directory: %s\n", util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory)
+
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 
 	for t := range ticker.C {
-		fmt.Printf("[%s] [%sTwitch%s] Checking live status...\n", t.Format("15:04:05"), util.ColorBlue, util.ColorReset)
-
-		// Placeholder for actual check logic
-		for _, ch := range cfg.Channels {
-			// Logic will go here
-			_ = ch
-		}
+		m.checkAllChannels(t)
 	}
+}
+
+// checkAllChannels simulates the main check cycle.
+func (m *TwitchMonitor) checkAllChannels(t time.Time) {
+	fmt.Printf("%s [%sTwitch%s] Checking live status...\n", util.FormatTime(t, m.cfg.StreamMon.Timezone), util.ColorPurple, util.ColorReset)
+
+	// Placeholder for actual check logic
+	for _, ch := range m.cfg.Channels {
+		// Future logic: go m.checkLive(ch)
+		_ = ch
+	}
+}
+
+// MonitorTwitch is the public entry point that sets up and runs the monitor.
+func MonitorTwitch(cfg *config.TwitchConfig) {
+	monitor := NewTwitchMonitor(cfg)
+	monitor.Run()
 }
