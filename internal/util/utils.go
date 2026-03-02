@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // --- Colors ---
@@ -18,6 +19,7 @@ const (
 	ColorYellow = "\033[93m"
 	ColorBlue   = "\033[94m"
 	ColorCyan   = "\033[96m"
+	ColorPurple = "\033[95m"
 )
 
 // --- UI Helpers ---
@@ -32,8 +34,22 @@ func PrintBanner() {
 	cmd.Run()
 
 	fmt.Println(ColorBlue + strings.Repeat("=", 60) + ColorReset)
-	fmt.Printf(" %sStreamMon (Go)%s - Automated Stream Archiver\n", ColorGreen, ColorReset)
+	fmt.Printf(" %sStreamMon%s - Automated Stream Archiver\n", ColorGreen, ColorReset)
 	fmt.Println(ColorBlue + strings.Repeat("=", 60) + ColorReset)
+}
+
+// --- Time Helpers ---
+
+// FormatTime formats a time.Time object into the standard log timestamp string.
+// It respects the timezone string provided, defaulting to UTC if invalid/empty.
+func FormatTime(t time.Time, timezone string) string {
+	loc, err := time.LoadLocation(timezone)
+	if err != nil || timezone == "" {
+		loc = time.UTC
+	}
+	// The format "MST-07:00" includes the timezone name and offset, e.g., "UTC+00:00".
+	formattedTime := t.In(loc).Format("2006-01-02 15:04:05 MST-07:00")
+	return fmt.Sprintf("[%s%s%s]", ColorYellow, formattedTime, ColorReset) // White borders [], yellow text
 }
 
 // --- String Helpers ---
