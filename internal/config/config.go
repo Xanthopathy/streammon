@@ -7,13 +7,13 @@ import "github.com/BurntSushi/toml"
 type StreamMonConfig struct {
 	WorkingDirectory string   `toml:"working_directory"`
 	Args             []string `toml:"args"`
+	Timezone         string   `toml:"timezone"`
 }
 
 type Channel struct {
 	ID      string   `toml:"id"`
 	Name    string   `toml:"name"`
 	Filters []string `toml:"filters"`
-	OutPath string   `toml:"outpath"` // Optional override
 }
 
 // --- YouTube Specific ---

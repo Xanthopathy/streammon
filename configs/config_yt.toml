@@ -1,10 +1,14 @@
 [streammon]
 working_directory = "download_yt"
 
+# Timezone for timestamps in logs. Uses IANA Time Zone database names.
+# Examples: "UTC", "America/New_York", "Europe/London", "Asia/Tokyo"
+timezone = "UTC"
+
 # Arguments passed to yt-dlp. (See https://github.com/yt-dlp/yt-dlp)
 # You can comment out lines using '#' to disable specific flags.
 args = [
-    "--wait-for-video", "60"
+    "--wait-for-video", "60",
     "--live-from-start",
     "--js-runtime", "node",
     "--embed-thumbnail",
