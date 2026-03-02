@@ -1,0 +1,23 @@
+.
+|-- README.md
+|-- cmd
+|   `-- streammon
+|       `-- main.go
+|-- configs
+|   |-- config_twitch.toml
+|   `-- config_yt.toml
+|-- go.mod
+|-- go.sum
+|-- go_guide.txt
+|-- internal
+|   |-- config
+|   |   `-- config.go
+|   |-- monitor
+|   |   |-- twitch.go
+|   |   `-- youtube.go
+|   `-- util
+|       `-- utils.go
+|-- todo.txt
+`-- tree.txt
+
+7 directories, 13 files

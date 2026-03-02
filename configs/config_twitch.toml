@@ -1,0 +1,157 @@
+[streammon]
+working_directory = "download_twitch"
+
+# Arguments passed to twitch-dlp. (See https://github.com/DmitryScaletta/twitch-dlp)
+# You can comment out lines using '#' to disable specific flags.
+args = [
+    "--yes",
+    "--live-from-start",
+    "--retry-streams", "60",
+    
+    # Output Template
+    "--output", "[%(upload_date)s] [%(id)s] [%(uploader)s] [%(title)s].%(ext)s"
+]
+
+# ====================== Channels ====================== #
+
+# ===================== Phase ===================== #
+# =============== Origins =============== #
+[[channel]]
+id = "asheliarinkou"
+name = "Ashelia Rinkou"
+filters = [".*"]
+
+[[channel]]
+id = "utatanenasa"
+name = "Utatane Nasa"
+filters = [".*"]
+
+[[channel]]
+id = "iorihakushika"
+name = "Iori Hakushika"
+filters = [".*"]
+
+[[channel]]
+id = "fujikurauruka"
+name = "Fujikura Uruka"
+filters = [".*"]
+
+[[channel]]
+id = "michiru_shisui"
+name = "Michiru Shisui"
+filters = [".*"]
+
+# [[channel]]
+# id = "tenma"
+# name = "Tenma Maemi"
+# filters = [".*"]
+
+# [[channel]]
+# id = "pippa"
+# name = "Pipkin Pippa"
+# filters = [".*"]
+
+# =============== Invaders =============== #
+# [[channel]]
+# id = "kanekolumi"
+# name = "Kaneko Lumi"
+# filters = [".*"]
+
+[[channel]]
+id = "dizzydokuro"
+name = "Dizzy Dokuro"
+filters = [".*"]
+
+[[channel]]
+id = "jellyhoshiumi"
+name = "Jelly Hoshiumi"
+filters = [".*"]
+
+[[channel]]
+id = "emberamane"
+name = "Ember Amane"
+filters = [".*"]
+
+# =============== Alias =============== #
+[[channel]]
+id = "remilianephys"
+name = "Remilia Nephys"
+filters = [".*"]
+
+[[channel]]
+id = "chisakaairi"
+name = "Chisaka Airi"
+filters = [".*"]
+
+[[channel]]
+id = "amanogawashiina"
+name = "Amanogawa Shiina"
+filters = [".*"]
+
+[[channel]]
+id = "himemiyarie"
+name = "Himemiya Rie"
+filters = [".*"]
+
+[[channel]]
+id = "erinamakina"
+name = "Erina Makina"
+filters = [".*"]
+
+[[channel]]
+id = "komachipanko"
+name = "Komachi Panko"
+filters = [".*"]
+
+# =============== Euphoria =============== #
+# [[channel]]
+# id = "RunieRuse"
+# name = "Runie Ruse"
+# filters = [".*"]
+
+[[channel]]
+id = "eimiisami"
+name = "Eimi Isami"
+filters = [".*"]
+
+[[channel]]
+id = "muumuyu"
+name = "Muu Muyu"
+filters = [".*"]
+
+[[channel]]
+id = "HikanariHina"
+name = "Hikanari Hina"
+filters = [".*"]
+
+# [[channel]]
+# id = "sayasairroxs"
+# name = "Saya Sairroxs"
+# filters = [".*"]
+
+# =============== Kaleido =============== #
+[[channel]]
+id = "kokoromomemory"
+name = "Kokoromo Memory"
+filters = [".*"]
+
+[[channel]]
+id = "grampico"
+name = "Gram Pico"
+filters = [".*"]
+
+[[channel]]
+id = "ayaseyuu_"
+name = "Ayase Yuu"
+filters = [".*"]
+
+[[channel]]
+id = "kaminariclara"
+name = "Kaminari Clara"
+filters = [".*"]
+
+# ===================== Indies / Other ===================== #
+[[channel]]
+id = "chikafujilisa"
+name = "Chikafuji Lisa"
+filters = [".*"]
