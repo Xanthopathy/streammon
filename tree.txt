@@ -4,6 +4,7 @@
 |   `-- streammon
 |       `-- main.go
 |-- configs
+|   |-- config.toml
 |   |-- config_twitch.toml
 |   `-- config_yt.toml
 |-- go.mod
@@ -13,6 +14,7 @@
 |   |-- config
 |   |   `-- config.go
 |   |-- monitor
+|   |   |-- monitor.go
 |   |   |-- twitch.go
 |   |   `-- youtube.go
 |   `-- util
@@ -20,4 +22,4 @@
 |-- todo.txt
 `-- tree.txt
 
-7 directories, 13 files
+7 directories, 15 files

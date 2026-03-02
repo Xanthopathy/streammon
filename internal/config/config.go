@@ -4,10 +4,14 @@ import "github.com/BurntSushi/toml"
 
 // --- Shared Structures ---
 
+type GlobalConfig struct {
+	Timezone               string `toml:"timezone"`
+	MaxConcurrentDownloads int    `toml:"max_concurrent_downloads"`
+}
+
 type StreamMonConfig struct {
 	WorkingDirectory string   `toml:"working_directory"`
 	Args             []string `toml:"args"`
-	Timezone         string   `toml:"timezone"`
 }
 
 type Channel struct {
@@ -39,6 +43,12 @@ type TwitchConfig struct {
 }
 
 // --- Loaders ---
+
+func LoadGlobalConfig(path string) (*GlobalConfig, error) {
+	var cfg GlobalConfig
+	_, err := toml.DecodeFile(path, &cfg)
+	return &cfg, err
+}
 
 func LoadYTConfig(path string) (*YTConfig, error) {
 	var cfg YTConfig

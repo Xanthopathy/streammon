@@ -12,15 +12,17 @@ import (
 // YTMonitor holds the state and logic for monitoring YouTube.
 type YTMonitor struct {
 	cfg             *config.YTConfig
+	globalCfg       *config.GlobalConfig
 	liveStatus      map[string]LiveInfo  // map[channelID]LiveInfo
 	lastSeenVideoID map[string]string    // map[channelID]videoID
 	activeDownloads map[string]*exec.Cmd // map[channelID]process
 }
 
 // NewYTMonitor creates a new YouTube monitor instance.
-func NewYTMonitor(cfg *config.YTConfig) *YTMonitor {
+func NewYTMonitor(cfg *config.YTConfig, globalCfg *config.GlobalConfig) *YTMonitor {
 	return &YTMonitor{
 		cfg:             cfg,
+		globalCfg:       globalCfg,
 		liveStatus:      make(map[string]LiveInfo),
 		lastSeenVideoID: make(map[string]string),
 		activeDownloads: make(map[string]*exec.Cmd),
@@ -44,7 +46,7 @@ func (m *YTMonitor) Run() {
 
 // checkAllChannels simulates the main check cycle.
 func (m *YTMonitor) checkAllChannels(t time.Time) {
-	fmt.Printf("%s [%sYT%s] Checking RSS feeds...\n", util.FormatTime(t, m.cfg.StreamMon.Timezone), util.ColorRed, util.ColorReset)
+	fmt.Printf("%s [%sYT%s] Checking RSS feeds...\n", util.FormatTime(t, m.globalCfg.Timezone), util.ColorRed, util.ColorReset)
 
 	// Placeholder for actual check logic
 	for _, ch := range m.cfg.Channels {
@@ -54,7 +56,7 @@ func (m *YTMonitor) checkAllChannels(t time.Time) {
 }
 
 // MonitorYouTube is the public entry point that sets up and runs the monitor.
-func MonitorYouTube(cfg *config.YTConfig) {
-	monitor := NewYTMonitor(cfg)
+func MonitorYouTube(cfg *config.YTConfig, globalCfg *config.GlobalConfig) {
+	monitor := NewYTMonitor(cfg, globalCfg)
 	monitor.Run()
 }

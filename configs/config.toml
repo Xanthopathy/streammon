@@ -1,0 +1,10 @@
+# ==========================================
+# StreamMon - Global Configuration
+# ==========================================
+
+# Timezone for timestamps in logs. Uses IANA Time Zone database names.
+# Examples: "UTC", "America/New_York", "Europe/London", "Asia/Tokyo"
+timezone = "UTC"
+
+# Global limit for concurrent downloads (Not yet implemented in logic)
+max_concurrent_downloads = 10
