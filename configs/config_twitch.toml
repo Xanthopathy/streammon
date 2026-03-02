@@ -105,7 +105,7 @@ filters = [".*"]
 
 # =============== Euphoria =============== #
 # [[channel]]
-# id = "RunieRuse"
+# id = "runieruse"
 # name = "Runie Ruse"
 # filters = [".*"]
 
@@ -120,7 +120,7 @@ name = "Muu Muyu"
 filters = [".*"]
 
 [[channel]]
-id = "HikanariHina"
+id = "hikanarihina"
 name = "Hikanari Hina"
 filters = [".*"]
 
@@ -154,4 +154,9 @@ filters = [".*"]
 [[channel]]
 id = "chikafujilisa"
 name = "Chikafuji Lisa"
+filters = [".*"]
+
+[[channel]]
+id = "sayu"
+name = "Sayu"
 filters = [".*"]

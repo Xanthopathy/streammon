@@ -39,9 +39,9 @@ func (m *YTMonitor) Run() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	for t := range ticker.C {
-		m.checkAllChannels(t)
-	}
+	// for t := range ticker.C {
+	// 	m.checkAllChannels(t)
+	// }
 }
 
 // checkAllChannels simulates the main check cycle.
