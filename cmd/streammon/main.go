@@ -21,23 +21,35 @@ func main() {
 		globalCfg = &config.GlobalConfig{
 			Timezone:               "UTC",
 			MaxConcurrentDownloads: 10,
+			EnableYoutube:          true,
+			EnableTwitch:           true,
+			YoutubeVerboseDebug:    false,
+			TwitchVerboseDebug:     false,
 		}
 	}
 
-	ytCfg, err := config.LoadYTConfig("configs/config_yt.toml")
-	if err != nil {
-		fmt.Printf("[%sWARN%s] Could not load config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
-		ytCfg = nil // Ensure it's nil
+	var ytCfg *config.YTConfig
+	if globalCfg.EnableYoutube {
+		var err error
+		ytCfg, err = config.LoadYTConfig("configs/config_yt.toml")
+		if err != nil {
+			fmt.Printf("[%sWARN%s] YouTube is enabled, but could not load config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			ytCfg = nil // Ensure it's nil
+		}
 	}
 
-	twitchCfg, err := config.LoadTwitchConfig("configs/config_twitch.toml")
-	if err != nil {
-		fmt.Printf("%s[WARN] Could not load config_twitch.toml: %v. Twitch monitor will not run.%s\n", util.ColorYellow, err, util.ColorReset)
-		twitchCfg = nil // Ensure it's nil
+	var twitchCfg *config.TwitchConfig
+	if globalCfg.EnableTwitch {
+		var err error
+		twitchCfg, err = config.LoadTwitchConfig("configs/config_twitch.toml")
+		if err != nil {
+			fmt.Printf("[%sWARN%s] Twitch is enabled, but could not load config_twitch.toml: %v. Twitch monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			twitchCfg = nil // Ensure it's nil
+		}
 	}
 
 	if ytCfg == nil && twitchCfg == nil {
-		fmt.Printf("%s[FATAL] No valid configuration files found. Exiting.%s\n", util.ColorRed, util.ColorReset)
+		fmt.Printf("%s[FATAL] No monitors are enabled or correctly configured. Exiting.%s\n", util.ColorRed, util.ColorReset)
 		return
 	}
 

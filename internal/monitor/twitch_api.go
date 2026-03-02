@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
+
+	"streammon/internal/config"
+	"streammon/internal/util"
 )
 
 // TwitchClientID is a public, hardcoded client ID for the Twitch GQL API.
@@ -45,7 +49,7 @@ type gqlResponse struct {
 // --- API Function ---
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live.
-func CheckLiveGQL(httpClient *http.Client, channelLogin string) (LiveInfo, error) {
+func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := gqlRequest{
 		OperationName: "UseLive",
@@ -58,6 +62,7 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string) (LiveInfo, error
 	if err != nil {
 		return LiveInfo{}, fmt.Errorf("failed to marshal GQL request: %w", err)
 	}
+	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Requesting for %s with payload: %s", channelLogin, string(body)))
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
@@ -77,9 +82,18 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string) (LiveInfo, error
 		return LiveInfo{}, fmt.Errorf("GQL request returned non-200 status: %s", resp.Status)
 	}
 
+	// Read the body to allow for logging and decoding
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return LiveInfo{}, fmt.Errorf("failed to read GQL response body: %w", err)
+	}
+	defer resp.Body.Close()
+
+	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Raw response for %s: %s", channelLogin, string(responseBody)))
+
 	// Decode the response
 	var gqlResp gqlResponse
-	if err := json.NewDecoder(resp.Body).Decode(&gqlResp); err != nil {
+	if err := json.Unmarshal(responseBody, &gqlResp); err != nil {
 		return LiveInfo{}, fmt.Errorf("failed to decode GQL response: %w", err)
 	}
 
@@ -88,11 +102,15 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string) (LiveInfo, error
 	}
 
 	// Check if the stream is live
-	if gqlResp.Data.User.Stream != nil && gqlResp.Data.User.Stream.Type == "live" {
+	if gqlResp.Data.User.Stream != nil {
+		title := gqlResp.Data.User.Stream.Title
+		if title == "" {
+			title = "Twitch Stream"
+		}
 		return LiveInfo{
 			IsLive:  true,
 			VideoID: gqlResp.Data.User.Stream.ID,
-			Title:   gqlResp.Data.User.Stream.Title,
+			Title:   title,
 		}, nil
 	}
 

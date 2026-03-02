@@ -8,3 +8,11 @@ timezone = "UTC"
 
 # Global limit for concurrent downloads (Not yet implemented in logic)
 max_concurrent_downloads = 10
+
+# Enable/disable monitors globally.
+enable_youtube = true
+enable_twitch = true
+
+# Enable verbose debugging output for each monitor.
+youtube_verbose_debug = true
+twitch_verbose_debug = true

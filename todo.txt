@@ -8,3 +8,18 @@ Heavy loop is retarded, only run a yt-dlp check if rss changes are detected
 Stop spawning yt-dlp just to check if a channel is live — that’s what’s killing your CPU. Instead, use a lightweight HTTP request to /channel/ID/live with redirects disabled; if it returns a 302 redirect to a watch?v=... URL, the channel is live. Only launch yt-dlp after that lightweight check confirms it’s actually live. (remember rate limits too) [30–60s RSS, 2–5m /live]
 
 Make bat file also log the specific directory it moves to/from and commands it performs
+
+
+
+To display output from multiple subprocesses in segregated areas of the terminal, you need a library that can create a Terminal User Interface (TUI). This is exactly what your todo.txt item about a "dual-pane terminal dashboard" describes.
+
+In the Go ecosystem, the idiomatic and most powerful library for this is Bubble Tea (charmbracelet/bubbletea).
+
+How it works: Instead of just printing lines, a Bubble Tea application takes full control of the terminal screen. It operates on a Model-View-Update architecture:
+
+Model: A struct that holds the entire state of your application (e.g., a list of recent log messages, a map of active downloads with their latest output lines).
+Update: A function that processes incoming "messages" (like a new log line, a line of output from a subprocess, a keypress) and updates the Model accordingly.
+View: A function that takes the current Model and returns a string representing the entire screen layout. Bubble Tea then efficiently draws this to the terminal.
+To achieve your goal, you would pipe the stdout of each twitch-dlp or yt-dlp subprocess. As new lines of output arrive, you would send them as messages to your Bubble Tea Update function. The Update function would store these lines in the Model, and the View function would render them in the correct pane on the screen.
+
+This approach allows you to build complex, interactive, and real-time dashboards directly in the terminal, perfectly solving the problem of monitoring multiple concurrent processes.

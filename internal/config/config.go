@@ -7,6 +7,10 @@ import "github.com/BurntSushi/toml"
 type GlobalConfig struct {
 	Timezone               string `toml:"timezone"`
 	MaxConcurrentDownloads int    `toml:"max_concurrent_downloads"`
+	EnableYoutube          bool   `toml:"enable_youtube"`
+	EnableTwitch           bool   `toml:"enable_twitch"`
+	YoutubeVerboseDebug    bool   `toml:"youtube_verbose_debug"`
+	TwitchVerboseDebug     bool   `toml:"twitch_verbose_debug"`
 }
 
 type StreamMonConfig struct {
@@ -39,7 +43,10 @@ type YTConfig struct {
 
 type TwitchConfig struct {
 	StreamMon StreamMonConfig `toml:"streammon"`
-	Channels  []Channel       `toml:"channel"`
+	Scraper   struct {
+		PollInterval string `toml:"poll_interval"`
+	} `toml:"scraper"`
+	Channels []Channel `toml:"channel"`
 }
 
 // --- Loaders ---

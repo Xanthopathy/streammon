@@ -1,6 +1,10 @@
 [streammon]
 working_directory = "download_yt"
 
+[scraper.rss]
+poll_interval = "60s"
+ignore_older_than = "24h"
+
 # Arguments passed to yt-dlp. (See https://github.com/yt-dlp/yt-dlp)
 # You can comment out lines using '#' to disable specific flags.
 args = [
@@ -17,10 +21,6 @@ args = [
     # "--cookies", "cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
-
-[scraper.rss]
-poll_interval = "30s"
-ignore_older_than = "24h"
 
 # ====================== Channels ====================== #
 

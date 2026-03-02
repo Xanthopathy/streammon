@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"streammon/internal/config"
 )
 
 // --- Colors ---
@@ -50,6 +52,22 @@ func FormatTime(t time.Time, timezone string) string {
 	// The format "MST-07:00" includes the timezone name and offset, e.g., "UTC+00:00".
 	formattedTime := t.In(loc).Format("2006-01-02 15:04:05 MST-07:00")
 	return fmt.Sprintf("[%s%s%s]", ColorYellow, formattedTime, ColorReset) // White borders [], yellow text
+}
+
+// --- Logging Helpers ---
+
+func DebugLog(cfg *config.GlobalConfig, module, message string) {
+	var shouldLog bool
+	if strings.HasPrefix(module, "Twitch") && cfg.TwitchVerboseDebug {
+		shouldLog = true
+	}
+	if strings.HasPrefix(module, "YouTube") && cfg.YoutubeVerboseDebug {
+		shouldLog = true
+	}
+
+	if shouldLog {
+		fmt.Printf("%s [%sDEBUG%s][%s] %s\n", FormatTime(time.Now(), cfg.Timezone), ColorCyan, ColorReset, module, message)
+	}
 }
 
 // --- String Helpers ---

@@ -12,14 +12,22 @@ import (
 	"streammon/internal/util"
 )
 
+// downloadProcess holds information about a running download process.
+type downloadProcess struct {
+	cmd      *exec.Cmd
+	videoID  string
+	lockPath string
+}
+
 // TwitchMonitor holds the state and logic for monitoring Twitch.
 type TwitchMonitor struct {
 	cfg             *config.TwitchConfig
 	globalCfg       *config.GlobalConfig
 	httpClient      *http.Client
 	statusMutex     sync.RWMutex
-	liveStatus      map[string]LiveInfo  // map[channelID]LiveInfo
-	activeDownloads map[string]*exec.Cmd // map[channelID]process
+	downloadMutex   sync.Mutex
+	liveStatus      map[string]LiveInfo         // map[channelID]LiveInfo
+	activeDownloads map[string]*downloadProcess // map[channelID]*downloadProcess
 }
 
 // NewTwitchMonitor creates a new Twitch monitor instance.
@@ -33,7 +41,7 @@ func NewTwitchMonitor(cfg *config.TwitchConfig, globalCfg *config.GlobalConfig) 
 		globalCfg:       globalCfg,
 		httpClient:      httpClient,
 		liveStatus:      make(map[string]LiveInfo),
-		activeDownloads: make(map[string]*exec.Cmd),
+		activeDownloads: make(map[string]*downloadProcess),
 	}
 }
 
@@ -42,7 +50,16 @@ func (m *TwitchMonitor) Run() {
 	fmt.Printf("%s [%sTwitch%s] Monitor started for %d channels.\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, len(m.cfg.Channels))
 	fmt.Printf("%s [%sTwitch%s] Working Directory: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory)
 
-	ticker := time.NewTicker(60 * time.Second) // todo: make timer also a config in config_twitch.toml
+	// Start the download manager in the background
+	go m.manageDownloads()
+
+	// Configure the main check ticker
+	checkInterval, err := time.ParseDuration(m.cfg.Scraper.PollInterval)
+	if err != nil {
+		fmt.Printf("%s [%sTwitch%s] Invalid poll_interval '%s', defaulting to 60s. Error: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.Scraper.PollInterval, err)
+		checkInterval = 60 * time.Second
+	}
+	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
 	// Run initial check immediately
@@ -50,6 +67,114 @@ func (m *TwitchMonitor) Run() {
 
 	for t := range ticker.C {
 		m.checkAllChannels(t) // Then check on every tick
+	}
+}
+
+// manageDownloads is a loop that periodically checks for live channels that need downloading.
+func (m *TwitchMonitor) manageDownloads() {
+	managerInterval := 5 * time.Second
+	for {
+		time.Sleep(managerInterval)
+
+		m.statusMutex.RLock()
+		// Create a copy of live channels to avoid holding the lock for too long
+		liveChs := make(map[string]LiveInfo)
+		for id, s := range m.liveStatus {
+			if s.IsLive {
+				liveChs[id] = s
+			}
+		}
+		m.statusMutex.RUnlock()
+
+		// Iterate in config order for priority
+		for _, ch := range m.cfg.Channels {
+			status, isLive := liveChs[ch.ID]
+			if !isLive {
+				continue
+			}
+			// Try to start a download. The function will handle all checks.
+			m.tryStartDownload(ch, status)
+		}
+	}
+}
+
+// tryStartDownload checks all conditions and launches a download if appropriate.
+func (m *TwitchMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
+	m.downloadMutex.Lock()
+	defer m.downloadMutex.Unlock()
+
+	// 1. Check concurrency
+	if len(m.activeDownloads) >= m.globalCfg.MaxConcurrentDownloads {
+		return // At capacity
+	}
+
+	// 2. Check if already downloading
+	if _, exists := m.activeDownloads[ch.ID]; exists {
+		return
+	}
+
+	// 3. Check for lock file (in case of restart)
+	lockPath := util.GetLockfilePath(m.cfg.StreamMon.WorkingDirectory, ch.Name, status.VideoID)
+	if util.HasLock(lockPath) {
+		return
+	}
+
+	// All clear, launch it.
+	m.launchDownloader(ch, status, lockPath)
+}
+
+// launchDownloader creates a lockfile and starts the twitch-dlp subprocess.
+// This function must be called with the downloadMutex held.
+func (m *TwitchMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockPath string) {
+	// Create lockfile
+	if err := util.CreateLock(lockPath); err != nil {
+		fmt.Printf("%s [%sTwitch%s] Error creating lockfile for %s: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
+		return
+	}
+
+	// Build command
+	url := "https://www.twitch.tv/" + ch.ID
+	args := append(m.cfg.StreamMon.Args, url)
+	npxArgs := append([]string{"-y", "twitch-dlp"}, args...)
+	cmd := exec.Command("npx", npxArgs...)
+	cmd.Dir = m.cfg.StreamMon.WorkingDirectory
+
+	// Start command
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("%s [%sTwitch%s] Error starting download for %s: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
+		util.DeleteLock(lockPath) // Clean up lock on failure
+		return
+	}
+
+	fmt.Printf("%s [%sTwitch%s] %sStarted download for %s%s: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, util.ColorGreen, ch.Name, util.ColorReset, status.Title)
+
+	// Store process info
+	proc := &downloadProcess{
+		cmd:      cmd,
+		videoID:  status.VideoID,
+		lockPath: lockPath,
+	}
+	m.activeDownloads[ch.ID] = proc
+
+	// Start a goroutine to wait for it to finish and clean up
+	go m.waitForDownload(ch, proc)
+}
+
+// waitForDownload blocks until a download process finishes, then cleans up.
+func (m *TwitchMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
+	err := proc.cmd.Wait() // This blocks until the process exits
+
+	// Now clean up
+	m.downloadMutex.Lock()
+	delete(m.activeDownloads, ch.ID)
+	m.downloadMutex.Unlock()
+
+	util.DeleteLock(proc.lockPath)
+
+	if err != nil {
+		fmt.Printf("%s [%sTwitch%s] Download for %s finished with error: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
+	} else {
+		fmt.Printf("%s [%sTwitch%s] Download for %s finished successfully.\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name)
 	}
 }
 
@@ -69,7 +194,7 @@ func (m *TwitchMonitor) checkAllChannels(t time.Time) {
 func (m *TwitchMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	newStatus, err := CheckLiveGQL(m.httpClient, ch.ID)
+	newStatus, err := CheckLiveGQL(m.httpClient, ch.ID, m.globalCfg)
 	if err != nil {
 		fmt.Printf("%s [%sTwitch%s] Error checking %s: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
 		return
@@ -92,6 +217,12 @@ func (m *TwitchMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 		}
 
 		if !matchesFilter {
+			// It's live, but we don't care about this title.
+			// If it was previously considered live, mark it as offline now for our purposes.
+			if wasTracked && previousStatus.IsLive {
+				fmt.Printf("%s [%sTwitch%s] %s is live but filtered out: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, newStatus.Title)
+				m.liveStatus[ch.ID] = LiveInfo{IsLive: false}
+			}
 			// It's live, but we don't care about this title.
 			return
 		}
