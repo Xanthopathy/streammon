@@ -59,7 +59,37 @@ type streamMetadataGQLResponse []struct {
 // --- API Function ---
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
+// Includes retry logic with exponential backoff to handle temporary timeouts.
 func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
+	const maxRetries = 2
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		result, err := checkLiveGQLOnce(httpClient, channelLogin, globalCfg)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+
+		// Don't retry on non-timeout errors (like GQL-specific errors)
+		if !strings.Contains(err.Error(), "context deadline exceeded") && !strings.Contains(err.Error(), "timeout") {
+			return result, err
+		}
+
+		// Only retry if we haven't exhausted attempts
+		if attempt < maxRetries {
+			backoffDuration := time.Duration((attempt+1)*1000) * time.Millisecond // 1s, 2s
+			util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
+			time.Sleep(backoffDuration)
+		}
+	}
+
+	return LiveInfo{}, fmt.Errorf("GQL request failed after %d retries: %w", maxRetries, lastErr)
+}
+
+// checkLiveGQLOnce performs a single GQL request without retries.
+func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := streamMetadataGQLRequest{
 		OperationName: "StreamMetadata",
@@ -152,3 +182,5 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *confi
 
 	return info, nil
 }
+
+// Note: The rest of the original CheckLiveGQL logic has been moved to checkLiveGQLOnce

@@ -1,13 +1,18 @@
 [streammon]
+# working_directory: Where downloaded YouTube streams are saved.
+# Use relative paths (from current directory) or absolute paths.
+# Examples:
+#   - "download_yt"                  (current directory)
+#   - "../downloads/youtube"         (parent directory)
+#   - "../../streams/archive"        (two levels up)
+#   - "C:\\Archives\\YouTube"       (absolute Windows path)
+#   - "/mnt/media/youtube"           (absolute Linux path)
 working_directory = "download_yt"
-
-[scraper.rss]
-poll_interval = "60s"
-ignore_older_than = "24h"
 
 # Arguments passed to yt-dlp. (See https://github.com/yt-dlp/yt-dlp)
 # You can comment out lines using '#' to disable specific flags.
 args = [
+    # "--browser", "brave",  # Change to "firefox", "chrome", etc.
     "--wait-for-video", "60",
     "--live-from-start",
     "--js-runtime", "node",
@@ -21,6 +26,10 @@ args = [
     # "--cookies", "cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
+
+[scraper]
+poll_interval = "60s"
+ignore_older_than = "24h"
 
 # ====================== Channels ====================== #
 

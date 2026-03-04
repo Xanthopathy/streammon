@@ -36,8 +36,9 @@ type TwitchMonitor struct {
 // NewTwitchMonitor creates a new Twitch monitor instance.
 func NewTwitchMonitor(cfg *config.TwitchConfig, globalCfg *config.GlobalConfig) *TwitchMonitor {
 	// Create a persistent HTTP client for reuse
+	// Timeout is set higher to account for API latency and concurrent request queuing
 	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 	return &TwitchMonitor{
 		cfg:             cfg,
@@ -58,8 +59,9 @@ func (m *TwitchMonitor) Run() {
 		err := os.MkdirAll(m.cfg.StreamMon.WorkingDirectory, 0755)
 		if err != nil {
 			fmt.Printf("%s [%sTwitch%s] Error creating working directory: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, err)
+			return
 		}
-		fmt.Printf("%s [%sTwitch%s] Created working directory: %s. You can change this in configs/config_twitch.toml by modifying the 'working_directory' setting.\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory) // TODO: Don't print this. Put instructions in comments in config_twitch.toml instead.
+		fmt.Printf("%s [%sTwitch%s] Created working directory: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory)
 	}
 	// Start the download manager in the background
 	go m.manageDownloads()
@@ -74,10 +76,10 @@ func (m *TwitchMonitor) Run() {
 	defer ticker.Stop()
 
 	// Run initial check immediately
-	m.checkAllChannels(time.Now())
+	m.checkAllChannels()
 
-	for t := range ticker.C {
-		m.checkAllChannels(t) // Then check on every tick
+	for range ticker.C {
+		m.checkAllChannels() // Then check on every tick
 	}
 }
 
@@ -221,8 +223,8 @@ func (m *TwitchMonitor) waitForDownload(ch config.Channel, proc *downloadProcess
 }
 
 // checkAllChannels concurrently checks all configured Twitch channels.
-func (m *TwitchMonitor) checkAllChannels(t time.Time) {
-	fmt.Printf("%s [%sTwitch%s] Checking live status for %d channels...\n", util.FormatTime(t, m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, len(m.cfg.Channels))
+func (m *TwitchMonitor) checkAllChannels() {
+	util.DebugLog(m.globalCfg, "Twitch", fmt.Sprintf("Checking live status for %d channels...", len(m.cfg.Channels)))
 
 	var wg sync.WaitGroup
 	for _, ch := range m.cfg.Channels {

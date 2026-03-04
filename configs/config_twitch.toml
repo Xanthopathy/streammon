@@ -1,19 +1,26 @@
 [streammon]
-working_directory = "download_twitch" # todo: create dir if it doesn't exist, and add example for dir in different folder
-
-[scraper]
-poll_interval = "60s"
+# working_directory: Where downloaded Twitch streams are saved.
+# Use relative paths (from current directory) or absolute paths.
+# Examples:
+#   - "download_twitch"              (current directory)
+#   - "../downloads/twitch"          (parent directory)
+#   - "../../streams/archive"        (two levels up)
+working_directory = "download_twitch"
 
 # Arguments passed to twitch-dlp. (See https://github.com/DmitryScaletta/twitch-dlp)
 # You can comment out lines using '#' to disable specific flags.
 args = [
     # "--yes", // already set by app
+    # "--browser", "brave",  # Change to "firefox", "chrome", etc.
     "--live-from-start",
     "--retry-streams", "60",
     
     # Output Template
     "--output", "[%(upload_date)s] [%(id)s] [%(uploader)s] [%(title)s].%(ext)s"
 ]
+
+[scraper]
+poll_interval = "120s"
 
 # ====================== Channels ====================== #
 
