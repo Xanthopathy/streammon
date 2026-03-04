@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	util.SetTerminalTitle("StreamMon")
 	util.PrintBanner()
 
 	// 1. Load Configuration

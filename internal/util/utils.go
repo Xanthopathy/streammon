@@ -26,6 +26,18 @@ const (
 
 // --- UI Helpers ---
 
+// SetTerminalTitle sets the terminal window title (cross-platform).
+func SetTerminalTitle(title string) {
+	if runtime.GOOS == "windows" {
+		// Windows: Use title command
+		cmd := exec.Command("cmd", "/c", "title", title)
+		cmd.Run()
+	} else {
+		// Linux/macOS: Use ANSI escape sequence
+		fmt.Printf("\x1b]0;%s\x07", title)
+	}
+}
+
 func PrintBanner() {
 	// Clear console
 	cmd := exec.Command("cmd", "/c", "cls")
@@ -99,6 +111,12 @@ func HasLock(path string) bool {
 }
 
 func CreateLock(path string) error {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create lock directory %s: %w", dir, err)
+	}
+
 	file, err := os.Create(path)
 	if err != nil {
 		return err
