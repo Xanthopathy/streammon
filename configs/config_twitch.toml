@@ -49,10 +49,10 @@ filters = [".*"]
 # name = "Tenma Maemi"
 # filters = [".*"]
 
-# [[channel]]
-# id = "pippa"
-# name = "Pipkin Pippa"
-# filters = [".*"]
+[[channel]]
+id = "pippa"
+name = "Pipkin Pippa"
+filters = [".*"]
 
 # =============== Invaders =============== #
 # [[channel]]

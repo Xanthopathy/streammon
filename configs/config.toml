@@ -4,6 +4,7 @@
 
 # Timezone for timestamps in logs. Uses IANA Time Zone database names.
 # Examples: "UTC", "America/New_York", "Europe/London", "Asia/Tokyo"
+# You can also use fixed offsets like "UTC-5" or "UTC+3".
 timezone = "UTC"
 
 # Global limit for concurrent downloads (Not yet implemented in logic)
@@ -14,5 +15,8 @@ enable_youtube = true
 enable_twitch = true
 
 # Enable verbose debugging output for each monitor.
-youtube_verbose_debug = true
-twitch_verbose_debug = true
+youtube_verbose_debug = false
+twitch_verbose_debug = false
+
+# Save logs from download processes (yt-dlp/twitch-dlp) to a file in the download folder.
+save_download_logs = true

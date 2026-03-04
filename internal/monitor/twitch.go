@@ -3,7 +3,9 @@ package monitor
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sync"
 	"time"
@@ -17,6 +19,7 @@ type downloadProcess struct {
 	cmd      *exec.Cmd
 	videoID  string
 	lockPath string
+	logFile  *os.File
 }
 
 // TwitchMonitor holds the state and logic for monitoring Twitch.
@@ -137,12 +140,37 @@ func (m *TwitchMonitor) launchDownloader(ch config.Channel, status LiveInfo, loc
 	args := append(m.cfg.StreamMon.Args, url)
 	npxArgs := append([]string{"-y", "twitch-dlp"}, args...)
 	cmd := exec.Command("npx", npxArgs...)
-	cmd.Dir = m.cfg.StreamMon.WorkingDirectory
+
+	// Create channel specific directory
+	channelDir := filepath.Join(m.cfg.StreamMon.WorkingDirectory, util.SanitizeFolderName(ch.Name))
+	if err := os.MkdirAll(channelDir, 0755); err != nil {
+		fmt.Printf("%s [%sTwitch%s] Error creating directory for %s: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
+		util.DeleteLock(lockPath)
+		return
+	}
+	cmd.Dir = channelDir
+
+	// Setup logging if enabled
+	var logFile *os.File
+	if m.globalCfg.SaveDownloadLogs {
+		logName := fmt.Sprintf("%s_[%s].log", time.Now().Format("2006-01-02"), status.VideoID)
+		f, err := os.Create(filepath.Join(channelDir, logName))
+		if err == nil {
+			logFile = f
+			cmd.Stdout = f
+			cmd.Stderr = f
+		} else {
+			fmt.Printf("%s [%sTwitch%s] Failed to create log file: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, err)
+		}
+	}
 
 	// Start command
 	if err := cmd.Start(); err != nil {
 		fmt.Printf("%s [%sTwitch%s] Error starting download for %s: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)
 		util.DeleteLock(lockPath) // Clean up lock on failure
+		if logFile != nil {
+			logFile.Close()
+		}
 		return
 	}
 
@@ -153,6 +181,7 @@ func (m *TwitchMonitor) launchDownloader(ch config.Channel, status LiveInfo, loc
 		cmd:      cmd,
 		videoID:  status.VideoID,
 		lockPath: lockPath,
+		logFile:  logFile,
 	}
 	m.activeDownloads[ch.ID] = proc
 
@@ -170,6 +199,10 @@ func (m *TwitchMonitor) waitForDownload(ch config.Channel, proc *downloadProcess
 	m.downloadMutex.Unlock()
 
 	util.DeleteLock(proc.lockPath)
+
+	if proc.logFile != nil {
+		proc.logFile.Close()
+	}
 
 	if err != nil {
 		fmt.Printf("%s [%sTwitch%s] Download for %s finished with error: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, err)

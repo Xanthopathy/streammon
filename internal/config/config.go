@@ -11,6 +11,7 @@ type GlobalConfig struct {
 	EnableTwitch           bool   `toml:"enable_twitch"`
 	YoutubeVerboseDebug    bool   `toml:"youtube_verbose_debug"`
 	TwitchVerboseDebug     bool   `toml:"twitch_verbose_debug"`
+	SaveDownloadLogs       bool   `toml:"save_download_logs"`
 }
 
 type StreamMonConfig struct {
