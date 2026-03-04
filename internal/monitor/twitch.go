@@ -53,6 +53,14 @@ func (m *TwitchMonitor) Run() {
 	fmt.Printf("%s [%sTwitch%s] Monitor started for %d channels.\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, len(m.cfg.Channels))
 	fmt.Printf("%s [%sTwitch%s] Working Directory: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory)
 
+	// Create working directory if it doesn't exist
+	if _, err := os.Stat(m.cfg.StreamMon.WorkingDirectory); os.IsNotExist(err) {
+		err := os.MkdirAll(m.cfg.StreamMon.WorkingDirectory, 0755)
+		if err != nil {
+			fmt.Printf("%s [%sTwitch%s] Error creating working directory: %v\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, err)
+		}
+		fmt.Printf("%s [%sTwitch%s] Created working directory: %s. You can change this in configs/config_twitch.toml by modifying the 'working_directory' setting.\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, m.cfg.StreamMon.WorkingDirectory) // TODO: Don't print this. Put instructions in comments in config_twitch.toml instead.
+	}
 	// Start the download manager in the background
 	go m.manageDownloads()
 
@@ -153,7 +161,8 @@ func (m *TwitchMonitor) launchDownloader(ch config.Channel, status LiveInfo, loc
 	// Setup logging if enabled
 	var logFile *os.File
 	if m.globalCfg.SaveDownloadLogs {
-		logName := fmt.Sprintf("%s_[%s].log", time.Now().Format("2006-01-02"), status.VideoID)
+		// Use the stream's creation date for a consistent log filename
+		logName := fmt.Sprintf("%s_[%s].log", status.CreatedAt.UTC().Format("2006-01-02"), status.VideoID)
 		f, err := os.Create(filepath.Join(channelDir, logName))
 		if err == nil {
 			logFile = f
@@ -233,6 +242,27 @@ func (m *TwitchMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 		return
 	}
 
+	// --- SAFETY NET LOGIC (pre-lock check) ---
+	// If API reports offline, we do a quick check to see if it's a temporary "snap"
+	// before acquiring the main lock and changing the global state.
+	if !newStatus.IsLive {
+		m.statusMutex.RLock()
+		previousStatus, wasTracked := m.liveStatus[ch.ID]
+		m.statusMutex.RUnlock()
+
+		m.downloadMutex.Lock()
+		proc, isDownloading := m.activeDownloads[ch.ID]
+		m.downloadMutex.Unlock()
+
+		// If we thought it was live, a download is running, and the broadcast ID matches the one we're downloading...
+		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
+			// ...then it's likely a temporary API hiccup. Don't change the status.
+			util.DebugLog(m.globalCfg, "Twitch", fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
+			return // Ignore this offline signal.
+		}
+	}
+	// --- END SAFETY NET ---
+
 	m.statusMutex.Lock()
 	defer m.statusMutex.Unlock()
 
@@ -242,31 +272,31 @@ func (m *TwitchMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 	if newStatus.IsLive {
 		// Filter check
 		matchesFilter := false
-		for _, filter := range ch.Filters {
-			if matched, _ := regexp.MatchString(filter, newStatus.Title); matched {
-				matchesFilter = true
-				break
+		if len(ch.Filters) == 0 { // If no filters, always match
+			matchesFilter = true
+		} else {
+			for _, filter := range ch.Filters {
+				if matched, _ := regexp.MatchString(filter, newStatus.Title); matched {
+					matchesFilter = true
+					break
+				}
 			}
 		}
 
 		if !matchesFilter {
-			// It's live, but we don't care about this title.
-			// If it was previously considered live, mark it as offline now for our purposes.
 			if wasTracked && previousStatus.IsLive {
 				fmt.Printf("%s [%sTwitch%s] %s is live but filtered out: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, ch.Name, newStatus.Title)
 				m.liveStatus[ch.ID] = LiveInfo{IsLive: false}
 			}
-			// It's live, but we don't care about this title.
 			return
 		}
 
-		// New stream or came back online
 		if !wasTracked || !previousStatus.IsLive {
 			fmt.Printf("%s [%sTwitch%s] %s%s is now LIVE%s: %s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, util.ColorGreen, ch.Name, util.ColorReset, newStatus.Title)
 		}
 		m.liveStatus[ch.ID] = newStatus
 	} else {
-		// Went offline
+		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
 			fmt.Printf("%s [%sTwitch%s] %s%s has gone OFFLINE%s\n", util.FormatTime(time.Now(), m.globalCfg.Timezone), util.ColorPurple, util.ColorReset, util.ColorRed, ch.Name, util.ColorReset)
 		}

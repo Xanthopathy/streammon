@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"streammon/internal/config"
 	"streammon/internal/util"
@@ -18,10 +19,13 @@ const TwitchClientID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
 
 // --- GQL Request and Response Structures ---
 
-type gqlRequest struct {
+// streamMetadataGQLRequest is the payload for the StreamMetadata GQL query.
+// We send a slice of this struct as the body.
+type streamMetadataGQLRequest struct {
 	OperationName string `json:"operationName"`
 	Variables     struct {
-		Login string `json:"channelLogin"`
+		ChannelLogin string `json:"channelLogin"`
+		IncludeIsDJ  bool   `json:"includeIsDJ"`
 	} `json:"variables"`
 	Extensions struct {
 		PersistedQuery struct {
@@ -31,13 +35,19 @@ type gqlRequest struct {
 	} `json:"extensions"`
 }
 
-type gqlResponse struct {
+// streamMetadataGQLResponse is the structure for the data returned by the StreamMetadata query.
+// The response is a slice of these objects.
+type streamMetadataGQLResponse []struct {
 	Data struct {
-		User struct {
-			Stream *struct {
+		User *struct {
+			LastBroadcast *struct {
 				ID    string `json:"id"`
 				Title string `json:"title"`
-				Type  string `json:"type"`
+			} `json:"lastBroadcast"`
+			Stream *struct {
+				ID        string    `json:"id"`
+				Type      string    `json:"type"`
+				CreatedAt time.Time `json:"createdAt"`
 			} `json:"stream"`
 		} `json:"user"`
 	} `json:"data"`
@@ -48,17 +58,19 @@ type gqlResponse struct {
 
 // --- API Function ---
 
-// CheckLiveGQL performs a lightweight check to see if a Twitch channel is live.
+// CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
 func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
 	// Construct the GQL request payload
-	payload := gqlRequest{
-		OperationName: "UseLive",
+	payload := streamMetadataGQLRequest{
+		OperationName: "StreamMetadata",
 	}
-	payload.Variables.Login = strings.ToLower(channelLogin)
+	payload.Variables.ChannelLogin = strings.ToLower(channelLogin)
+	payload.Variables.IncludeIsDJ = true // As seen in test query
 	payload.Extensions.PersistedQuery.Version = 1
-	payload.Extensions.PersistedQuery.SHA256Hash = "639d5f11bfb8bf3053b424d9ef650d04c4ebb7d94711d644afb08fe9a0fad5d9"
+	payload.Extensions.PersistedQuery.SHA256Hash = "b57f9b910f8cd1a4659d894fe7550ccc81ec9052c01e438b290fd66a040b9b93"
 
-	body, err := json.Marshal(payload)
+	// The API expects a JSON array containing the request object
+	body, err := json.Marshal([]streamMetadataGQLRequest{payload})
 	if err != nil {
 		return LiveInfo{}, fmt.Errorf("failed to marshal GQL request: %w", err)
 	}
@@ -92,27 +104,51 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *confi
 	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Raw response for %s: %s", channelLogin, string(responseBody)))
 
 	// Decode the response
-	var gqlResp gqlResponse
+	var gqlResp streamMetadataGQLResponse
 	if err := json.Unmarshal(responseBody, &gqlResp); err != nil {
 		return LiveInfo{}, fmt.Errorf("failed to decode GQL response: %w", err)
 	}
 
-	if len(gqlResp.Errors) > 0 {
-		return LiveInfo{}, fmt.Errorf("GQL error: %s", gqlResp.Errors[0].Message)
+	// Basic validation of the response structure
+	if len(gqlResp) == 0 {
+		return LiveInfo{}, fmt.Errorf("GQL response was an empty array")
+	}
+	if len(gqlResp[0].Errors) > 0 {
+		return LiveInfo{}, fmt.Errorf("GQL error: %s", gqlResp[0].Errors[0].Message)
+	}
+	if gqlResp[0].Data.User == nil {
+		// This can happen for suspended or non-existent channels.
+		return LiveInfo{IsLive: false}, nil
 	}
 
-	// Check if the stream is live
-	if gqlResp.Data.User.Stream != nil {
-		title := gqlResp.Data.User.Stream.Title
-		if title == "" {
-			title = "Twitch Stream"
+	user := gqlResp[0].Data.User
+	stream := user.Stream
+	lastBroadcast := user.LastBroadcast
+
+	// Prepare the result, starting with data that's always present
+	info := LiveInfo{IsLive: false}
+	if lastBroadcast != nil {
+		info.Title = lastBroadcast.Title
+		info.LastBroadcastID = lastBroadcast.ID
+	}
+
+	// If the stream object exists and is 'live', update the status
+	if stream != nil && stream.Type == "live" {
+		info.IsLive = true
+		info.VideoID = stream.ID
+		info.CreatedAt = stream.CreatedAt
+
+		// Sanity check: if lastBroadcast.id and stream.id don't match, something is weird.
+		// The live stream ID should take precedence.
+		if lastBroadcast != nil && stream.ID != lastBroadcast.ID {
+			util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Stream ID (%s) and LastBroadcast ID (%s) mismatch for %s", stream.ID, lastBroadcast.ID, channelLogin))
 		}
-		return LiveInfo{
-			IsLive:  true,
-			VideoID: gqlResp.Data.User.Stream.ID,
-			Title:   title,
-		}, nil
 	}
 
-	return LiveInfo{IsLive: false}, nil
+	// Fallback for title if lastBroadcast was missing for some reason
+	if info.Title == "" {
+		info.Title = "Twitch Stream"
+	}
+
+	return info, nil
 }
