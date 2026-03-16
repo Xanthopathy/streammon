@@ -142,38 +142,38 @@ func (l *DownloadLogger) LogDebug(message string) {
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
 // Terminal visibility controlled by dlpDebug flag
 // Progress lines are throttled based on subprocess_progress_interval config
-// Other output is always written to log file
+// Log file always receives subprocess output (with throttling for progress lines)
 func (l *DownloadLogger) LogSubprocessOutput(output string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] [SUBPROCESS] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, l.channelID, output)
+	line := fmt.Sprintf("%s [%s%s%s] [SUBPROCESS] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, l.channelName, output)
 
 	// Check if this is a progress line (contains [download])
 	isProgressLine := strings.Contains(output, "[download]")
 
-	// Determine if we should output this (both terminal and file)
-	shouldOutput := true
+	// Determine if we should write based on throttling
+	shouldWrite := true
 
 	if isProgressLine && l.globalCfg.SubprocessProgressInterval > 0 {
 		// Apply throttling if interval is set and this is a progress line
 		now := time.Now()
 		if !l.lastProgressWriteTime.IsZero() && now.Sub(l.lastProgressWriteTime) < time.Duration(l.globalCfg.SubprocessProgressInterval)*time.Second {
-			shouldOutput = false
+			shouldWrite = false
 		}
-		if shouldOutput {
+		if shouldWrite {
 			l.lastProgressWriteTime = now
 		}
 	}
 
-	// Show in terminal if dlp debug is enabled and throttling allows it
-	if shouldOutput && l.dlpDebug {
+	// Show in terminal only if dlp debug is enabled and throttling allows it
+	if shouldWrite && l.dlpDebug {
 		fmt.Print(line)
 	}
 
-	// Write to log file with throttling applied
-	if shouldOutput && l.logFile != nil {
+	// Always write to log file (with throttling applied)
+	if shouldWrite && l.logFile != nil {
 		cleanedLine := stripANSI(line)
 		l.logFile.WriteString(cleanedLine)
 		l.logFile.Sync()

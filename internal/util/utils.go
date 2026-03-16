@@ -76,6 +76,8 @@ func DebugLog(cfg *config.GlobalConfig, module, message string) {
 		shouldLog = true
 	} else if module == "TwitchDLP" && cfg.TwitchDlpVerboseDebug {
 		shouldLog = true
+	} else if module == "YouTubeAPI" && cfg.YoutubeAPIVerboseDebug {
+		shouldLog = true
 	} else if module == "YouTubeDLP" && cfg.YoutubeDlpVerboseDebug {
 		shouldLog = true
 	} else if strings.HasPrefix(module, "Twitch") && cfg.TwitchVerboseDebug {
@@ -131,9 +133,13 @@ func CreateLock(path string) error {
 		return err
 	}
 	defer file.Close()
+	fmt.Printf("[LOCK] Created: %s\n", path)
 	return nil
 }
 
 func DeleteLock(path string) {
-	os.Remove(path)
+	err := os.Remove(path)
+	if err == nil {
+		fmt.Printf("[LOCK] Deleted: %s\n", path)
+	}
 }
