@@ -73,14 +73,13 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 For each configured YouTube channel:
 
 1. **Fetch Live Status**
-   - Calls `CheckChannelStatus()` for YouTube (TODO: RSS feed parsing)
-   - Currently returns `IsLive: false` (implementation pending)
-   - When implemented:
-     - Construct RSS feed URL: `https://www.youtube.com/feeds/videos.xml?channel_id={ID}`
-     - Parse XML for latest `<entry>`
-     - Check `yt:liveBroadcastContent` for "live" or "upcoming" status
-     - Compare video ID against previous state
-     - Check if video is older than `ignore_older_than` setting
+   - Calls `CheckChannelStatus()` for YouTube → `CheckLiveYouTube()`
+   - Constructs RSS feed URL: `https://www.youtube.com/feeds/videos.xml?channel_id={ID}`
+   - Parses XML for latest `<entry>` element
+   - Extracts video ID from `<id>` and upload timestamp from `<updated>`
+   - Checks if video's `<updated>` timestamp is within `ignore_older_than` duration
+   - If yes, marks as live and returns video metadata
+   - If no, returns offline status
 
 2. **Handle Status Response**
    - **Error**: Log error, skip channel, continue
@@ -115,7 +114,13 @@ For each configured YouTube channel:
    - Check if a download for this channel is already running
    - If yes, skip
 
-   c. **Lockfile Check**
+   c. **Session Cache Check** (NEW)
+   - Check if this video was already downloaded in this app instance
+   - Maintains in-memory map: `downloadedVideos[channelID][videoID]`
+   - If video is in cache, skip (prevents redundant downloads of same video in same session)
+   - This survives across polling cycles but resets when app restarts
+
+   d. **Lockfile Check**
    - Generate lockfile path: `.lock-{sanitized_channel_name}-{videoID}`
    - Check if lockfile exists (indicates previous/concurrent download)
    - If yes, release semaphore slot and skip
@@ -131,10 +136,10 @@ For each configured YouTube channel:
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create debug log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.debug.log` (contains all subprocess output)
-   - Create regular log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log` (contains important events)
-   - Redirect subprocess stdout/stderr to debug log file
-   - Important events written to both regular and debug logs
+   - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log`
+   - Redirects subprocess stdout/stderr to be captured and logged
+   - All subprocess output is written to log file with throttling applied to progress lines
+   - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
 
    d. **Build Downloader Command**
    - YouTube uses `yt-dlp`
@@ -150,7 +155,7 @@ For each configured YouTube channel:
    - Store process info in `activeDownloads[channelID]`
    - Spawn goroutine `waitForDownload()` to monitor completion
 
-### 4. Download Completion
+### 4. Download Completion (YouTube)
 
 **In `waitForDownload()` goroutine:**
 
@@ -166,6 +171,10 @@ For each configured YouTube channel:
 3. **Log Completion**
    - If error: Log "[YT] Download for {channel} finished with error: {error}"
    - If success: Log "[YT] Download for {channel} finished successfully."
+
+4. **Mark as Downloaded** (on success)
+   - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
+   - Prevents re-downloading the same video in subsequent polling cycles
 
 ### 5. Safety Net Logic
 
@@ -244,7 +253,13 @@ For each configured Twitch channel:
    - Check if a download for this channel is already running
    - If yes, skip
 
-   c. **Lockfile Check**
+   c. **Session Cache Check** (NEW)
+   - Check if this broadcast/stream was already downloaded in this app instance
+   - Maintains in-memory map: `downloadedVideos[channelID][broadcastID]`
+   - If stream is in cache, skip (prevents redundant downloads)
+   - This survives across polling cycles but resets when app restarts
+
+   d. **Lockfile Check**
    - Check if lockfile exists: `.lock-{sanitized_channel_name}-{broadcastID}`
    - If yes, release semaphore slot and skip
 
@@ -259,10 +274,10 @@ For each configured Twitch channel:
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create debug log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{broadcastID}.debug.log` (contains all subprocess output)
-   - Create regular log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{broadcastID}.log` (contains important events)
-   - Redirect subprocess stdout/stderr to debug log file
-   - Important events written to both regular and debug logs
+   - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{broadcastID}.log`
+   - Redirects subprocess stdout/stderr to be captured and logged
+   - All subprocess output is written to log file with throttling applied to progress lines
+   - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
 
    d. **Build Downloader Command**
    - Twitch uses `twitch-dlp` via npm/npx
@@ -274,11 +289,7 @@ For each configured Twitch channel:
    - If start fails, delete lockfile, release slot, and return
    - Log: "[Twitch] Started download for {channel}: {title}"
 
-   f. **Track Process**
-   - Store process info in `activeDownloads[channelID]`
-   - Spawn goroutine `waitForDownload()` to monitor completion
-
-### 4. Download Completion
+### 4. Download Completion (Twitch)
 
 **In `waitForDownload()` goroutine:**
 
@@ -294,6 +305,10 @@ For each configured Twitch channel:
 3. **Log Completion**
    - If error: Log "[Twitch] Download for {channel} finished with error: {error}"
    - If success: Log "[Twitch] Download for {channel} finished successfully."
+
+4. **Mark as Downloaded** (on success)
+   - Add broadcast ID to session cache: `downloadedVideos[channelID][broadcastID] = true`
+   - Prevents re-downloading the same broadcast in subsequent polling cycles
 
 ### 5. Safety Net Logic
 
@@ -321,12 +336,18 @@ For each configured Twitch channel:
   - Pre-flight checks fail (attempted to acquire but needs cleanup)
   - Download process exits (success or failure)
 
-### 3. Deduplication via Lockfiles
+### 3. Deduplication (Multi-Layer)
 
-- **Lockfile Path**: `.lock-{sanitized_channel_name}-{videoID/broadcastID}`
-- **Location**: Working directory
-- **Purpose**: Prevent same stream from being downloaded twice
-- **Lifecycle**: Created before launch, deleted after process exit
+- **Layer 1 - In-Memory Session Cache**: `downloadedVideos[channelID][videoID/broadcastID]`
+  - Prevents re-launching downloads for videos already downloaded in this app instance
+  - Temporary (cleared on app restart)
+  - Supercedes lockfiles for same-session re-attempts
+
+- **Layer 2 - Lockfiles**: `.lock-{sanitized_channel_name}-{videoID/broadcastID}`
+  - Files in working directory
+  - Persistence across app restarts (survives crashes)
+  - Purpose: Handle app crashes, concurrent downloads, etc.
+  - Lifecycle: Created before launch, deleted after process exit
 
 ### 4. State Monitoring
 
@@ -348,11 +369,11 @@ For each configured Twitch channel:
 
 **Single `.log` file** (created if `save_download_logs: true`):
 
-- All important events (download start/completion)
 - All subprocess output from twitch-dlp/yt-dlp (every line captured)
-- Download errors and state transitions
-- Download progress updates
+- Download progress lines throttled by `subprocess_progress_interval` config
+- All important events (download start/completion, errors, state transitions)
 - Format: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log`
+- **SUBPROCESS lines tagged with**: `[SUBPROCESS] [{channel_name}] {output}`
 
 #### Terminal Output
 
@@ -362,14 +383,15 @@ For each configured Twitch channel:
 - Channel status transitions ("is now LIVE", "has gone OFFLINE")
 - Download start/completion with title and status
 - Important errors and warnings
-- Download progress reports
+- Session cache hits ("already downloaded in this session")
 
 **Conditional (debug flags control visibility):**
 
 - If `twitch_api_verbose_debug: true`: Twitch GraphQL API calls and responses
 - If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output
+- If `youtube_api_verbose_debug: true`: YouTube RSS API calls
 - If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output
-- If `{platform}_verbose_debug: true`: All debug output for that platform (fallback)
+- **Note:** DLP verbose flags control **terminal** printing only; log files always receive subprocess output
 
 #### Terminal Colors
 
