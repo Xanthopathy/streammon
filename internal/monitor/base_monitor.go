@@ -19,7 +19,26 @@ type downloadProcess struct {
 	cmd      *exec.Cmd
 	videoID  string
 	lockPath string
-	logFile  *os.File
+	logger   *util.DownloadLogger
+}
+
+// --- Global Download Limiter ---
+
+var (
+	downloadSlots     chan struct{}
+	downloadSlotsOnce sync.Once
+)
+
+// initializeDownloadSlots creates the global semaphore for limiting concurrent downloads.
+// It's safe to call multiple times; it will only initialize the semaphore once.
+func initializeDownloadSlots(max int) {
+	downloadSlotsOnce.Do(func() {
+		// Ensure at least one download is possible, even if config is 0 or less.
+		if max <= 0 {
+			max = 1
+		}
+		downloadSlots = make(chan struct{}, max)
+	})
 }
 
 // MonitorController defines the platform-specific logic that a monitor must implement.
@@ -64,6 +83,9 @@ func (b *BaseMonitor) Run() {
 	channels := b.controller.GetChannels()
 	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
+
+	// Initialize the global download semaphore using the value from the global config.
+	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
 
 	fmt.Printf("%s [%s%s%s] Monitor started for %d channels.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, len(channels))
 	fmt.Printf("%s [%s%s%s] Working Directory: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
@@ -127,35 +149,50 @@ func (b *BaseMonitor) manageDownloads() {
 
 // tryStartDownload checks all conditions and launches a download if appropriate.
 func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
+	// 1. Try to acquire a global download slot. This is non-blocking.
+	select {
+	case downloadSlots <- struct{}{}:
+		// Slot acquired. We are now responsible for releasing it on any failure.
+	default:
+		return // Global capacity reached.
+	}
+
+	// If we return from now on, we must release the slot.
+	// A defer with a flag is a robust way to handle this.
+	var launchOK bool
+	defer func() {
+		if !launchOK {
+			<-downloadSlots // Release slot on any failure path.
+		}
+	}()
+
+	// 2. Perform all pre-flight checks under a lock.
 	b.downloadMutex.Lock()
 	defer b.downloadMutex.Unlock()
 
-	globalCfg := b.controller.GetGlobalConfig()
-	streamMonCfg := b.controller.GetStreamMonConfig()
-
-	// 1. Check concurrency
-	if len(b.activeDownloads) >= globalCfg.MaxConcurrentDownloads {
-		return // At capacity
-	}
-
-	// 2. Check if already downloading
+	// Check if already downloading in this monitor instance.
 	if _, exists := b.activeDownloads[ch.ID]; exists {
-		return
+		return // Defer will release slot.
 	}
 
-	// 3. Check for lock file (in case of restart)
+	// Check for a lock file.
+	streamMonCfg := b.controller.GetStreamMonConfig()
 	lockPath := util.GetLockfilePath(streamMonCfg.WorkingDirectory, ch.Name, status.VideoID)
 	if util.HasLock(lockPath) {
-		return
+		return // Defer will release slot.
 	}
 
-	// All clear, launch it.
-	b.launchDownloader(ch, status, lockPath)
+	// 3. All checks passed. Launch the downloader.
+	// If launch is successful, it becomes responsible for the slot.
+	if b.launchDownloader(ch, status, lockPath) {
+		launchOK = true // Success! The defer will NOT release the slot.
+	}
 }
 
 // launchDownloader creates a lockfile and starts the downloader subprocess.
 // This function must be called with the downloadMutex held.
-func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockPath string) {
+// It returns true on success, false on failure.
+func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockPath string) bool {
 	globalCfg := b.controller.GetGlobalConfig()
 	streamMonCfg := b.controller.GetStreamMonConfig()
 	logColor := b.controller.GetLogColor()
@@ -164,7 +201,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	// Create lockfile
 	if err := util.CreateLock(lockPath); err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating lockfile for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		return
+		return false
 	}
 
 	// Build command using the controller
@@ -175,73 +212,104 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating directory for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
 		util.DeleteLock(lockPath)
-		return
+		return false
 	}
 	cmd.Dir = channelDir
 
-	// Setup logging if enabled
-	var logFile *os.File
+	// Determine which debug flags to enable based on platform and config
+	apiDebug := false
+	dlpDebug := false
+
+	if logPrefix == "Twitch" {
+		apiDebug = globalCfg.TwitchAPIVerboseDebug
+		dlpDebug = globalCfg.TwitchDlpVerboseDebug
+	} else if logPrefix == "YouTube" {
+		// YouTube doesn't have separate API debug yet, use general debug for API
+		apiDebug = globalCfg.YoutubeVerboseDebug
+		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
+	}
+
+	logger, err := util.NewDownloadLogger(
+		channelDir,
+		ch.ID,
+		ch.Name,
+		status.VideoID,
+		status.CreatedAt,
+		globalCfg,
+		logPrefix,
+		logColor,
+		apiDebug,
+		dlpDebug,
+	)
+	if err != nil {
+		fmt.Printf("%s [%s%s%s] Error creating logger for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
+		util.DeleteLock(lockPath)
+		return false
+	}
+
+	// Setup subprocess output redirection BEFORE starting the command
+	// This captures twitch-dlp and yt-dlp output to log files
 	if globalCfg.SaveDownloadLogs {
-		logName := fmt.Sprintf("%s_[%s].log", status.CreatedAt.UTC().Format("2006-01-02"), status.VideoID)
-		f, err := os.Create(filepath.Join(channelDir, logName))
-		if err == nil {
-			logFile = f
-			cmd.Stdout = f
-			cmd.Stderr = f
-		} else {
-			fmt.Printf("%s [%s%s%s] Failed to create log file: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, err)
+		stdoutPipe, errOut := cmd.StdoutPipe()
+		stderrPipe, errErr := cmd.StderrPipe()
+
+		if errOut == nil && stdoutPipe != nil {
+			go util.ReadPipeAndLog(stdoutPipe, logger)
+		}
+		if errErr == nil && stderrPipe != nil {
+			go util.ReadPipeAndLog(stderrPipe, logger)
 		}
 	}
 
 	// Start command
 	if err := cmd.Start(); err != nil {
-		fmt.Printf("%s [%s%s%s] Error starting download for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
+		logger.LogError(fmt.Sprintf("Error starting download for %s: %v", ch.Name, err))
 		util.DeleteLock(lockPath) // Clean up lock on failure
-		if logFile != nil {
-			logFile.Close()
-		}
-		return
+		logger.Close()
+		return false
 	}
 
-	fmt.Printf("%s [%s%s%s] %sStarted download for %s%s: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, util.ColorGreen, ch.Name, util.ColorReset, status.Title)
+	logger.LogRegular(fmt.Sprintf("%sStarted download for %s%s: %s", util.ColorGreen, ch.Name, util.ColorReset, status.Title))
 
 	// Store process info
 	proc := &downloadProcess{
 		cmd:      cmd,
 		videoID:  status.VideoID,
 		lockPath: lockPath,
-		logFile:  logFile,
+		logger:   logger,
 	}
 	b.activeDownloads[ch.ID] = proc
 
 	// Start a goroutine to wait for it to finish and clean up
 	go b.waitForDownload(ch, proc)
+	return true
 }
 
 // waitForDownload blocks until a download process finishes, then cleans up.
 func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
 	err := proc.cmd.Wait() // This blocks until the process exits
 
-	// Now clean up
+	// IMPORTANT: Release the download slot first thing after the process exits.
+	<-downloadSlots
+
+	// Now clean up other resources.
 	b.downloadMutex.Lock()
 	delete(b.activeDownloads, ch.ID)
 	b.downloadMutex.Unlock()
 
 	util.DeleteLock(proc.lockPath)
-
-	if proc.logFile != nil {
-		proc.logFile.Close()
-	}
-
 	globalCfg := b.controller.GetGlobalConfig()
-	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
+	util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("Released download slot for %s. Slots used: %d/%d.", ch.Name, len(downloadSlots), cap(downloadSlots)))
+
 	if err != nil {
-		fmt.Printf("%s [%s%s%s] Download for %s finished with error: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
+		proc.logger.LogError(fmt.Sprintf("Download for %s finished with error: %v", ch.Name, err))
 	} else {
-		fmt.Printf("%s [%s%s%s] Download for %s finished successfully.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name)
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s finished successfully.", ch.Name))
 	}
+
+	proc.logger.Close()
 }
 
 // checkAllChannels concurrently checks all configured channels.
