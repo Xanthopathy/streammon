@@ -70,15 +70,24 @@ func FormatTime(t time.Time, timezone string) string {
 
 func DebugLog(cfg *config.GlobalConfig, module, message string) {
 	var shouldLog bool
-	if strings.HasPrefix(module, "Twitch") && cfg.TwitchVerboseDebug {
+
+	// Check for specific debug types (granular control)
+	if module == "TwitchAPI" && cfg.TwitchAPIVerboseDebug {
 		shouldLog = true
-	}
-	if strings.HasPrefix(module, "YouTube") && cfg.YoutubeVerboseDebug {
+	} else if module == "TwitchDLP" && cfg.TwitchDlpVerboseDebug {
+		shouldLog = true
+	} else if module == "YouTubeDLP" && cfg.YoutubeDlpVerboseDebug {
+		shouldLog = true
+	} else if strings.HasPrefix(module, "Twitch") && cfg.TwitchVerboseDebug {
+		// Fallback: general Twitch debug
+		shouldLog = true
+	} else if strings.HasPrefix(module, "YouTube") && cfg.YoutubeVerboseDebug {
+		// Fallback: general YouTube debug
 		shouldLog = true
 	}
 
 	if shouldLog {
-		fmt.Printf("%s [%sDEBUG%s][%s] %s\n", FormatTime(time.Now(), cfg.Timezone), ColorCyan, ColorReset, module, message)
+		fmt.Printf("%s [%sDEBUG%s] [%s] %s\n", FormatTime(time.Now(), cfg.Timezone), ColorCyan, ColorReset, module, message)
 	}
 }
 
