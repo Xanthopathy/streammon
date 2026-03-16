@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"net/http"
 	"os/exec"
 	"time"
 
@@ -10,49 +11,82 @@ import (
 )
 
 // YTMonitor holds the state and logic for monitoring YouTube.
+// It implements the MonitorController interface.
 type YTMonitor struct {
-	cfg             *config.YTConfig
-	globalCfg       *config.GlobalConfig
-	liveStatus      map[string]LiveInfo  // map[channelID]LiveInfo
-	lastSeenVideoID map[string]string    // map[channelID]videoID
-	activeDownloads map[string]*exec.Cmd // map[channelID]process
+	base      *BaseMonitor
+	cfg       *config.YTConfig
+	globalCfg *config.GlobalConfig
+	// lastSeenVideoID map[string]string // This state can be managed inside CheckChannelStatus if needed
 }
 
 // NewYTMonitor creates a new YouTube monitor instance.
 func NewYTMonitor(cfg *config.YTConfig, globalCfg *config.GlobalConfig) *YTMonitor {
-	return &YTMonitor{
-		cfg:             cfg,
-		globalCfg:       globalCfg,
-		liveStatus:      make(map[string]LiveInfo),
-		lastSeenVideoID: make(map[string]string),
-		activeDownloads: make(map[string]*exec.Cmd),
+	m := &YTMonitor{
+		cfg:       cfg,
+		globalCfg: globalCfg,
+		// lastSeenVideoID: make(map[string]string),
 	}
+	m.base = NewBaseMonitor(m)
+	return m
 }
 
-// Run starts the monitoring loops.
+// Run starts the monitoring loops by delegating to the BaseMonitor.
 func (m *YTMonitor) Run() {
-	fmt.Printf("[%sYT%s] Monitor started for %d channels.\n", util.ColorRed, util.ColorReset, len(m.cfg.Channels))
-	fmt.Printf("[%sYT%s] Working Directory: %s\n", util.ColorRed, util.ColorReset, m.cfg.StreamMon.WorkingDirectory)
-
-	// In the future, we will spawn separate goroutines for fast-track, slow-track, and download management.
-	// For now, we keep the simple simulation loop.
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	// for t := range ticker.C {
-	// 	m.checkAllChannels(t)
-	// }
+	// The base monitor's Run method will print the start message.
+	// We can add YT specific startup logic here if needed in the future.
+	m.base.Run()
 }
 
-// checkAllChannels simulates the main check cycle.
-func (m *YTMonitor) checkAllChannels(t time.Time) {
-	fmt.Printf("%s [%sYT%s] Checking RSS feeds...\n", util.FormatTime(t, m.globalCfg.Timezone), util.ColorRed, util.ColorReset)
+// --- Implementation of MonitorController interface ---
 
-	// Placeholder for actual check logic
-	for _, ch := range m.cfg.Channels {
-		// Future logic: go m.checkRSS(ch)
-		_ = ch
-	}
+func (m *YTMonitor) GetGlobalConfig() *config.GlobalConfig {
+	return m.globalCfg
+}
+
+func (m *YTMonitor) GetStreamMonConfig() *config.StreamMonConfig {
+	return &m.cfg.StreamMon
+}
+
+func (m *YTMonitor) GetChannels() []config.Channel {
+	return m.cfg.Channels
+}
+
+func (m *YTMonitor) GetPollInterval() (time.Duration, error) {
+	// YouTube uses RSS, which has a different config structure
+	return time.ParseDuration(m.cfg.Scraper.RSS.PollInterval)
+}
+
+func (m *YTMonitor) GetLogColor() string {
+	return util.ColorRed
+}
+
+func (m *YTMonitor) GetLogPrefix() string {
+	return "YT"
+}
+
+// CheckChannelStatus for YouTube will involve fetching and parsing the RSS feed.
+// This is a placeholder for that future implementation.
+func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
+	// TODO: Implement YouTube RSS feed parsing logic here.
+	// 1. Construct RSS feed URL: https://www.youtube.com/feeds/videos.xml?channel_id=...
+	// 2. Fetch the feed using httpClient.
+	// 3. Parse the XML feed.
+	// 4. Find the latest <entry>.
+	// 5. Check if it's a new video (compare against lastSeenVideoID).
+	// 6. Check if it's a "live" or "upcoming" stream via yt:liveBroadcastContent.
+	// 7. Check if it's older than `ignore_older_than` from config.
+	// 8. Return a populated LiveInfo struct.
+	util.DebugLog(m.globalCfg, "YouTube", fmt.Sprintf("Checking channel %s (Not Implemented)", ch.Name))
+	return LiveInfo{IsLive: false}, nil // Return not live for now
+}
+
+// BuildDownloaderCmd constructs the command to run yt-dlp.
+func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status LiveInfo) *exec.Cmd {
+	url := "https://www.youtube.com/watch?v=" + status.VideoID
+	// Note: yt-dlp args might need special handling for things like --paths
+	args := append(m.cfg.StreamMon.Args, url)
+	cmd := exec.Command("yt-dlp", args...)
+	return cmd
 }
 
 // MonitorYouTube is the public entry point that sets up and runs the monitor.
