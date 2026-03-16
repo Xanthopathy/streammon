@@ -14,9 +14,21 @@ max_concurrent_downloads = 10
 enable_youtube = true
 enable_twitch = true
 
-# Enable verbose debugging output for each monitor.
+# Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
+save_download_logs = true
+
+# General verbose debug flags (controls terminal output for that platform)
 youtube_verbose_debug = false
 twitch_verbose_debug = false
 
-# Save logs from download processes (yt-dlp/twitch-dlp) to a file in the download folder.
-save_download_logs = true
+# Granular debug flags for Twitch (more precise control over terminal output)
+twitch_api_verbose_debug = false      # Show Twitch GraphQL API calls and responses
+twitch_dlp_verbose_debug = true      # Show raw twitch-dlp subprocess output
+
+# Granular debug flags for YouTube (more precise control over terminal output)
+youtube_dlp_verbose_debug = false     # Show raw yt-dlp subprocess output
+
+# How often to write subprocess progress lines to log files (in seconds)
+# Set to 0 to log every progress update (can be verbose)
+# Set to 1 or higher to throttle progress logging
+subprocess_progress_interval = 10

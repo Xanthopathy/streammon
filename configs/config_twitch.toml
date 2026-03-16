@@ -20,7 +20,7 @@ args = [
 ]
 
 [scraper]
-poll_interval = "120s"
+poll_interval = "300s"
 
 # ====================== Channels ====================== #
 
@@ -167,6 +167,6 @@ name = "Chikafuji Lisa"
 filters = [".*"]
 
 [[channel]]
-id = "sayu"
-name = "Sayu"
+id = "chess"
+name = "Chess"
 filters = [".*"]

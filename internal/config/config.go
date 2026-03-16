@@ -5,13 +5,17 @@ import "github.com/BurntSushi/toml"
 // --- Shared Structures ---
 
 type GlobalConfig struct {
-	Timezone               string `toml:"timezone"`
-	MaxConcurrentDownloads int    `toml:"max_concurrent_downloads"`
-	EnableYoutube          bool   `toml:"enable_youtube"`
-	EnableTwitch           bool   `toml:"enable_twitch"`
-	YoutubeVerboseDebug    bool   `toml:"youtube_verbose_debug"`
-	TwitchVerboseDebug     bool   `toml:"twitch_verbose_debug"`
-	SaveDownloadLogs       bool   `toml:"save_download_logs"`
+	Timezone                   string `toml:"timezone"`
+	MaxConcurrentDownloads     int    `toml:"max_concurrent_downloads"`
+	EnableYoutube              bool   `toml:"enable_youtube"`
+	EnableTwitch               bool   `toml:"enable_twitch"`
+	SaveDownloadLogs           bool   `toml:"save_download_logs"`
+	SubprocessProgressInterval int    `toml:"subprocess_progress_interval"`
+	YoutubeVerboseDebug        bool   `toml:"youtube_verbose_debug"`
+	YoutubeDlpVerboseDebug     bool   `toml:"youtube_dlp_verbose_debug"`
+	TwitchVerboseDebug         bool   `toml:"twitch_verbose_debug"`
+	TwitchAPIVerboseDebug      bool   `toml:"twitch_api_verbose_debug"`
+	TwitchDlpVerboseDebug      bool   `toml:"twitch_dlp_verbose_debug"`
 }
 
 type StreamMonConfig struct {
