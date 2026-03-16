@@ -19,16 +19,15 @@ args = [
     "--embed-thumbnail",
     "--convert-thumbnail", "png",
     "--write-thumbnail",
-    "--retries 10",
+    "--retries", "10",
     # "--ignore-errors",
-    "--output", "%%(upload_date)s %%(id)s %%(title)s [%%(channel)s].%%(ext)s",
-    "--paths", "[specific folder]", # todo, runs likes run_yt-dlp.bat
+    "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
     # "--cookies", "cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
 
 [scraper]
-poll_interval = "60s"
+poll_interval = "120s"
 ignore_older_than = "24h"
 
 # ====================== Channels ====================== #
@@ -36,6 +35,11 @@ ignore_older_than = "24h"
 # Common filter presets (Copy-paste these into channel filters)
 # All: [".*"]
 # Karaoke/Archive: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+
+[[channel]]
+id = "UCZLZ8Jjx_RN2CXloOmgTHVg"
+name = "Kaela Kaaaaa"
+filters = [".*"]
 
 # ===================== Phase ===================== #
 # =============== Origins =============== #

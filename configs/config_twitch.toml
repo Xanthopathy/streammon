@@ -20,7 +20,7 @@ args = [
 ]
 
 [scraper]
-poll_interval = "300s"
+poll_interval = "120s"
 
 # ====================== Channels ====================== #
 

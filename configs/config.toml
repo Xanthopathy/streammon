@@ -12,7 +12,10 @@ max_concurrent_downloads = 10
 
 # Enable/disable monitors globally.
 enable_youtube = true
-enable_twitch = true
+enable_twitch = false
+
+# Todo: clear all lockfiles in /download_yt and /download_twitch for more seamless restarts
+clear_all_lockfiles = true
 
 # Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
 save_download_logs = true
@@ -22,11 +25,12 @@ youtube_verbose_debug = false
 twitch_verbose_debug = false
 
 # Granular debug flags for Twitch (more precise control over terminal output)
-twitch_api_verbose_debug = false      # Show Twitch GraphQL API calls and responses
-twitch_dlp_verbose_debug = true      # Show raw twitch-dlp subprocess output
+twitch_api_verbose_debug = false    # Show Twitch GraphQL API calls and responses
+twitch_dlp_verbose_debug = true     # Show raw twitch-dlp subprocess output
 
 # Granular debug flags for YouTube (more precise control over terminal output)
-youtube_dlp_verbose_debug = false     # Show raw yt-dlp subprocess output
+youtube_api_verbose_debug = false   # Show YouTube RSS API calls
+youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
 
 # How often to write subprocess progress lines to log files (in seconds)
 # Set to 0 to log every progress update (can be verbose)
