@@ -53,7 +53,7 @@ func (m *YTMonitor) GetChannels() []config.Channel {
 
 func (m *YTMonitor) GetPollInterval() (time.Duration, error) {
 	// YouTube uses RSS, which has a different config structure
-	return time.ParseDuration(m.cfg.Scraper.RSS.PollInterval)
+	return time.ParseDuration(m.cfg.Scraper.PollInterval)
 }
 
 func (m *YTMonitor) GetLogColor() string {
@@ -64,20 +64,21 @@ func (m *YTMonitor) GetLogPrefix() string {
 	return "YT"
 }
 
-// CheckChannelStatus for YouTube will involve fetching and parsing the RSS feed.
-// This is a placeholder for that future implementation.
+// CheckChannelStatus for YouTube uses both HTTP redirect detection and RSS parsing
+// to confirm a stream is live. This dual approach ensures:
+// 1. HTTP redirect check provides real-time confirmation (302 to watch page = live)
+// 2. RSS check provides metadata about the stream
+// Only launches yt-dlp if both checks confirm the stream exists.
 func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
-	// TODO: Implement YouTube RSS feed parsing logic here.
-	// 1. Construct RSS feed URL: https://www.youtube.com/feeds/videos.xml?channel_id=...
-	// 2. Fetch the feed using httpClient.
-	// 3. Parse the XML feed.
-	// 4. Find the latest <entry>.
-	// 5. Check if it's a new video (compare against lastSeenVideoID).
-	// 6. Check if it's a "live" or "upcoming" stream via yt:liveBroadcastContent.
-	// 7. Check if it's older than `ignore_older_than` from config.
-	// 8. Return a populated LiveInfo struct.
-	util.DebugLog(m.globalCfg, "YouTube", fmt.Sprintf("Checking channel %s (Not Implemented)", ch.Name))
-	return LiveInfo{IsLive: false}, nil // Return not live for now
+	// Parse the ignore_older_than duration from config
+	ignoreOlderThan, err := time.ParseDuration(m.cfg.Scraper.IgnoreOlderThan)
+	if err != nil {
+		// Default to 24 hours if parse fails
+		ignoreOlderThan = 24 * time.Hour
+		util.DebugLog(m.globalCfg, "YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s: %v, using default 24h", ch.Name, err))
+	}
+
+	return CheckLiveYouTube(httpClient, ch.ID, m.globalCfg, ignoreOlderThan)
 }
 
 // BuildDownloaderCmd constructs the command to run yt-dlp.

@@ -12,6 +12,7 @@ type GlobalConfig struct {
 	SaveDownloadLogs           bool   `toml:"save_download_logs"`
 	SubprocessProgressInterval int    `toml:"subprocess_progress_interval"`
 	YoutubeVerboseDebug        bool   `toml:"youtube_verbose_debug"`
+	YoutubeAPIVerboseDebug     bool   `toml:"youtube_api_verbose_debug"`
 	YoutubeDlpVerboseDebug     bool   `toml:"youtube_dlp_verbose_debug"`
 	TwitchVerboseDebug         bool   `toml:"twitch_verbose_debug"`
 	TwitchAPIVerboseDebug      bool   `toml:"twitch_api_verbose_debug"`
@@ -31,15 +32,11 @@ type Channel struct {
 
 // --- YouTube Specific ---
 
-type RSSConfig struct {
-	PollInterval    string `toml:"poll_interval"`
-	IgnoreOlderThan string `toml:"ignore_older_than"`
-}
-
 type YTConfig struct {
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
-		RSS RSSConfig `toml:"rss"`
+		PollInterval    string `toml:"poll_interval"`
+		IgnoreOlderThan string `toml:"ignore_older_than"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

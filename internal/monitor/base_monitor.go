@@ -58,21 +58,24 @@ type MonitorController interface {
 
 // BaseMonitor provides the generic, shared functionality for monitoring any platform.
 type BaseMonitor struct {
-	controller      MonitorController
-	httpClient      *http.Client
-	statusMutex     sync.RWMutex
-	downloadMutex   sync.Mutex
-	liveStatus      map[string]LiveInfo         // map[channelID]LiveInfo
-	activeDownloads map[string]*downloadProcess // map[channelID]*downloadProcess
+	controller       MonitorController
+	httpClient       *http.Client
+	statusMutex      sync.RWMutex
+	downloadMutex    sync.Mutex
+	liveStatus       map[string]LiveInfo         // map[channelID]LiveInfo
+	activeDownloads  map[string]*downloadProcess // map[channelID]*downloadProcess
+	downloadedVideos map[string]map[string]bool  // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
+	downloadedVidMu  sync.RWMutex                // protects downloadedVideos
 }
 
 // NewBaseMonitor creates a new generic monitor.
 func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 	return &BaseMonitor{
-		controller:      controller,
-		httpClient:      &http.Client{Timeout: 30 * time.Second},
-		liveStatus:      make(map[string]LiveInfo),
-		activeDownloads: make(map[string]*downloadProcess),
+		controller:       controller,
+		httpClient:       &http.Client{Timeout: 30 * time.Second},
+		liveStatus:       make(map[string]LiveInfo),
+		activeDownloads:  make(map[string]*downloadProcess),
+		downloadedVideos: make(map[string]map[string]bool),
 	}
 }
 
@@ -175,10 +178,30 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 		return // Defer will release slot.
 	}
 
+	// Check if already downloaded in this session (in-memory cache).
+	b.downloadedVidMu.RLock()
+	if channelCache, ok := b.downloadedVideos[ch.ID]; ok {
+		if channelCache[status.VideoID] {
+			b.downloadedVidMu.RUnlock()
+			globalCfg := b.controller.GetGlobalConfig()
+			logColor := b.controller.GetLogColor()
+			logPrefix := b.controller.GetLogPrefix()
+			fmt.Printf("%s [%s%s%s] %s (%s) already downloaded in this session\n",
+				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID)
+			return // Defer will release slot.
+		}
+	}
+	b.downloadedVidMu.RUnlock()
+
 	// Check for a lock file.
 	streamMonCfg := b.controller.GetStreamMonConfig()
 	lockPath := util.GetLockfilePath(streamMonCfg.WorkingDirectory, ch.Name, status.VideoID)
 	if util.HasLock(lockPath) {
+		globalCfg := b.controller.GetGlobalConfig()
+		logColor := b.controller.GetLogColor()
+		logPrefix := b.controller.GetLogPrefix()
+		fmt.Printf("%s [%s%s%s] %s (%s) is already queued/downloading (lockfile exists)\n",
+			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID)
 		return // Defer will release slot.
 	}
 
@@ -307,6 +330,14 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		proc.logger.LogError(fmt.Sprintf("Download for %s finished with error: %v", ch.Name, err))
 	} else {
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s finished successfully.", ch.Name))
+
+		// Mark this video as downloaded in the session cache
+		b.downloadedVidMu.Lock()
+		if _, ok := b.downloadedVideos[ch.ID]; !ok {
+			b.downloadedVideos[ch.ID] = make(map[string]bool)
+		}
+		b.downloadedVideos[ch.ID][proc.videoID] = true
+		b.downloadedVidMu.Unlock()
 	}
 
 	proc.logger.Close()
