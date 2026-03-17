@@ -131,6 +131,9 @@ func (b *BaseMonitor) manageDownloads() {
 	for {
 		time.Sleep(managerInterval)
 
+		// Periodically reset terminal title to prevent subprocesses from changing it
+		util.SetTerminalTitle("streammon")
+
 		b.statusMutex.RLock()
 		// Create a copy of live channels to avoid holding the lock for too long
 		liveChs := make(map[string]LiveInfo)
@@ -354,6 +357,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 // waitForDownload blocks until a download process finishes, then cleans up.
 func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
 	err := proc.cmd.Wait() // This blocks until the process exits
+
+	// Reset terminal title once subprocess completes
+	util.SetTerminalTitle("streammon")
 
 	// IMPORTANT: Release the download slot first thing after the process exits.
 	<-downloadSlots
