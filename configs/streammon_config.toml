@@ -36,3 +36,7 @@ save_download_logs = true
 # Set to 0 to log every progress update (can be verbose)
 # Set to 1 or higher to throttle progress logging
 subprocess_progress_interval = 10
+
+# How often to write subprocess progress lines to log files (in seconds)
+# Exclusively for [wait] Remaining time until next attempt: hh:mm:ss
+subprocess_wait_interval = 60

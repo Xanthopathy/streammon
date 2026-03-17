@@ -11,6 +11,7 @@ type GlobalConfig struct {
 	EnableTwitch               bool   `toml:"enable_twitch"`
 	SaveDownloadLogs           bool   `toml:"save_download_logs"`
 	SubprocessProgressInterval int    `toml:"subprocess_progress_interval"`
+	SubprocessWaitInterval     int    `toml:"subprocess_wait_interval"`
 	YoutubeVerboseDebug        bool   `toml:"youtube_verbose_debug"`
 	YoutubeAPIVerboseDebug     bool   `toml:"youtube_api_verbose_debug"`
 	YoutubeDlpVerboseDebug     bool   `toml:"youtube_dlp_verbose_debug"`
@@ -33,6 +34,7 @@ type Channel struct {
 // --- YouTube Specific ---
 
 type YTConfig struct {
+	Timezone  string          `toml:"timezone"` // Optional: override global timezone for YouTube logs
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
 		PollInterval    string `toml:"poll_interval"`
@@ -44,6 +46,7 @@ type YTConfig struct {
 // --- Twitch Specific ---
 
 type TwitchConfig struct {
+	Timezone  string          `toml:"timezone"` // Optional: override global timezone for Twitch logs
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
 		PollInterval string `toml:"poll_interval"`

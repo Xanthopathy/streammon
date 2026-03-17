@@ -23,12 +23,15 @@ func main() {
 	if err != nil {
 		fmt.Printf("[%sWARN%s] Could not load streammon_config.toml: %v. Using defaults (UTC).\n", util.ColorYellow, err, util.ColorReset)
 		globalCfg = &config.GlobalConfig{
-			Timezone:               "UTC",
-			MaxConcurrentDownloads: 10,
-			EnableYoutube:          true,
-			EnableTwitch:           true,
-			YoutubeVerboseDebug:    false,
-			TwitchVerboseDebug:     false,
+			Timezone:                   "UTC",
+			MaxConcurrentDownloads:     10,
+			EnableYoutube:              true,
+			EnableTwitch:               true,
+			SaveDownloadLogs:           true,
+			SubprocessProgressInterval: 10,
+			SubprocessWaitInterval:     60,
+			YoutubeVerboseDebug:        true,
+			TwitchVerboseDebug:         true,
 		}
 	}
 

@@ -93,8 +93,8 @@ func (b *BaseMonitor) Run() {
 	// Initialize the global download semaphore using the value from the global config.
 	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
 
-	fmt.Printf("%s [%s%s%s] Monitor started for %d channels.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, len(channels))
-	fmt.Printf("%s [%s%s%s] Working Directory: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
+	fmt.Printf("[%s%s%s] Monitor started for %d channels.\n", logColor, logPrefix, util.ColorReset, len(channels))
+	fmt.Printf("[%s%s%s] Working Directory: %s\n", logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
 
 	// Create working directory if it doesn't exist
 	if _, err := os.Stat(streamMonCfg.WorkingDirectory); os.IsNotExist(err) {
@@ -240,6 +240,12 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	// Build command using the controller
 	cmd := b.controller.BuildDownloaderCmd(ch, status)
 
+	// Build command string for logging
+	commandStr := cmd.Path
+	if len(cmd.Args) > 1 {
+		commandStr += " " + util.JoinCommandArgs(cmd.Args[1:])
+	}
+
 	// Create channel specific directory
 	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, util.SanitizeFolderName(ch.Name))
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
@@ -273,6 +279,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		logColor,
 		apiDebug,
 		dlpDebug,
+		commandStr,
 	)
 	if err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating logger for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
@@ -315,12 +322,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		}
 	}
 
-	// Log the command if dlp debug is enabled
+	// Log the command if dlp debug is enabled (for terminal display)
 	if dlpDebug {
-		commandStr := cmd.Path
-		if len(cmd.Args) > 1 {
-			commandStr += " " + util.JoinCommandArgs(cmd.Args[1:])
-		}
 		logger.LogSubprocessOutput("COMMAND: "+commandStr, debugType)
 	}
 
@@ -385,11 +388,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 // checkAllChannels concurrently checks all configured channels.
 func (b *BaseMonitor) checkAllChannels() {
-	globalCfg := b.controller.GetGlobalConfig()
-	logPrefix := b.controller.GetLogPrefix()
 	channels := b.controller.GetChannels()
-
-	util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("Checking live status for %d channels...", len(channels)))
 
 	var wg sync.WaitGroup
 	for _, ch := range channels {
@@ -459,7 +458,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
-			fmt.Printf("%s [%s%s%s] %s%s is now LIVE%s: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, util.ColorGreen, ch.Name, util.ColorReset, newStatus.Title)
+			fmt.Printf("%s [%s%s%s] %s %sis now LIVE%s: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, util.ColorGreen, util.ColorReset, newStatus.Title)
 		}
 		b.liveStatus[ch.ID] = newStatus
 	} else {

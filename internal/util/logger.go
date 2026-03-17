@@ -34,7 +34,8 @@ type DownloadLogger struct {
 	channelID             string
 	channelName           string
 	streamID              string
-	lastProgressWriteTime time.Time
+	lastDownloadWriteTime time.Time
+	lastWaitWriteTime     time.Time
 	// Debug flags for what to show in terminal
 	apiDebug bool // For TwitchAPI/YouTube API calls
 	dlpDebug bool // For twitch-dlp/yt-dlp subprocess output
@@ -45,6 +46,7 @@ type DownloadLogger struct {
 // logColor: use ColorRed, ColorPurple, etc.
 // apiDebug: show API calls in terminal
 // dlpDebug: show subprocess output in terminal
+// command: the subprocess command string to write at the top of the log file
 // logFile will be created only if save_download_logs is true in globalCfg
 func NewDownloadLogger(
 	channelDir string,
@@ -57,6 +59,7 @@ func NewDownloadLogger(
 	logColor string,
 	apiDebug bool,
 	dlpDebug bool,
+	command string,
 ) (*DownloadLogger, error) {
 	sanitizedName := SanitizeFolderName(channelName)
 	dateStr := dateCreated.UTC().Format("2006-01-02")
@@ -78,6 +81,13 @@ func NewDownloadLogger(
 		logPath := filepath.Join(channelDir, baseFilename+".log")
 		if file, err := os.Create(logPath); err == nil {
 			logger.logFile = file
+			// Write the command at the top of the log file for reference
+			if command != "" {
+				file.WriteString("=== Subprocess Command ===\n")
+				file.WriteString(command + "\n")
+				file.WriteString("=======================\n\n")
+				file.Sync()
+			}
 		} else {
 			fmt.Printf("%s [%s%s%s] Warning: Failed to create log file: %v\n",
 				FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, ColorReset, err)
@@ -154,19 +164,29 @@ func (l *DownloadLogger) LogSubprocessOutput(output string, debugType string) {
 	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, debugType, ColorReset, l.channelName, output)
 
 	// Check if this is a progress line (contains [download] or [wait])
-	isProgressLine := strings.Contains(output, "[download]") || strings.Contains(output, "[wait]")
+	isDownloadLine := strings.Contains(output, "[download]")
+	isWaitLine := strings.Contains(output, "[wait]")
 
 	// Determine if we should write based on throttling
 	shouldWrite := true
 
-	if isProgressLine && l.globalCfg.SubprocessProgressInterval > 0 {
-		// Apply throttling if interval is set and this is a progress line
+	if isDownloadLine && l.globalCfg.SubprocessProgressInterval > 0 {
+		// Apply throttling for [download] lines
 		now := time.Now()
-		if !l.lastProgressWriteTime.IsZero() && now.Sub(l.lastProgressWriteTime) < time.Duration(l.globalCfg.SubprocessProgressInterval)*time.Second {
+		if !l.lastDownloadWriteTime.IsZero() && now.Sub(l.lastDownloadWriteTime) < time.Duration(l.globalCfg.SubprocessProgressInterval)*time.Second {
 			shouldWrite = false
 		}
 		if shouldWrite {
-			l.lastProgressWriteTime = now
+			l.lastDownloadWriteTime = now
+		}
+	} else if isWaitLine && l.globalCfg.SubprocessWaitInterval > 0 {
+		// Apply throttling for [wait] lines
+		now := time.Now()
+		if !l.lastWaitWriteTime.IsZero() && now.Sub(l.lastWaitWriteTime) < time.Duration(l.globalCfg.SubprocessWaitInterval)*time.Second {
+			shouldWrite = false
+		}
+		if shouldWrite {
+			l.lastWaitWriteTime = now
 		}
 	}
 
