@@ -1,7 +1,3 @@
-# ==========================================
-# StreamMon - Global Configuration
-# ==========================================
-
 # Timezone for timestamps in logs. Uses IANA Time Zone database names.
 # Examples: "UTC", "America/New_York", "Europe/London", "Asia/Tokyo"
 # You can also use fixed offsets like "UTC-5" or "UTC+3".
@@ -10,14 +6,12 @@ timezone = "UTC"
 # Global limit for concurrent downloads (Not yet implemented in logic)
 max_concurrent_downloads = 10
 
-# Todo: clear all lockfiles in /download_yt and /download_twitch for more seamless restarts
-clear_all_lockfiles = true
-
 # Enable/disable monitors globally.
 enable_youtube = true
 enable_twitch = true
 
 # General verbose debug flags (controls terminal output for that platform)
+# Overrides the granular debug flags below
 youtube_verbose_debug = true
 twitch_verbose_debug = true
 
