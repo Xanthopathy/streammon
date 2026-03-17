@@ -1,12 +1,16 @@
 .
+|-- PROCESS.md
 |-- README.md
+|-- build.ps1
 |-- cmd
 |   `-- streammon
 |       `-- main.go
 |-- configs
-|   |-- config.toml
-|   |-- config_twitch.toml
-|   `-- config_yt.toml
+|   |-- streammon_config.toml
+|   |-- streammon_config_twitch.toml
+|   `-- streammon_config_yt.toml
+|-- download_twitch
+|-- download_yt
 |-- go.mod
 |-- go.sum
 |-- go_guide.txt
@@ -14,12 +18,19 @@
 |   |-- config
 |   |   `-- config.go
 |   |-- monitor
+|   |   |-- base_monitor.go
 |   |   |-- monitor.go
 |   |   |-- twitch.go
-|   |   `-- youtube.go
+|   |   |-- twitch_api.go
+|   |   |-- youtube.go
+|   |   `-- youtube_api.go
 |   `-- util
+|       |-- logger.go
 |       `-- utils.go
+|-- testing
+|   |-- test_gql.go
+|   `-- test_gql.json
 |-- todo.txt
 `-- tree.txt
 
-7 directories, 15 files
+10 directories, 23 files
