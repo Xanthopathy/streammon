@@ -104,7 +104,10 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *c
 	if err != nil {
 		return LiveInfo{}, fmt.Errorf("failed to marshal GQL request: %w", err)
 	}
-	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Requesting for %s with payload: %s", channelLogin, string(body)))
+	// Pretty-print the JSON payload for readability
+	var prettyPayload bytes.Buffer
+	json.Indent(&prettyPayload, body, "", "  ")
+	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
@@ -131,7 +134,10 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *c
 	}
 	defer resp.Body.Close()
 
-	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Raw response for %s: %s", channelLogin, string(responseBody)))
+	// Pretty-print the JSON response for readability
+	var prettyResponse bytes.Buffer
+	json.Indent(&prettyResponse, responseBody, "", "  ")
+	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Raw response for %s:\n%s", channelLogin, prettyResponse.String()))
 
 	// Decode the response
 	var gqlResp streamMetadataGQLResponse
