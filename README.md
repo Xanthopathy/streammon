@@ -1,4 +1,4 @@
-# StreamMon
+# streammon
 
 Monitors YouTube and Twitch channels for live streams, applies regex filters, and automatically downloads them with `yt-dlp` and `twitch-dlp`.
 
@@ -16,7 +16,7 @@ Monitors YouTube and Twitch channels for live streams, applies regex filters, an
 
 **Option A: GitHub Release**
 
-- Download the `build.zip` from the release
+- Download the `.zip` of your respective platform from the release
 - Extract it
 - Run the binary for your OS:
   - **Windows**: `streammon.exe`
@@ -32,9 +32,9 @@ Monitors YouTube and Twitch channels for live streams, applies regex filters, an
 
 Edit the `configs/` folder:
 
-- `config.toml` - Global settings (timezone, concurrent downloads, debug flags)
-- `config_yt.toml` - YouTube channels and filters
-- `config_twitch.toml` - Twitch channels and filters
+- `streammon_config.toml` - Global settings (timezone, concurrent downloads, debug flags)
+- `streammon_config_yt.toml` - YouTube channels and filters
+- `streammon_config_twitch.toml` - Twitch channels and filters
 
 #### Add a Channel
 
