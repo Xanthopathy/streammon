@@ -9,11 +9,8 @@
 |   |-- streammon_config.toml
 |   |-- streammon_config_twitch.toml
 |   `-- streammon_config_yt.toml
-|-- download_twitch
-|-- download_yt
 |-- go.mod
 |-- go.sum
-|-- go_guide.txt
 |-- internal
 |   |-- config
 |   |   `-- config.go
@@ -33,4 +30,4 @@
 |-- todo.txt
 `-- tree.txt
 
-10 directories, 23 files
+8 directories, 22 files

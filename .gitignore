@@ -1,5 +1,7 @@
+_old/
+build/
+download_twitch/
+download_yt/
+*.exe
 tree.bat
 go_guide.txt
-_old/
-*.exe
-build/
