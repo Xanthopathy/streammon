@@ -1,3 +1,5 @@
 tree.bat
 go_guide.txt
 _old/
+*.exe
+build/
