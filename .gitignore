@@ -3,5 +3,6 @@ build/
 download_twitch/
 download_yt/
 *.exe
+*.zip
 tree.bat
 go_guide.txt
