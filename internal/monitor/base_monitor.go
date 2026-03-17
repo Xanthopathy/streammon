@@ -58,24 +58,27 @@ type MonitorController interface {
 
 // BaseMonitor provides the generic, shared functionality for monitoring any platform.
 type BaseMonitor struct {
-	controller       MonitorController
-	httpClient       *http.Client
-	statusMutex      sync.RWMutex
-	downloadMutex    sync.Mutex
-	liveStatus       map[string]LiveInfo         // map[channelID]LiveInfo
-	activeDownloads  map[string]*downloadProcess // map[channelID]*downloadProcess
-	downloadedVideos map[string]map[string]bool  // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
-	downloadedVidMu  sync.RWMutex                // protects downloadedVideos
+	controller              MonitorController
+	httpClient              *http.Client
+	statusMutex             sync.RWMutex
+	downloadMutex           sync.Mutex
+	liveStatus              map[string]LiveInfo         // map[channelID]LiveInfo
+	activeDownloads         map[string]*downloadProcess // map[channelID]*downloadProcess
+	downloadedVideos        map[string]map[string]bool  // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
+	downloadedVidMu         sync.RWMutex                // protects downloadedVideos
+	queuedVideosLogged      map[string]bool             // map[videoID]bool - tracks which queued videos have logged the "already queued" message
+	queuedVideosLoggedMutex sync.Mutex                  // protects queuedVideosLogged
 }
 
 // NewBaseMonitor creates a new generic monitor.
 func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 	return &BaseMonitor{
-		controller:       controller,
-		httpClient:       &http.Client{Timeout: 30 * time.Second},
-		liveStatus:       make(map[string]LiveInfo),
-		activeDownloads:  make(map[string]*downloadProcess),
-		downloadedVideos: make(map[string]map[string]bool),
+		controller:         controller,
+		httpClient:         &http.Client{Timeout: 30 * time.Second},
+		liveStatus:         make(map[string]LiveInfo),
+		activeDownloads:    make(map[string]*downloadProcess),
+		downloadedVideos:   make(map[string]map[string]bool),
+		queuedVideosLogged: make(map[string]bool),
 	}
 }
 
@@ -197,11 +200,18 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 	streamMonCfg := b.controller.GetStreamMonConfig()
 	lockPath := util.GetLockfilePath(streamMonCfg.WorkingDirectory, ch.Name, status.VideoID)
 	if util.HasLock(lockPath) {
-		globalCfg := b.controller.GetGlobalConfig()
-		logColor := b.controller.GetLogColor()
-		logPrefix := b.controller.GetLogPrefix()
-		fmt.Printf("%s [%s%s%s] %s (%s) is already queued/downloading (lockfile exists)\n",
-			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID)
+		// Only log this message once per video to avoid spam
+		b.queuedVideosLoggedMutex.Lock()
+		if !b.queuedVideosLogged[status.VideoID] {
+			b.queuedVideosLogged[status.VideoID] = true
+			globalCfg := b.controller.GetGlobalConfig()
+			logColor := b.controller.GetLogColor()
+			logPrefix := b.controller.GetLogPrefix()
+			lockFileName := filepath.Base(lockPath)
+			fmt.Printf("%s [%s%s%s] %s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s\n",
+				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID, lockFileName)
+		}
+		b.queuedVideosLoggedMutex.Unlock()
 		return // Defer will release slot.
 	}
 
@@ -243,11 +253,11 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	apiDebug := false
 	dlpDebug := false
 
-	if logPrefix == "Twitch" {
+	switch logPrefix {
+	case "Twitch":
 		apiDebug = globalCfg.TwitchAPIVerboseDebug
 		dlpDebug = globalCfg.TwitchDlpVerboseDebug
-	} else if logPrefix == "YouTube" {
-		// YouTube doesn't have separate API debug yet, use general debug for API
+	case "YT":
 		apiDebug = globalCfg.YoutubeVerboseDebug
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
@@ -270,18 +280,48 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		return false
 	}
 
-	// Setup subprocess output redirection BEFORE starting the command
-	// This captures twitch-dlp and yt-dlp output to log files
-	if globalCfg.SaveDownloadLogs {
+	// Confirm dlpDebug setting
+	if dlpDebug {
+		logger.LogRegular("Raw subprocess output will be shown (dlp_verbose_debug=true)")
+	}
+
+	// Force colors in subprocess output (yt-dlp, twitch-dlp)
+	// Set environment variables to enable color output even when piping
+	// Doesn't work, twitch-dlp already does this and yt-dlp doesn't show color with this
+	cmd.Env = append(os.Environ(), "FORCE_COLOR=1", "TERM=xterm-256color")
+
+	// Setup subprocess output redirection
+	// Pipe output if we need to log it or show it in terminal (dlpDebug)
+	// Determine debugType based on platform prefix
+	var debugType string
+	switch logPrefix {
+	case "YT":
+		debugType = "yt-dlp"
+	case "Twitch":
+		debugType = "twitch-dlp"
+	default:
+		debugType = "dlp"
+	}
+
+	if globalCfg.SaveDownloadLogs || dlpDebug {
 		stdoutPipe, errOut := cmd.StdoutPipe()
 		stderrPipe, errErr := cmd.StderrPipe()
 
 		if errOut == nil && stdoutPipe != nil {
-			go util.ReadPipeAndLog(stdoutPipe, logger)
+			go util.ReadPipeAndLog(stdoutPipe, logger, debugType)
 		}
 		if errErr == nil && stderrPipe != nil {
-			go util.ReadPipeAndLog(stderrPipe, logger)
+			go util.ReadPipeAndLog(stderrPipe, logger, debugType)
 		}
+	}
+
+	// Log the command if dlp debug is enabled
+	if dlpDebug {
+		commandStr := cmd.Path
+		if len(cmd.Args) > 1 {
+			commandStr += " " + util.JoinCommandArgs(cmd.Args[1:])
+		}
+		logger.LogSubprocessOutput("COMMAND: "+commandStr, debugType)
 	}
 
 	// Start command
