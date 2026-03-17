@@ -15,12 +15,14 @@ When the application starts (`main.go`):
    - Clear console and print ASCII banner
 
 2. **Load Global Configuration** (`configs/config.toml`)
-   - Timezone setting
+   - Timezone setting: `timezone`
    - `max_concurrent_downloads`: Maximum simultaneous download threads
+   - `subprocess_progress_interval`: Throttle [download] progress lines (seconds)
+   - `subprocess_wait_interval`: Throttle [wait] progress lines (seconds)
    - Platform enable flags: `enable_youtube`, `enable_twitch`
    - Debug flags: `youtube_verbose_debug`, `twitch_verbose_debug`
    - Logging: `save_download_logs`
-   - If loading fails, use sensible defaults (UTC, 10 concurrent downloads, both enabled)
+   - If loading fails, use sensible defaults: UTC timezone, 10 concurrent downloads, both platforms enabled, 10s download throttle, 60s wait throttle, logging enabled
 
 3. **Load Platform-Specific Configurations**
    - **YouTube**: Load `configs/config_yt.toml` if `enable_youtube` is true
@@ -138,7 +140,9 @@ For each configured YouTube channel:
    c. **Setup Logging** (if `save_download_logs: true`)
    - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log`
    - Redirects subprocess stdout/stderr to be captured and logged
-   - All subprocess output is written to log file with throttling applied to progress lines
+   - Subprocess output is written to log file with throttling applied:
+     - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
+     - `[wait]` lines throttled by `subprocess_wait_interval` (60s default)
    - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
 
    d. **Build Downloader Command**
@@ -276,7 +280,9 @@ For each configured Twitch channel:
    c. **Setup Logging** (if `save_download_logs: true`)
    - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{broadcastID}.log`
    - Redirects subprocess stdout/stderr to be captured and logged
-   - All subprocess output is written to log file with throttling applied to progress lines
+   - Subprocess output is written to log file with throttling applied:
+     - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
+     - `[wait]` lines throttled by `subprocess_wait_interval` (60s default)
    - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
 
    d. **Build Downloader Command**
@@ -387,19 +393,22 @@ For each configured Twitch channel:
 
 **Conditional (debug flags control visibility):**
 
+- If `youtube_verbose_debug: true`: YouTube monitor debug output
+- If `twitch_verbose_debug: true`: Twitch monitor debug output
+- If `youtube_api_verbose_debug: true`: YouTube RSS API calls and responses
 - If `twitch_api_verbose_debug: true`: Twitch GraphQL API calls and responses
-- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output
-- If `youtube_api_verbose_debug: true`: YouTube RSS API calls
-- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output
-- **Note:** DLP verbose flags control **terminal** printing only; log files always receive subprocess output
+- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output (with throttling on [download] and [wait] lines)
+- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output (with throttling on [download] and [wait] lines)
+- **Note:** DLP verbose flags control **terminal** printing only; log files always receive subprocess output with separate throttling per line type
 
 #### Terminal Colors
 
-- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), info (blue), debug (cyan)
-- **Timestamps**: All terminal output includes timestamp with configurable timezone
-- **Subprocess lines** tagged with `[SUBPROCESS]`
-- **Progress updates** tagged with `[PROGRESS]`
-- **Debug lines** tagged with `[DEBUG]`
+- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), info (blue)
+- **Timestamps**: All terminal output includes timestamp with configurable timezone (IANA timezone names or UTC offsets like UTC+7)
+- **Subprocess lines** tagged with `[SUBPROCESS]` and throttled:
+  - `[download]` lines: throttled by `subprocess_progress_interval` (default 10s)
+  - `[wait]` lines: throttled by `subprocess_wait_interval` (default 60s)
+- **Debug lines** colored cyan
 
 ---
 
@@ -412,9 +421,15 @@ timezone = "UTC"
 max_concurrent_downloads = 10
 enable_youtube = true
 enable_twitch = true
-youtube_verbose_debug = false
-twitch_verbose_debug = false
 save_download_logs = true
+subprocess_progress_interval = 10     # Throttle [download] lines (seconds)
+subprocess_wait_interval = 60         # Throttle [wait] lines (seconds)
+youtube_verbose_debug = true
+twitch_verbose_debug = true
+youtube_api_verbose_debug = false
+twitch_api_verbose_debug = false
+youtube_dlp_verbose_debug = true
+twitch_dlp_verbose_debug = true
 ```
 
 ### YouTube Config (`config_yt.toml`)
