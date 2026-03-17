@@ -70,26 +70,48 @@ func FormatTime(t time.Time, timezone string) string {
 
 func DebugLog(cfg *config.GlobalConfig, module, message string) {
 	var shouldLog bool
+	var platformPrefix string
+	var platformColor string
 
-	// Check for specific debug types (granular control)
-	if module == "TwitchAPI" && cfg.TwitchAPIVerboseDebug {
-		shouldLog = true
-	} else if module == "TwitchDLP" && cfg.TwitchDlpVerboseDebug {
-		shouldLog = true
-	} else if module == "YouTubeAPI" && cfg.YoutubeAPIVerboseDebug {
-		shouldLog = true
-	} else if module == "YouTubeDLP" && cfg.YoutubeDlpVerboseDebug {
-		shouldLog = true
-	} else if strings.HasPrefix(module, "Twitch") && cfg.TwitchVerboseDebug {
-		// Fallback: general Twitch debug
-		shouldLog = true
-	} else if strings.HasPrefix(module, "YouTube") && cfg.YoutubeVerboseDebug {
-		// Fallback: general YouTube debug
-		shouldLog = true
+	// Granular controls take priority (API and DLP flags)
+	switch module {
+	case "TwitchAPI":
+		shouldLog = cfg.TwitchAPIVerboseDebug
+		platformPrefix = "Twitch"
+		platformColor = ColorPurple
+	case "TwitchDLP":
+		shouldLog = cfg.TwitchDlpVerboseDebug
+		platformPrefix = "Twitch"
+		platformColor = ColorPurple
+	case "YouTubeAPI":
+		shouldLog = cfg.YoutubeAPIVerboseDebug
+		platformPrefix = "YT"
+		platformColor = ColorRed
+	case "YouTubeDLP":
+		shouldLog = cfg.YoutubeDlpVerboseDebug
+		platformPrefix = "YT"
+		platformColor = ColorRed
+	default:
+		// Fallback to platform-level debug flags for other modules
+		if strings.HasPrefix(module, "Twitch") {
+			shouldLog = cfg.TwitchVerboseDebug
+			platformPrefix = "Twitch"
+			platformColor = ColorPurple
+		} else if strings.HasPrefix(module, "YouTube") {
+			shouldLog = cfg.YoutubeVerboseDebug
+			platformPrefix = "YT"
+			platformColor = ColorRed
+		}
 	}
 
 	if shouldLog {
-		fmt.Printf("%s [%sDEBUG%s] [%s] %s\n", FormatTime(time.Now(), cfg.Timezone), ColorCyan, ColorReset, module, message)
+		// Format: [time] [Platform] [DebugType] message
+		// Platform in its color, DebugType in blue
+		fmt.Printf("%s [%s%s%s] [%s%s%s] %s\n",
+			FormatTime(time.Now(), cfg.Timezone),
+			platformColor, platformPrefix, ColorReset,
+			ColorBlue, module, ColorReset,
+			message)
 	}
 }
 
@@ -106,6 +128,19 @@ func SanitizeFolderName(name string) string {
 	name = strings.ToLower(name)
 	name = strings.ReplaceAll(name, " ", "_")
 	return SanitizeFilename(name)
+}
+
+// JoinCommandArgs joins command arguments into a single string, quoting args that contain spaces
+func JoinCommandArgs(args []string) string {
+	var result []string
+	for _, arg := range args {
+		if strings.Contains(arg, " ") {
+			result = append(result, fmt.Sprintf(`"%s"`, arg))
+		} else {
+			result = append(result, arg)
+		}
+	}
+	return strings.Join(result, " ")
 }
 
 // --- Lockfile Helpers ---

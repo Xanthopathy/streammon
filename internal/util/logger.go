@@ -143,15 +143,18 @@ func (l *DownloadLogger) LogDebug(message string) {
 // Terminal visibility controlled by dlpDebug flag
 // Progress lines are throttled based on subprocess_progress_interval config
 // Log file always receives subprocess output (with throttling for progress lines)
-func (l *DownloadLogger) LogSubprocessOutput(output string) {
+// debugType: the specific subprocess type (e.g., "yt-dlp", "twitch-dlp")
+func (l *DownloadLogger) LogSubprocessOutput(output string, debugType string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] [SUBPROCESS] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, l.channelName, output)
+	// Format: [time] [Platform] [debugType] [channelName] message
+	// Platform in its color, debugType in blue
+	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, debugType, ColorReset, l.channelName, output)
 
-	// Check if this is a progress line (contains [download])
-	isProgressLine := strings.Contains(output, "[download]")
+	// Check if this is a progress line (contains [download] or [wait])
+	isProgressLine := strings.Contains(output, "[download]") || strings.Contains(output, "[wait]")
 
 	// Determine if we should write based on throttling
 	shouldWrite := true
@@ -257,14 +260,15 @@ func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 // ReadPipeAndLog reads from a pipe and logs each line as subprocess output
 // Used for capturing twitch-dlp/yt-dlp stdout/stderr
 // Handles \r, \n, and \r\n line endings to capture progress output
-func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger) {
+// debugType: the specific subprocess type (e.g., "YT-DLP", "TWITCH-DLP")
+func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger, debugType string) {
 	scanner := bufio.NewScanner(pipe)
 	scanner.Split(scanCRLF)
 	for scanner.Scan() {
 		text := scanner.Text()
 		// Skip empty lines (can happen with consecutive \r characters)
 		if len(text) > 0 {
-			logger.LogSubprocessOutput(text)
+			logger.LogSubprocessOutput(text, debugType)
 		}
 	}
 }
