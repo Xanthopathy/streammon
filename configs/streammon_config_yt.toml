@@ -30,16 +30,15 @@ args = [
 poll_interval = "120s"
 ignore_older_than = "24h"
 
-# ====================== Channels ====================== #
-
+# ========================== Channels ========================== #
 # Common filter presets (Copy-paste these into channel filters)
 # All: [".*"]
-# Karaoke/Archive: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+# Common keywords for yabai streams: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
 
-[[channel]]
-id = "UCZLZ8Jjx_RN2CXloOmgTHVg"
-name = "Kaela Kaaaaa"
-filters = [".*"]
+# [[channel]]
+# id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
+# name = "Saya Sairroxs"
+# filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
 
 # ===================== Phase ===================== #
 # =============== Origins =============== #
@@ -150,6 +149,11 @@ filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*su
 id = "UCXDytlJU6RL8D68VrPZGyIA"
 name = "Hikanari Hina"
 filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+
+# [[channel]]
+# id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
+# name = "Saya Sairroxs"
+# filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
 
 # =============== Kaleido =============== #
 [[channel]]

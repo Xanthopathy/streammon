@@ -16,9 +16,12 @@ func main() {
 	// 1. Load Configuration
 	fmt.Printf("[%sINFO%s] Loading configurations...\n", util.ColorBlue, util.ColorReset)
 
-	globalCfg, err := config.LoadGlobalConfig("configs/config.toml")
+	globalCfg, err := config.LoadGlobalConfig("streammon_config.toml")
 	if err != nil {
-		fmt.Printf("[%sWARN%s] Could not load config.toml: %v. Using defaults (UTC).\n", util.ColorYellow, err, util.ColorReset)
+		globalCfg, err = config.LoadGlobalConfig("configs/streammon_config.toml")
+	}
+	if err != nil {
+		fmt.Printf("[%sWARN%s] Could not load streammon_config.toml: %v. Using defaults (UTC).\n", util.ColorYellow, err, util.ColorReset)
 		globalCfg = &config.GlobalConfig{
 			Timezone:               "UTC",
 			MaxConcurrentDownloads: 10,
@@ -32,9 +35,12 @@ func main() {
 	var ytCfg *config.YTConfig
 	if globalCfg.EnableYoutube {
 		var err error
-		ytCfg, err = config.LoadYTConfig("configs/config_yt.toml")
+		ytCfg, err = config.LoadYTConfig("streammon_config_yt.toml")
 		if err != nil {
-			fmt.Printf("[%sWARN%s] YouTube is enabled, but could not load config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			ytCfg, err = config.LoadYTConfig("configs/streammon_config_yt.toml")
+		}
+		if err != nil {
+			fmt.Printf("[%sWARN%s] YouTube is enabled, but could not load streammon_config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
 			ytCfg = nil // Ensure it's nil
 		}
 	}
@@ -42,9 +48,12 @@ func main() {
 	var twitchCfg *config.TwitchConfig
 	if globalCfg.EnableTwitch {
 		var err error
-		twitchCfg, err = config.LoadTwitchConfig("configs/config_twitch.toml")
+		twitchCfg, err = config.LoadTwitchConfig("streammon_config_twitch.toml")
 		if err != nil {
-			fmt.Printf("[%sWARN%s] Twitch is enabled, but could not load config_twitch.toml: %v. Twitch monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			twitchCfg, err = config.LoadTwitchConfig("configs/streammon_config_twitch.toml")
+		}
+		if err != nil {
+			fmt.Printf("[%sWARN%s] Twitch is enabled, but could not load streammon_config_twitch.toml: %v. Twitch monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
 			twitchCfg = nil // Ensure it's nil
 		}
 	}

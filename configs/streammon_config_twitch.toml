@@ -22,7 +22,16 @@ args = [
 [scraper]
 poll_interval = "120s"
 
-# ====================== Channels ====================== #
+# ========================== Channels ========================== #
+# Common filter presets (Copy-paste these into channel filters)
+# All: [".*"]
+# Common keywords for yabai streams: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+
+# Template:
+# [[channel]]
+# id = "sayasairroxs"
+# name = "Saya Sairroxs"
+# filters = [".*"]
 
 # ===================== Phase ===================== #
 # =============== Origins =============== #
@@ -160,13 +169,14 @@ id = "kaminariclara"
 name = "Kaminari Clara"
 filters = [".*"]
 
+# ================ Quest ================ #
+[[channel]]
+id = "clioaite"
+name = "Clio Aite"
+filters = [".*"]
+
 # ===================== Indies / Other ===================== #
 [[channel]]
 id = "chikafujilisa"
 name = "Chikafuji Lisa"
-filters = [".*"]
-
-[[channel]]
-id = "chess"
-name = "Chess"
 filters = [".*"]
