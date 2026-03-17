@@ -11,7 +11,7 @@ StreamMon is an automated orchestration tool that monitors YouTube and Twitch ch
 When the application starts (`main.go`):
 
 1. **Environment Setup**
-   - Set terminal title to "StreamMon"
+   - Set terminal title to "streammon" (lowercase)
    - Clear console and print ASCII banner
 
 2. **Load Global Configuration** (`configs/config.toml`)
@@ -123,8 +123,7 @@ For each configured YouTube channel:
    - This survives across polling cycles but resets when app restarts
 
    d. **Lockfile Check**
-   - Generate lockfile path: `.lock-{sanitized_channel_name}-{videoID}`
-   - Check if lockfile exists (indicates previous/concurrent download)
+   - Check if lockfile exists: `.lock-{sanitized_channel_name}-{videoID}`
    - If yes, release semaphore slot and skip
 
 3. **Launch Download** (`launchDownloader()`)
@@ -166,17 +165,20 @@ For each configured YouTube channel:
 1. **Wait for Process Exit**
    - Block on `cmd.Wait()`
 
-2. **Release Resources** (immediately upon exit)
+2. **Reset Terminal Title**
+   - Reset title to "streammon" when process completes
+
+3. **Release Resources** (immediately upon exit)
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
    - Delete lockfile
    - Close log file if exists
 
-3. **Log Completion**
+4. **Log Completion**
    - If error: Log "[YT] Download for {channel} finished with error: {error}"
    - If success: Log "[YT] Download for {channel} finished successfully."
 
-4. **Mark as Downloaded** (on success)
+5. **Mark as Downloaded** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
    - Prevents re-downloading the same video in subsequent polling cycles
 
@@ -302,17 +304,20 @@ For each configured Twitch channel:
 1. **Wait for Process Exit**
    - Block on `cmd.Wait()`
 
-2. **Release Resources** (immediately upon exit)
+2. **Reset Terminal Title**
+   - Reset title to "streammon" when process completes
+
+3. **Release Resources** (immediately upon exit)
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
    - Delete lockfile
    - Close log file if exists
 
-3. **Log Completion**
+4. **Log Completion**
    - If error: Log "[Twitch] Download for {channel} finished with error: {error}"
    - If success: Log "[Twitch] Download for {channel} finished successfully."
 
-4. **Mark as Downloaded** (on success)
+5. **Mark as Downloaded** (on success)
    - Add broadcast ID to session cache: `downloadedVideos[channelID][broadcastID] = true`
    - Prevents re-downloading the same broadcast in subsequent polling cycles
 
@@ -414,7 +419,7 @@ For each configured Twitch channel:
 
 ## Configuration Files
 
-### Global Config (`config.toml`)
+### Global Config (`streammon_config.toml`)
 
 ```toml
 timezone = "UTC"
@@ -432,16 +437,16 @@ youtube_dlp_verbose_debug = true
 twitch_dlp_verbose_debug = true
 ```
 
-### YouTube Config (`config_yt.toml`)
+### YouTube Config (`streammon_config_yt.toml`)
 
 ```toml
 [streammon]
 working_directory = "download_yt"
-args = ["--format", "best", ...]
+args = ["--wait-for-video", "60", "--live-from-start", ...]
 
-[scraper.rss]
-poll_interval = "60s"
-ignore_older_than = "7d"
+[scraper]
+poll_interval = "120s"
+ignore_older_than = "24h"
 
 [[channel]]
 id = "UC..."
@@ -449,15 +454,15 @@ name = "Channel Name"
 filters = ["(?i).*karaoke.*"]
 ```
 
-### Twitch Config (`config_twitch.toml`)
+### Twitch Config (`streammon_config_twitch.toml`)
 
 ```toml
 [streammon]
 working_directory = "download_twitch"
-args = ["--format", "best", ...]
+args = ["--live-from-start", "--retry-streams", "60", ...]
 
 [scraper]
-poll_interval = "30s"
+poll_interval = "120s"
 
 [[channel]]
 id = "channel_login"
