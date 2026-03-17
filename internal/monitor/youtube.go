@@ -78,7 +78,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 		util.DebugLog(m.globalCfg, "YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s: %v, using default 24h", ch.Name, err))
 	}
 
-	return CheckLiveYouTube(httpClient, ch.ID, m.globalCfg, ignoreOlderThan)
+	return CheckLiveYouTube(httpClient, ch.ID, ch.Name, m.globalCfg, ignoreOlderThan)
 }
 
 // BuildDownloaderCmd constructs the command to run yt-dlp.
