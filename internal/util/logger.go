@@ -281,7 +281,7 @@ func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 // Used for capturing twitch-dlp/yt-dlp stdout/stderr
 // Handles \r, \n, and \r\n line endings to capture progress output
 // debugType: the specific subprocess type (e.g., "YT-DLP", "TWITCH-DLP")
-func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger, debugType string) {
+func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger, debugType string, callback func(string)) {
 	scanner := bufio.NewScanner(pipe)
 	scanner.Split(scanCRLF)
 	for scanner.Scan() {
@@ -289,6 +289,9 @@ func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger, debugType string) {
 		// Skip empty lines (can happen with consecutive \r characters)
 		if len(text) > 0 {
 			logger.LogSubprocessOutput(text, debugType)
+			if callback != nil {
+				callback(text)
+			}
 		}
 	}
 }

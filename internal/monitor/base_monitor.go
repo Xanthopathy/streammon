@@ -7,7 +7,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"streammon/internal/config"
@@ -16,10 +18,11 @@ import (
 
 // downloadProcess holds information about a running download process.
 type downloadProcess struct {
-	cmd      *exec.Cmd
-	videoID  string
-	lockPath string
-	logger   *util.DownloadLogger
+	cmd       *exec.Cmd
+	videoID   string
+	lockPath  string
+	logger    *util.DownloadLogger
+	isWaiting *atomic.Bool // Signals that the process is in a waiting/retry state
 }
 
 // --- Global Download Limiter ---
@@ -245,6 +248,19 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
+	// Create synchronization for waiting state detection
+	isWaiting := &atomic.Bool{}
+
+	// Callback to detect waiting state from subprocess output
+	outputCallback := func(line string) {
+		if strings.Contains(line, "[retry-streams]") {
+			isWaiting.Store(true)
+		} else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
+			// If we see active download progress, we are no longer waiting.
+			isWaiting.Store(false)
+		}
+	}
+
 	// Create lockfile
 	if err := util.CreateLock(lockPath); err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating lockfile for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
@@ -329,10 +345,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		stderrPipe, errErr := cmd.StderrPipe()
 
 		if errOut == nil && stdoutPipe != nil {
-			go util.ReadPipeAndLog(stdoutPipe, logger, debugType)
+			go util.ReadPipeAndLog(stdoutPipe, logger, debugType, outputCallback)
 		}
 		if errErr == nil && stderrPipe != nil {
-			go util.ReadPipeAndLog(stderrPipe, logger, debugType)
+			go util.ReadPipeAndLog(stderrPipe, logger, debugType, outputCallback)
 		}
 	}
 
@@ -353,10 +369,11 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 
 	// Store process info
 	proc := &downloadProcess{
-		cmd:      cmd,
-		videoID:  status.VideoID,
-		lockPath: lockPath,
-		logger:   logger,
+		cmd:       cmd,
+		videoID:   status.VideoID,
+		lockPath:  lockPath,
+		logger:    logger,
+		isWaiting: isWaiting,
 	}
 	b.activeDownloads[ch.ID] = proc
 
@@ -440,8 +457,17 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 		b.downloadMutex.Unlock()
 
 		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
-			util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
-			return // Ignore this offline signal.
+			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
+			if proc.isWaiting != nil && proc.isWaiting.Load() {
+				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline and downloader is waiting. Terminating downloader.", ch.Name))
+				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
+					proc.cmd.Process.Kill()
+				}
+				// Fall through to update status to offline; waitForDownload will handle cleanup
+			} else {
+				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
+				return // Ignore this offline signal.
+			}
 		}
 	}
 	// --- END SAFETY NET ---
