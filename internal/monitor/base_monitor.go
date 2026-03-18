@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -99,6 +100,9 @@ func (b *BaseMonitor) Run() {
 	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
+	// Seed random for jitter
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	// Initialize the global download semaphore using the value from the global config.
 	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
 
@@ -140,14 +144,38 @@ func (b *BaseMonitor) Run() {
 		fmt.Printf("%s [%s%s%s] Invalid poll_interval, defaulting to 60s. Error: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, err)
 		pollInterval = 60 * time.Second
 	}
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
 
-	// Run initial check immediately
-	b.checkAllChannels()
+	consecutiveErrors := 0
 
-	for range ticker.C {
-		b.checkAllChannels() // Then check on every tick
+	for {
+		start := time.Now()
+
+		// Run check and track errors
+		errorCount := b.checkAllChannels()
+
+		duration := time.Since(start)
+		sleepDuration := pollInterval - duration
+
+		if sleepDuration < 0 {
+			sleepDuration = 1 * time.Second
+		}
+
+		// Backoff logic if errors occurred
+		if errorCount > 0 {
+			consecutiveErrors++
+			// Add 1 minute per consecutive error run, cap at 15 minutes
+			backoff := time.Duration(consecutiveErrors) * 1 * time.Minute
+			if backoff > 15*time.Minute {
+				backoff = 15 * time.Minute
+			}
+			fmt.Printf("%s [%s%s%s] Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)\n",
+				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, errorCount, backoff, consecutiveErrors)
+			sleepDuration += backoff
+		} else {
+			consecutiveErrors = 0
+		}
+
+		time.Sleep(sleepDuration)
 	}
 }
 
@@ -469,19 +497,31 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 }
 
 // checkAllChannels concurrently checks all configured channels.
-func (b *BaseMonitor) checkAllChannels() {
+func (b *BaseMonitor) checkAllChannels() int {
 	channels := b.controller.GetChannels()
 
 	var wg sync.WaitGroup
+	var errorCount atomic.Int32
+
 	for _, ch := range channels {
 		wg.Add(1)
-		go b.checkChannel(ch, &wg)
+
+		// Add random jitter between requests to avoid flooding APIs (0.5s - 2.0s)
+		jitter := time.Duration(rand.Intn(1500)+500) * time.Millisecond
+		time.Sleep(jitter)
+
+		go func(c config.Channel) {
+			if err := b.checkChannel(c, &wg); err != nil {
+				errorCount.Add(1)
+			}
+		}(ch)
 	}
 	wg.Wait()
+	return int(errorCount.Load())
 }
 
 // checkChannel is the core logic for checking a single channel's status.
-func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
+func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
 	globalCfg := b.controller.GetGlobalConfig()
@@ -491,7 +531,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 	newStatus, err := b.controller.CheckChannelStatus(ch, b.httpClient)
 	if err != nil {
 		fmt.Printf("%s [%s%s%s] Error checking %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		return
+		return err
 	}
 
 	// --- SAFETY NET LOGIC (pre-lock check) ---
@@ -514,7 +554,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 				// Fall through to update status to offline; waitForDownload will handle cleanup
 			} else {
 				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
-				return // Ignore this offline signal.
+				return nil // Ignore this offline signal.
 			}
 		}
 	}
@@ -545,7 +585,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 				fmt.Printf("%s [%s%s%s] %s is live but filtered out: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, newStatus.Title)
 				b.liveStatus[ch.ID] = LiveInfo{IsLive: false}
 			}
-			return
+			return nil
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
@@ -559,4 +599,5 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) {
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}
+	return nil
 }
