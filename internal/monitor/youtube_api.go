@@ -26,6 +26,8 @@ type YouTubeRSSEntry struct {
 	ChannelID string    `xml:"http://www.youtube.com/xml/schemas/2015 channelId"`
 }
 
+const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0"
+
 // CheckYouTubeViaRSS parses the YouTube RSS feed for a channel to detect recent videos.
 // It returns LiveInfo with the latest recent video that matches the age filter.
 // Unlike strict "live" detection, this approach is simpler and more reliable:
@@ -36,7 +38,15 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 	rssURL := fmt.Sprintf("https://www.youtube.com/feeds/videos.xml?channel_id=%s", channelID)
 	util.DebugLog(globalCfg, "YouTubeAPI", fmt.Sprintf("Fetching RSS feed for %s (%s): %s", channelName, channelID, rssURL))
 
-	resp, err := httpClient.Get(rssURL)
+	req, err := http.NewRequest("GET", rssURL, nil)
+	if err != nil {
+		errorMsg := fmt.Sprintf("Failed to create request for %s: %v", channelName, err)
+		util.DebugLog(globalCfg, "YouTubeAPI", errorMsg)
+		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
+	}
+	req.Header.Set("User-Agent", userAgent)
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to fetch RSS feed for %s: %v", channelName, err)
 		util.DebugLog(globalCfg, "YouTubeAPI", errorMsg)
