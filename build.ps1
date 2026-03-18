@@ -83,10 +83,26 @@ foreach ($Target in $Targets) {
         }
     }
     
-    # Zip the platform folder
+    # Zip the platform folder with cross-platform path separators
     $ZipPath = Join-Path $BuildDir $ZipName
     Write-Host "  Creating $ZipName..." -ForegroundColor Cyan
-    Compress-Archive -Path $PlatformBuildDir -DestinationPath $ZipPath -Force
+    
+    # Use .NET ZipArchive to ensure forward slashes in zip entries (cross-platform compatible)
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    if (Test-Path $ZipPath) {
+        Remove-Item $ZipPath -Force
+    }
+    
+    $zip = [System.IO.Compression.ZipFile]::Open($ZipPath, 'Create')
+    Get-ChildItem -Path $PlatformBuildDir -Recurse | ForEach-Object {
+        if (-not $_.PSIsContainer) {
+            $relPath = $_.FullName.Substring($PlatformBuildDir.Length + 1)
+            $zipPath = "$FolderName/" + $relPath.Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $zipPath) | Out-Null
+        }
+    }
+    $zip.Dispose()
+    
     Write-Host "  Zipped: $ZipName" -ForegroundColor Green
     
     $BuiltPaths += $ZipPath
