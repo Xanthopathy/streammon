@@ -10,6 +10,8 @@ type GlobalConfig struct {
 	EnableYoutube              bool   `toml:"enable_youtube"`
 	EnableTwitch               bool   `toml:"enable_twitch"`
 	SaveDownloadLogs           bool   `toml:"save_download_logs"`
+	YoutubeArchiveDownloads    bool   `toml:"youtube_archive_downloads"`
+	TwitchArchiveDownloads     bool   `toml:"twitch_archive_downloads"`
 	SubprocessProgressInterval int    `toml:"subprocess_progress_interval"`
 	SubprocessWaitInterval     int    `toml:"subprocess_wait_interval"`
 	YoutubeVerboseDebug        bool   `toml:"youtube_verbose_debug"`

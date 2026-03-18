@@ -28,6 +28,8 @@ func main() {
 			EnableYoutube:              true,
 			EnableTwitch:               true,
 			SaveDownloadLogs:           true,
+			YoutubeArchiveDownloads:    true,
+			TwitchArchiveDownloads:     true,
 			SubprocessProgressInterval: 10,
 			SubprocessWaitInterval:     60,
 			YoutubeVerboseDebug:        true,

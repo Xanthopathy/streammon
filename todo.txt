@@ -7,9 +7,3 @@ yt-dlp progress color (somehow twitch-dlp works fine but yt-dlp doesn't)
 clear_all_lockfiles = true for more seamless restarts?
 
 include progress for yt-dlp video downloads (currently only works for live streams)
-
-add optional flag for logging downloaded videos in an archive.txt
-
-detect multiple instances of the same stream being downloaded
-[2026-03-17 19:59:33 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] 1: [download]    3.35GiB at  306.87KiB/s (00:52:16) (frag 9312/11291)
-[2026-03-17 19:59:43 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] 2: [download]  203.51MiB at  128.78KiB/s (00:52:26) (frag 11601/11602)

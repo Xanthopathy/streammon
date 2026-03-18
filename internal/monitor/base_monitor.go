@@ -73,6 +73,8 @@ type BaseMonitor struct {
 	queuedVideosLoggedMutex   sync.Mutex                  // protects queuedVideosLogged
 	downloadedVidsLogged      map[string]bool             // map[videoID]bool - tracks which downloaded videos have logged the "already downloaded" message
 	downloadedVidsLoggedMutex sync.Mutex                  // protects downloadedVidsLogged
+	archivedVideos            map[string]bool             // map[videoID]bool - loaded from archive.txt
+	archivedVidMu             sync.RWMutex                // protects archivedVideos
 }
 
 // NewBaseMonitor creates a new generic monitor.
@@ -85,6 +87,7 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		downloadedVideos:     make(map[string]map[string]bool),
 		queuedVideosLogged:   make(map[string]bool),
 		downloadedVidsLogged: make(map[string]bool),
+		archivedVideos:       make(map[string]bool),
 	}
 }
 
@@ -111,6 +114,23 @@ func (b *BaseMonitor) Run() {
 		}
 		fmt.Printf("%s [%s%s%s] Created working directory: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
 	}
+
+	// Load archive.txt if enabled to prevent re-downloads
+	shouldArchive := false
+	if logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads {
+		shouldArchive = true
+	} else if logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads {
+		shouldArchive = true
+	}
+
+	if shouldArchive {
+		archivePath := filepath.Join(streamMonCfg.WorkingDirectory, "archive.txt")
+		if lines, err := util.ReadLinesToSet(archivePath); err == nil {
+			b.archivedVideos = lines
+			fmt.Printf("%s [%s%s%s] Loaded %d archived video IDs.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, len(b.archivedVideos))
+		}
+	}
+
 	// Start the download manager in the background
 	go b.manageDownloads()
 
@@ -198,7 +218,12 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 	}
 	b.downloadedVidMu.RUnlock()
 
-	if alreadyDownloaded {
+	// Check archive
+	b.archivedVidMu.RLock()
+	isArchived := b.archivedVideos[status.VideoID]
+	b.archivedVidMu.RUnlock()
+
+	if alreadyDownloaded || isArchived {
 		// Only log this message once per video to avoid spam
 		b.downloadedVidsLoggedMutex.Lock()
 		if !b.downloadedVidsLogged[status.VideoID] {
@@ -206,8 +231,12 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 			globalCfg := b.controller.GetGlobalConfig()
 			logColor := b.controller.GetLogColor()
 			logPrefix := b.controller.GetLogPrefix()
-			fmt.Printf("%s [%s%s%s] %s (%s) already downloaded in this session\n",
-				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID)
+			reason := "already downloaded in this session"
+			if isArchived {
+				reason = "found in archive"
+			}
+			fmt.Printf("%s [%s%s%s] %s (%s) skipped: %s\n",
+				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID, reason)
 		}
 		b.downloadedVidsLoggedMutex.Unlock()
 		return // Defer will release slot.
@@ -415,6 +444,25 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		}
 		b.downloadedVideos[ch.ID][proc.videoID] = true
 		b.downloadedVidMu.Unlock()
+
+		// Archive the downloaded video ID if enabled
+		shouldArchive := false
+		if logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads {
+			shouldArchive = true
+		} else if logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads {
+			shouldArchive = true
+		}
+
+		if shouldArchive {
+			archivePath := filepath.Join(b.controller.GetStreamMonConfig().WorkingDirectory, "archive.txt")
+			if err := util.AppendLineToFile(archivePath, proc.videoID); err != nil {
+				proc.logger.LogError(fmt.Sprintf("Failed to archive video ID: %v", err))
+			} else {
+				b.archivedVidMu.Lock()
+				b.archivedVideos[proc.videoID] = true
+				b.archivedVidMu.Unlock()
+			}
+		}
 	}
 
 	proc.logger.Close()

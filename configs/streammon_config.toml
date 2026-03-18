@@ -26,6 +26,10 @@ youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
 # Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
 save_download_logs = true
 
+# Archive downloaded video IDs to 'archive.txt' in the working directory to prevent redundant redownloads
+youtube_archive_downloads = true
+twitch_archive_downloads = true
+
 # How often to write subprocess progress lines to log files (in seconds)
 # Set to 0 to log every progress update (can be verbose)
 # Set to 1 or higher to throttle progress logging
