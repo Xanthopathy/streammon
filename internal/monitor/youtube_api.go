@@ -44,7 +44,12 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 		util.DebugLog(globalCfg, "YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
+	// Standard browser headers to avoid naked request detection
 	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Upgrade-Insecure-Requests", "1")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {

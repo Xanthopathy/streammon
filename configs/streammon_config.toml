@@ -33,8 +33,8 @@ twitch_archive_downloads = true
 # How often to write subprocess progress lines to log files (in seconds)
 # Set to 0 to log every progress update (can be verbose)
 # Set to 1 or higher to throttle progress logging
-subprocess_progress_interval = 10
+subprocess_progress_interval = 30
 
 # How often to write subprocess progress lines to log files (in seconds)
 # Exclusively for [wait] Remaining time until next attempt: hh:mm:ss
-subprocess_wait_interval = 60
+subprocess_wait_interval = 600

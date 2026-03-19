@@ -148,17 +148,18 @@ func (b *BaseMonitor) Run() {
 	consecutiveErrors := 0
 
 	for {
-		start := time.Now()
-
 		// Run check and track errors
 		errorCount := b.checkAllChannels()
 
-		duration := time.Since(start)
-		sleepDuration := pollInterval - duration
+		// Switch to fixed-delay scheduling aka sleep for the full interval AFTER the work is done.
+		// Previously we subtracted work duration, which dangerously reduced quiet time as the channel list grew.
+		sleepDuration := pollInterval
 
-		if sleepDuration < 0 {
-			sleepDuration = 1 * time.Second
-		}
+		// Add random jitter (-10% to +10%) to the poll interval to mitigate bot pattern recognition
+		// Example: 60s becomes something between 54s and 66s.
+		jitterPercent := 0.10
+		jitterRange := int64(float64(pollInterval) * jitterPercent)
+		sleepDuration += time.Duration(rand.Int63n(jitterRange*2) - jitterRange)
 
 		// Backoff logic if errors occurred
 		if errorCount > 0 {
@@ -503,14 +504,20 @@ func (b *BaseMonitor) checkAllChannels() int {
 	var wg sync.WaitGroup
 	var errorCount atomic.Int32
 
+	// Hoshinova uses buffer_unordered(4). We match this concurrency limit.
+	// This creates a "burst" pattern (safe) rather than a "sustained drizzle" (bot-like).
+	concurrencyLimit := 4
+	sem := make(chan struct{}, concurrencyLimit)
+
 	for _, ch := range channels {
 		wg.Add(1)
 
-		// Add random jitter between requests to avoid flooding APIs (0.5s - 2.0s)
-		jitter := time.Duration(rand.Intn(1500)+500) * time.Millisecond
-		time.Sleep(jitter)
+		// Acquire semaphore slot (blocking if full)
+		sem <- struct{}{}
 
 		go func(c config.Channel) {
+			// Ensure we release the slot when this goroutine finishes
+			defer func() { <-sem }()
 			if err := b.checkChannel(c, &wg); err != nil {
 				errorCount.Add(1)
 			}
