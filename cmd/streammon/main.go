@@ -10,6 +10,8 @@ import (
 	"streammon/internal/util"
 )
 
+const currentVersion = "v1.0.5"
+
 func main() {
 	util.SetTerminalTitle("streammon")
 	util.PrintBanner()
@@ -18,6 +20,8 @@ func main() {
 	// We use a dummy config initially, defaulting to UTC
 	defaultCfg := config.GetDefaultGlobalConfig()
 	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorBlue)
+
+	sysLogger.Logf("StreamMon version %s", currentVersion)
 
 	// 1. Load Configuration
 	sysLogger.LogRegular("Loading configurations...")
@@ -33,6 +37,16 @@ func main() {
 
 	// Update logger with loaded config (for correct timezone)
 	sysLogger = util.NewLogger(globalCfg, "System", util.ColorBlue)
+
+	// Start update check in the background
+	go func() {
+		updateMsg, err := util.CheckForUpdates(currentVersion)
+		if err != nil {
+			sysLogger.Debug("UpdateCheck", fmt.Sprintf("Failed to check for updates: %v", err))
+		} else if updateMsg != "" {
+			sysLogger.LogRegular(updateMsg)
+		}
+	}()
 
 	var ytCfg *config.YTConfig
 	if globalCfg.EnableYoutube {

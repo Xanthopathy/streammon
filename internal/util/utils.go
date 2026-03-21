@@ -2,7 +2,9 @@ package util
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,6 +213,51 @@ func ClearLockfiles(dir string) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+// --- Update Checker ---
+
+type gitHubReleaseInfo struct {
+	TagName string `json:"tag_name"`
+}
+
+// CheckForUpdates checks the latest GitHub release and compares it to the current version.
+// It returns a formatted message if a new version is available, or an empty string otherwise.
+// It performs a simple string comparison and does not handle complex semantic versioning.
+func CheckForUpdates(currentVersion string) (string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	url := "https://api.github.com/repos/Xanthopathy/streammon/releases/latest"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch latest release: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status from GitHub API: %s", resp.Status)
+	}
+
+	var releaseInfo gitHubReleaseInfo
+	if err := json.NewDecoder(resp.Body).Decode(&releaseInfo); err != nil {
+		return "", fmt.Errorf("failed to decode release info: %w", err)
+	}
+
+	latestVersion := releaseInfo.TagName
+
+	// Use a simple string comparison, but trim whitespace to make it robust against weird API responses.
+	if strings.TrimSpace(latestVersion) != "" && strings.TrimSpace(latestVersion) != strings.TrimSpace(currentVersion) {
+		releasesURL := "https://github.com/Xanthopathy/streammon/releases"
+		return fmt.Sprintf("A new version is available: %s (current: %s). Get it here: %s", latestVersion, currentVersion, releasesURL), nil
+	}
+
+	return "", nil
 }
 
 // --- File Helpers ---
