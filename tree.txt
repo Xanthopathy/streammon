@@ -32,9 +32,13 @@
 |       |-- logger.go
 |       `-- utils.go
 |-- testing
-|   |-- test_gql.go
-|   `-- test_gql.json
+|   |-- gql
+|   |   |-- test_gql.go
+|   |   `-- test_gql.json
+|   `-- live
+|       |-- test_yt_live.go
+|       `-- test_yt_live.log
 |-- todo.txt
 `-- tree.txt
 
-8 directories, 29 files
+10 directories, 31 files

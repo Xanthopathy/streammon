@@ -14,3 +14,5 @@ merge = save to txt
 CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9)?
 
 holodex or invidious api as a third option (important for member streams)
+
+[System] A new version is available: v1.0.4 (current: v1.0.5).

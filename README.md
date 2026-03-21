@@ -2,6 +2,18 @@
 
 Monitors YouTube and Twitch channels for live streams, applies regex filters, and automatically downloads them with `yt-dlp` and `twitch-dlp`.
 
+## Features
+
+- **Multi-Platform Monitoring**: Concurrently watch channels on YouTube and Twitch.
+- **Advanced Filtering**: Use regular expressions to download only the streams you want based on their titles.
+- **Concurrent Downloads**: Download multiple streams at once, up to a global limit you define.
+- **Robust Deduplication**: A multi-layer system prevents re-downloading the same stream:
+  - **Archive File**: Remembers successfully downloaded video IDs across restarts.
+  - **Session Cache**: Remembers downloads within the current session.
+  - **Lockfiles**: Prevents multiple instances from downloading the same stream.
+- **Connection Stability**: Automatically pauses all monitoring when your internet connection drops and gracefully resumes when it's restored, preventing log spam and errors.
+- **Fallback Checking (YouTube)**: If the primary check method (e.g., RSS) fails or reports a channel as offline, it automatically tries a secondary method (e.g., scraping the `/live` page) to ensure streams aren't missed.
+
 ## Requirements
 
 - **yt-dlp**: Must be in `PATH`
@@ -92,75 +104,55 @@ go run ./cmd/streammon/main.go
 
 ### config.toml
 
-| Setting                        | Default | Description                                                           |
-| ------------------------------ | ------- | --------------------------------------------------------------------- |
-| `timezone`                     | `UTC`   | Timezone for logs. Use IANA names (`Asia/Tokyo`) or offsets (`UTC+7`) |
-| `max_concurrent_downloads`     | `10`    | Max simultaneous downloads                                            |
-| `enable_youtube`               | `true`  | Monitor YouTube                                                       |
-| `enable_twitch`                | `true`  | Monitor Twitch                                                        |
-| `save_download_logs`           | `true`  | Save logs to files                                                    |
-| `subprocess_progress_interval` | `10`    | Throttle [download] lines in logs (seconds)                           |
-| `subprocess_wait_interval`     | `60`    | Throttle [wait] lines in logs (seconds)                               |
-| `youtube_verbose_debug`        | `true`  | Show YouTube monitor debug output                                     |
-| `twitch_verbose_debug`         | `true`  | Show Twitch monitor debug output                                      |
-| `youtube_api_verbose_debug`    | `false` | Show YouTube API calls                                                |
-| `twitch_api_verbose_debug`     | `false` | Show Twitch API calls                                                 |
-| `youtube_dlp_verbose_debug`    | `true`  | Show yt-dlp output in terminal                                        |
-| `twitch_dlp_verbose_debug`     | `true`  | Show twitch-dlp output in terminal                                    |
+| Setting                        | Default | Description                                                                                 |
+| ------------------------------ | ------- | ------------------------------------------------------------------------------------------- |
+| `timezone`                     | `UTC`   | Timezone for logs. Use IANA names (`Asia/Tokyo`) or offsets (`UTC-1`, `UTC+1`).             |
+| `max_concurrent_downloads`     | `10`    | Max simultaneous downloads across all platforms.                                            |
+| `enable_youtube`               | `true`  | Enable the YouTube monitor.                                                                 |
+| `enable_twitch`                | `true`  | Enable the Twitch monitor.                                                                  |
+| `save_download_logs`           | `true`  | Save detailed logs from `yt-dlp`/`twitch-dlp` to files in the channel's download directory. |
+| `subprocess_progress_interval` | `30`    | Throttle `[download]` progress lines in logs (seconds). Set to `0` to log every update.     |
+| `subprocess_wait_interval`     | `600`   | Throttle `[wait]` retry lines in logs (seconds).                                            |
+| `youtube_archive_downloads`    | `true`  | Save downloaded YouTube video IDs to `archive.txt` to prevent re-downloads across restarts. |
+| `twitch_archive_downloads`     | `true`  | Save downloaded Twitch video IDs to `archive.txt`.                                          |
+| `clear_all_lockfiles`          | `true`  | Automatically delete any leftover `.lock` files on startup to prevent issues after a crash. |
+| `youtube_verbose_debug`        | `true`  | General toggle for showing non-essential YouTube monitor logs in the terminal.              |
+| `twitch_verbose_debug`         | `true`  | General toggle for showing non-essential Twitch monitor logs in the terminal.               |
+| `youtube_api_verbose_debug`    | `true`  | Show detailed YouTube API (RSS, /live page) request/response logs.                          |
+| `twitch_api_verbose_debug`     | `false` | Show detailed Twitch GQL API request/response logs.                                         |
+| `youtube_dlp_verbose_debug`    | `true`  | Show raw `yt-dlp` subprocess output in the terminal.                                        |
+| `twitch_dlp_verbose_debug`     | `true`  | Show raw `twitch-dlp` subprocess output in the terminal.                                    |
 
-### config_yt.toml & config_twitch.toml
+### config_yt.toml
 
-| Setting                   | Description                                                                                                |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `working_directory`       | Where to save downloads                                                                                    |
-| **`[scraper]` section**   |                                                                                                            |
-| `poll_interval`           | How often to check for new streams (e.g., `120s`). **Freshness target**: the ideal check frequency.        |
-| `max_requests_per_second` | Rate limit for API calls (default: `2`). **Safety limit**: prevents burst patterns that trigger detection. |
-| `args`                    | Arguments passed to yt-dlp/twitch-dlp                                                                      |
+| Setting                   | Description                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `working_directory`       | Where to save YouTube downloads.                                                                                                                             |
+| **`[scraper]` section**   |                                                                                                                                                              |
+| `check_method`            | Default method to check for streams. Options: `"rss"` (low-bandwidth, can be delayed) or `"live"` (more accurate, heavier). The other is used as a fallback. |
+| `ignore_older_than`       | Prevents downloading old videos that reappear in the RSS feed.                                                                                               |
+| `poll_interval`           | How often to check for new streams (e.g., `60s`). This is a "freshness target" for the whole channel list.                                                   |
+| `max_requests_per_second` | Hard rate limit for API calls (default: `2`). This acts as a safety to prevent being flagged as a bot.                                                       |
+| `args`                    | Arguments passed to `yt-dlp`.                                                                                                                                |
+
+### config_twitch.toml
+
+| Setting                   | Description                                       |
+| ------------------------- | ------------------------------------------------- |
+| `working_directory`       | Where to save Twitch downloads.                   |
+| **`[scraper]` section**   |                                                   |
+| `poll_interval`           | How often to check for new streams (e.g., `30s`). |
+| `max_requests_per_second` | Hard rate limit for API calls (default: `2`).     |
+| `args`                    | Arguments passed to `twitch-dlp`.                 |
 
 ## How It Works
 
-### Polling & Rate Limiting
-
-streammon uses a **dual-constraint model** to balance freshness with detection avoidance:
-
-- **Freshness target** (`poll_interval`): How often you want to check each channel. For example, `poll_interval = 60s` means "check channels roughly every 60 seconds."
-- **Safety limit** (`max_requests_per_second`): Prevents API bursts. With 60 channels and `max_requests_per_second = 2`, the monitor spreads API requests across ~30 seconds.
-
-**How spacing is calculated:**
-
-```
-ideal_spacing = poll_interval / channel_count
-rate_limit_spacing = 1 / max_requests_per_second
-actual_spacing = max(ideal_spacing, rate_limit_spacing)
-```
-
-**Example:** 40 channels with `poll_interval = 60s` and `max_requests_per_second = 2`:
-
-- Ideal spacing: 60s / 40 = 1.5s per request
-- Rate-limit spacing: 1 / 2 = 0.5s minimum
-- Actual spacing: max(1.5s, 0.5s) = **1.5s** between API calls
-- Total check cycle: ~60s (evenly spread)
-
-### Recommended Settings
-
-**YouTube (RSS-based, soft rate limits):**
-
-- `poll_interval = "120s"` (40-80 channels)
-- `poll_interval = "60s"` (< 20 channels)
-- `max_requests_per_second = 2` (conservative, safe default)
-- ⚠️ **Do NOT use `30s` unless you have < 10 channels.** YouTube's RSS feed has soft rate limits and will soft-block repeated bursts.
-
-**Twitch (GraphQL API, more lenient):**
-
-- `poll_interval = "120s"` (general recommendation)
-- `poll_interval = "60s"` (< 20 channels is safe)
-- `max_requests_per_second = 2` (good default; Twitch is more forgiving than YouTube)
-
 ### Core Loop
 
-1. Polls each platform every `poll_interval` (spread intelligently via `max_requests_per_second`)
-2. Checks if new/live content matches your filters
-3. Prevents duplicate downloads (same video not downloaded twice in one session)
-4. Downloads up to `max_concurrent_downloads` at once
-5. Logs progress and errors
+6. **Polls Channels**: Each monitor (YouTube, Twitch) runs a continuous loop, checking all its configured channels every `poll_interval`.
+7. **Spreads Requests**: To avoid being detected as a bot, requests are not sent in a single burst. They are spaced out based on your `poll_interval` and `max_requests_per_second` settings.
+8. **Checks Status**: For each channel, it uses the configured method (`rss` or `live` for YouTube, GQL for Twitch) to see if a stream is live. If the primary method fails, it tries a fallback.
+9. **Applies Filters**: If a stream is live, its title is checked against your list of regex `filters`. If it doesn't match, it's ignored.
+10. **Queues for Download**: If a stream is live and passes the filters, it's queued for download.
+11. **Manages Downloads**: A separate manager process constantly checks the queue and starts new downloads as soon as a slot is free, up to the `max_concurrent_downloads` limit.
+12. **Logs Everything**: The application provides detailed logs for status changes, download progress, and errors, both in the terminal and in log files (if enabled).
