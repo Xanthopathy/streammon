@@ -164,7 +164,7 @@ func DebugLog(cfg *config.GlobalConfig, module, message string) {
 			shouldLog = cfg.TwitchVerboseDebug
 			platformPrefix = "Twitch"
 			platformColor = ColorPurple
-		} else if strings.HasPrefix(module, "YouTube") {
+		} else if strings.HasPrefix(module, "YT") {
 			shouldLog = cfg.YoutubeVerboseDebug
 			platformPrefix = "YT"
 			platformColor = ColorRed
@@ -223,7 +223,7 @@ func HasLock(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func CreateLock(path string) error {
+func CreateLock(path string, timezone string, logPrefix string, logColor string) error {
 	// Ensure parent directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -235,14 +235,14 @@ func CreateLock(path string) error {
 		return err
 	}
 	defer file.Close()
-	fmt.Printf("[%sLOCK%s] Created: %s\n", ColorBlue, ColorReset, path)
+	fmt.Printf("%s [%s%s%s] [%sLOCK%s] Created: %s\n", FormatTime(time.Now(), timezone), logColor, logPrefix, ColorReset, ColorBlue, ColorReset, path)
 	return nil
 }
 
-func DeleteLock(path string) {
+func DeleteLock(path string, timezone string, logPrefix string, logColor string) {
 	err := os.Remove(path)
 	if err == nil {
-		fmt.Printf("[%sLOCK%s] Deleted: %s\n", ColorBlue, ColorReset, path)
+		fmt.Printf("%s [%s%s%s] [%sLOCK%s] Deleted: %s\n", FormatTime(time.Now(), timezone), logColor, logPrefix, ColorReset, ColorBlue, ColorReset, path)
 	}
 }
 

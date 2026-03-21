@@ -125,30 +125,6 @@ func (l *DownloadLogger) LogRegular(message string) {
 	}
 }
 
-// LogDebug logs a message only if debug is enabled
-// Used for API calls and verbose diagnostics
-func (l *DownloadLogger) LogDebug(message string) {
-	if !l.apiDebug {
-		return
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s][DEBUG] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, message)
-
-	// Terminal output if debug enabled
-	fmt.Print(line)
-
-	// Also write to log file without color codes
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
-}
-
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
 // Terminal visibility controlled by dlpDebug flag
 // Progress lines are throttled based on subprocess_progress_interval config
@@ -197,25 +173,6 @@ func (l *DownloadLogger) LogSubprocessOutput(output string, debugType string) {
 
 	// Always write to log file (with throttling applied)
 	if shouldWrite && l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
-}
-
-// LogProgress writes download progress (always shown in terminal and logged)
-func (l *DownloadLogger) LogProgress(message string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] [PROGRESS] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, message)
-
-	// Terminal output
-	fmt.Print(line)
-
-	// Log file without color codes
-	if l.logFile != nil {
 		cleanedLine := stripANSI(line)
 		l.logFile.WriteString(cleanedLine)
 		l.logFile.Sync()

@@ -21,6 +21,16 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
+	// Log slot acquisition
+	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
+	if shouldLogSlots {
+		// Note: len(downloadSlots) shows the number of *active* slots.
+		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
+		fmt.Printf("%s [%s%s%s] Acquired download slot for %s. Slots used: %d/%d.\n",
+			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset,
+			ch.Name, len(downloadSlots), cap(downloadSlots))
+	}
+
 	// Create synchronization for waiting state detection
 	isWaiting := &atomic.Bool{}
 
@@ -35,7 +45,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	}
 
 	// Create lockfile
-	if err := util.CreateLock(lockPath); err != nil {
+	if err := util.CreateLock(lockPath, globalCfg.Timezone, logPrefix, logColor); err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating lockfile for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
 		return false
 	}
@@ -53,7 +63,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, util.SanitizeFolderName(ch.Name))
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating directory for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		util.DeleteLock(lockPath)
+		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor)
 		return false
 	}
 	cmd.Dir = channelDir
@@ -86,7 +96,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	)
 	if err != nil {
 		fmt.Printf("%s [%s%s%s] Error creating logger for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		util.DeleteLock(lockPath)
+		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor)
 		return false
 	}
 
@@ -133,7 +143,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	// Start command
 	if err := cmd.Start(); err != nil {
 		logger.LogError(fmt.Sprintf("Error starting download for %s: %v", ch.Name, err))
-		util.DeleteLock(lockPath) // Clean up lock on failure
+		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor) // Clean up lock on failure
 		logger.Close()
 		return false
 	}
@@ -170,17 +180,30 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	delete(b.activeDownloads, ch.ID)
 	b.downloadMutex.Unlock()
 
-	util.DeleteLock(proc.lockPath)
 	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
+	logColor := b.controller.GetLogColor()
+	util.DeleteLock(proc.lockPath, globalCfg.Timezone, logPrefix, logColor)
 
-	util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("Released download slot for %s. Slots used: %d/%d.", ch.Name, len(downloadSlots), cap(downloadSlots)))
+	// Log slot release with correct styling (fixes double tag issue and enables for YT)
+	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
+	if shouldLogSlots {
+		fmt.Printf("%s [%s%s%s] Released download slot for %s. Slots used: %d/%d.\n",
+			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset,
+			ch.Name, len(downloadSlots), cap(downloadSlots))
+	}
 
-	if err != nil {
+	// Check if the error was due to forced termination (monitor stopped it)
+	if proc.forcedTermination.Load() {
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s stopped by monitor (stream offline).", ch.Name))
+	} else if err != nil {
 		proc.logger.LogError(fmt.Sprintf("Download for %s finished with error: %v", ch.Name, err))
 	} else {
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s finished successfully.", ch.Name))
+	}
 
+	// Archive if success OR forced termination (assuming meaningful data was captured)
+	if err == nil || proc.forcedTermination.Load() {
 		// Mark this video as downloaded in the session cache
 		b.downloadedVidMu.Lock()
 		if _, ok := b.downloadedVideos[ch.ID]; !ok {
