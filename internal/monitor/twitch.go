@@ -50,6 +50,13 @@ func (m *TwitchMonitor) GetPollInterval() (time.Duration, error) {
 	return time.ParseDuration(m.cfg.Scraper.PollInterval)
 }
 
+func (m *TwitchMonitor) GetMaxRequestsPerSecond() float64 {
+	if m.cfg.Scraper.MaxRequestsPerSecond <= 0 {
+		return 2 // Default: 2 requests per second
+	}
+	return m.cfg.Scraper.MaxRequestsPerSecond
+}
+
 func (m *TwitchMonitor) GetLogColor() string {
 	return util.ColorPurple
 }

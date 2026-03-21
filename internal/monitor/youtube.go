@@ -56,6 +56,13 @@ func (m *YTMonitor) GetPollInterval() (time.Duration, error) {
 	return time.ParseDuration(m.cfg.Scraper.PollInterval)
 }
 
+func (m *YTMonitor) GetMaxRequestsPerSecond() float64 {
+	if m.cfg.Scraper.MaxRequestsPerSecond <= 0 {
+		return 2 // Default: 2 requests per second
+	}
+	return m.cfg.Scraper.MaxRequestsPerSecond
+}
+
 func (m *YTMonitor) GetLogColor() string {
 	return util.ColorRed
 }
@@ -64,10 +71,7 @@ func (m *YTMonitor) GetLogPrefix() string {
 	return "YT"
 }
 
-// CheckChannelStatus for YouTube uses both HTTP redirect detection and RSS parsing
-// to confirm a stream is live. This dual approach ensures:
-// 1. HTTP redirect check provides real-time confirmation (302 to watch page = live)
-// 2. RSS check provides metadata about the stream
+// CheckChannelStatus for YouTube uses RSS parsing to confirm a stream is live.
 // Only launches yt-dlp if both checks confirm the stream exists.
 func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
 	// Parse the ignore_older_than duration from config

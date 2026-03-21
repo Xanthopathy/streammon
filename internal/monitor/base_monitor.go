@@ -52,6 +52,7 @@ type MonitorController interface {
 	GetStreamMonConfig() *config.StreamMonConfig
 	GetChannels() []config.Channel
 	GetPollInterval() (time.Duration, error)
+	GetMaxRequestsPerSecond() float64
 	GetLogColor() string
 	GetLogPrefix() string
 
@@ -109,6 +110,26 @@ func (b *BaseMonitor) Run() {
 	fmt.Printf("[%s%s%s] Monitor started for %d channels.\n", logColor, logPrefix, util.ColorReset, len(channels))
 	fmt.Printf("[%s%s%s] Working Directory: %s\n", logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
 
+	// Log request spacing configuration
+	channelCount := len(channels)
+	pollInterval, err := b.controller.GetPollInterval()
+	if err == nil && channelCount > 0 {
+		maxRPS := b.controller.GetMaxRequestsPerSecond()
+		if maxRPS <= 0 {
+			maxRPS = 2
+		}
+
+		idealSpacing := pollInterval / time.Duration(channelCount)
+		rpsSpacing := time.Second / time.Duration(int(maxRPS))
+		effectiveSpacing := idealSpacing
+		if rpsSpacing > idealSpacing {
+			effectiveSpacing = rpsSpacing
+		}
+
+		fmt.Printf("[%s%s%s] Configured poll_interval: %v | Channels: %d | Effective request spacing: ~%v\n",
+			logColor, logPrefix, util.ColorReset, pollInterval, channelCount, effectiveSpacing)
+	}
+
 	// Create working directory if it doesn't exist
 	if _, err := os.Stat(streamMonCfg.WorkingDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(streamMonCfg.WorkingDirectory, 0755)
@@ -139,7 +160,6 @@ func (b *BaseMonitor) Run() {
 	go b.manageDownloads()
 
 	// Configure the main check ticker
-	pollInterval, err := b.controller.GetPollInterval()
 	if err != nil {
 		fmt.Printf("%s [%s%s%s] Invalid poll_interval, defaulting to 60s. Error: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, err)
 		pollInterval = 60 * time.Second
@@ -497,20 +517,76 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	proc.logger.Close()
 }
 
-// checkAllChannels concurrently checks all configured channels.
+// checkAllChannels concurrently checks all configured channels with request pacing.
+// Uses bounded concurrency (4 requests) plus request spacing to avoid API rate limits.
+// Balances freshness target (poll_interval) with safety limit (max_requests_per_second).
 func (b *BaseMonitor) checkAllChannels() int {
 	channels := b.controller.GetChannels()
 
 	var wg sync.WaitGroup
 	var errorCount atomic.Int32
 
-	// Hoshinova uses buffer_unordered(4). We match this concurrency limit.
-	// This creates a "burst" pattern (safe) rather than a "sustained drizzle" (bot-like).
+	// Bounded concurrency prevents burst patterns that trigger detection.
 	concurrencyLimit := 4
 	sem := make(chan struct{}, concurrencyLimit)
 
+	// Calculate request spacing from two constraints:
+	// 1. Freshness target: spread requests across poll_interval
+	// 2. Safety limit: enforce max_requests_per_second
+	// Use the more conservative (larger) spacing from these two.
+	pollInterval := time.Duration(0)
+	if interval, err := b.controller.GetPollInterval(); err == nil {
+		pollInterval = interval
+	} else {
+		pollInterval = 60 * time.Second
+	}
+
+	channelCount := len(channels)
+	var requestSpacing time.Duration
+	if channelCount > 0 {
+		// Ideal spacing from poll interval
+		idealSpacing := pollInterval / time.Duration(channelCount)
+
+		// Minimum spacing from max_requests_per_second
+		// Use float64 math to avoid precision loss with fractional RPS (e.g., 1.5 RPS)
+		maxRPS := b.controller.GetMaxRequestsPerSecond()
+		if maxRPS <= 0 {
+			maxRPS = 2 // Default: 2 requests per second
+		}
+		rpsSpacing := time.Duration(float64(time.Second) / maxRPS)
+
+		// Use whichever spacing is more conservative (larger)
+		requestSpacing = idealSpacing
+		if rpsSpacing > idealSpacing {
+			requestSpacing = rpsSpacing
+		}
+	}
+
+	// Stagger requests with jittered delays to avoid bot-like perfect timing.
+	// Random jitter (±25% of requestSpacing) simulates organic traffic patterns
+	// and prevents detection of mathematically perfect request rhythms.
+	// We use time.Sleep() instead of time.Ticker to avoid:
+	// 1. Buffered tick bursts when goroutines are slow (ticker buffers 1 tick)
+	// 2. Perfect rhythmic patterns that bot detectors flag
+	jitterPercent := 0.25
+
 	for _, ch := range channels {
 		wg.Add(1)
+
+		// Apply randomized jitter to spacing if configured
+		if requestSpacing > 0 {
+			jitterRange := int64(float64(requestSpacing) * jitterPercent)
+			// Ensure we don't divide by zero if jitterRange is 0
+			var randomJitter time.Duration
+			if jitterRange > 0 {
+				randomJitter = time.Duration(rand.Int63n(jitterRange*2)) - time.Duration(jitterRange)
+			}
+			actualSleep := requestSpacing + randomJitter
+			if actualSleep < 100*time.Millisecond {
+				actualSleep = 100 * time.Millisecond // Minimum safety floor
+			}
+			time.Sleep(actualSleep)
+		}
 
 		// Acquire semaphore slot (blocking if full)
 		sem <- struct{}{}
@@ -602,7 +678,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			fmt.Printf("%s [%s%s%s] %s%s has gone OFFLINE%s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, util.ColorRed, ch.Name, util.ColorReset)
+			fmt.Printf("%s [%s%s%s] %s%s has gone offline%s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, util.ColorRed, ch.Name, util.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

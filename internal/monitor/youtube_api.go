@@ -33,7 +33,6 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/201
 // Unlike strict "live" detection, this approach is simpler and more reliable:
 // - Just checks if video's updated timestamp is recent (within ignore_older_than)
 // - Lets yt-dlp determine if it's actually a live stream
-// This matches the approach used by hoshinova for better reliability
 func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName string, globalCfg *config.GlobalConfig, ignoreOlderThan time.Duration) (LiveInfo, error) {
 	rssURL := fmt.Sprintf("https://www.youtube.com/feeds/videos.xml?channel_id=%s", channelID)
 	util.DebugLog(globalCfg, "YouTubeAPI", fmt.Sprintf("Fetching RSS feed for %s (%s): %s", channelName, channelID, rssURL))
@@ -50,6 +49,10 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	req.Header.Set("sec-fetch-dest", "document")
+	req.Header.Set("sec-fetch-mode", "navigate")
+	req.Header.Set("sec-fetch-site", "none")
+	req.Header.Set("sec-fetch-user", "?1")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -66,7 +69,7 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 	}
 
 	// Read the response body
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body) // Consider replacing with io.LimitReader(resp.Body, 1024*512) if YT sends a bomb
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to read RSS feed for %s: %v", channelName, err)
 		util.DebugLog(globalCfg, "YouTubeAPI", errorMsg)
@@ -84,7 +87,6 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 	}
 
 	// Look for the latest video that's recent enough
-	// Matches hoshinova's approach: just check Updated timestamp, let yt-dlp figure out if it's live
 	now := time.Now()
 	cutoff := now.Add(-ignoreOlderThan)
 
@@ -119,7 +121,6 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 }
 
 // CheckLiveYouTube checks if a channel has recent videos worth downloading.
-// It uses a simple, reliable approach matching hoshinova:
 // 1. Fetch the RSS feed
 // 2. Check if the latest video's Updated timestamp is recent (within ignore_older_than)
 // 3. Return the video details - let yt-dlp determine if it's actually a live stream

@@ -16,7 +16,7 @@ Monitors YouTube and Twitch channels for live streams, applies regex filters, an
 
 **Option A: GitHub Release**
 
-- Download the `.zip` of your respective platform from the release
+- Download the `.zip` of your respective platform from the [release page](https://github.com/Xanthopathy/streammon/releases)
 - Extract it
 - Run the binary for your OS:
   - **Windows**: `streammon.exe`
@@ -110,15 +110,56 @@ go run ./cmd/streammon/main.go
 
 ### config_yt.toml & config_twitch.toml
 
-| Setting             | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `working_directory` | Where to save downloads                           |
-| `poll_interval`     | How often to check for new streams (e.g., `120s`) |
-| `args`              | Arguments passed to yt-dlp/twitch-dlp             |
+| Setting                   | Description                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `working_directory`       | Where to save downloads                                                                                    |
+| **`[scraper]` section**   |                                                                                                            |
+| `poll_interval`           | How often to check for new streams (e.g., `120s`). **Freshness target**: the ideal check frequency.        |
+| `max_requests_per_second` | Rate limit for API calls (default: `2`). **Safety limit**: prevents burst patterns that trigger detection. |
+| `args`                    | Arguments passed to yt-dlp/twitch-dlp                                                                      |
 
 ## How It Works
 
-1. Polls each platform every `poll_interval`
+### Polling & Rate Limiting
+
+streammon uses a **dual-constraint model** to balance freshness with detection avoidance:
+
+- **Freshness target** (`poll_interval`): How often you want to check each channel. For example, `poll_interval = 60s` means "check channels roughly every 60 seconds."
+- **Safety limit** (`max_requests_per_second`): Prevents API bursts. With 60 channels and `max_requests_per_second = 2`, the monitor spreads API requests across ~30 seconds.
+
+**How spacing is calculated:**
+
+```
+ideal_spacing = poll_interval / channel_count
+rate_limit_spacing = 1 / max_requests_per_second
+actual_spacing = max(ideal_spacing, rate_limit_spacing)
+```
+
+**Example:** 40 channels with `poll_interval = 60s` and `max_requests_per_second = 2`:
+
+- Ideal spacing: 60s / 40 = 1.5s per request
+- Rate-limit spacing: 1 / 2 = 0.5s minimum
+- Actual spacing: max(1.5s, 0.5s) = **1.5s** between API calls
+- Total check cycle: ~60s (evenly spread)
+
+### Recommended Settings
+
+**YouTube (RSS-based, soft rate limits):**
+
+- `poll_interval = "120s"` (40-80 channels)
+- `poll_interval = "60s"` (< 20 channels)
+- `max_requests_per_second = 2` (conservative, safe default)
+- ⚠️ **Do NOT use `30s` unless you have < 10 channels.** YouTube's RSS feed has soft rate limits and will soft-block repeated bursts.
+
+**Twitch (GraphQL API, more lenient):**
+
+- `poll_interval = "120s"` (general recommendation)
+- `poll_interval = "60s"` (< 20 channels is safe)
+- `max_requests_per_second = 2` (good default; Twitch is more forgiving than YouTube)
+
+### Core Loop
+
+1. Polls each platform every `poll_interval` (spread intelligently via `max_requests_per_second`)
 2. Checks if new/live content matches your filters
 3. Prevents duplicate downloads (same video not downloaded twice in one session)
 4. Downloads up to `max_concurrent_downloads` at once

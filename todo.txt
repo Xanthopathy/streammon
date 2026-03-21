@@ -30,3 +30,9 @@ include progress for yt-dlp video downloads (currently only works for live strea
 running app prints message of current version and whether an update is available
 
 durability for when wifi is unstable or offline for a duration of time 
+
+update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
+
+merge = save to txt
+
+don't have no such host/connection issues count towards rss error (implement simple baby connection tester to pause all processes while internet access is down?)

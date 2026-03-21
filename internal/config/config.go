@@ -39,8 +39,9 @@ type YTConfig struct {
 	Timezone  string          `toml:"timezone"` // Optional: override global timezone for YouTube logs
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
-		PollInterval    string `toml:"poll_interval"`
-		IgnoreOlderThan string `toml:"ignore_older_than"`
+		PollInterval        string  `toml:"poll_interval"`
+		IgnoreOlderThan     string  `toml:"ignore_older_than"`
+		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }
@@ -51,7 +52,8 @@ type TwitchConfig struct {
 	Timezone  string          `toml:"timezone"` // Optional: override global timezone for Twitch logs
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
-		PollInterval string `toml:"poll_interval"`
+		PollInterval         string  `toml:"poll_interval"`
+		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }
