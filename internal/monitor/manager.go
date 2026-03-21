@@ -96,7 +96,7 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 			if isArchived {
 				reason = "found in archive"
 			}
-			b.logger.Logf("%s (%s) skipped: %s", ch.Name, status.VideoID, reason)
+			b.logger.Logf("%s%s%s (%s) skipped: %s", util.ColorOrange, ch.Name, util.ColorReset, status.VideoID, reason)
 		}
 		b.downloadedVidsLoggedMutex.Unlock()
 		return // Defer will release slot.
@@ -111,7 +111,7 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 		if !b.queuedVideosLogged[status.VideoID] {
 			b.queuedVideosLogged[status.VideoID] = true
 			lockFileName := filepath.Base(lockPath)
-			b.logger.Logf("%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", ch.Name, status.VideoID, lockFileName)
+			b.logger.Logf("%s%s%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", util.ColorOrange, ch.Name, util.ColorReset, status.VideoID, lockFileName)
 		}
 		b.queuedVideosLoggedMutex.Unlock()
 		return // Defer will release slot.
