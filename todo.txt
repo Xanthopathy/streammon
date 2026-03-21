@@ -10,3 +10,5 @@ don't have no such host/connection issues count towards rss error (implement sim
 update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 
 merge = save to txt
+
+CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9)?

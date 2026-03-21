@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -258,6 +259,21 @@ func CheckForUpdates(currentVersion string) (string, error) {
 	}
 
 	return "", nil
+}
+
+// --- Connection Helpers ---
+
+// CheckInternetConnection attempts to connect to a reliable public DNS server to verify internet access.
+// It uses a short timeout to fail fast.
+func CheckInternetConnection() bool {
+	// Try connecting to Cloudflare DNS (1.1.1.1:53) or Google DNS (8.8.8.8:53)
+	// We use DialTimeout for a quick check.
+	conn, err := net.DialTimeout("tcp", "1.1.1.1:53", 3*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 // --- File Helpers ---

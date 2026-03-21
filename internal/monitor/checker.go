@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -116,6 +117,13 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 	newStatus, err := b.controller.CheckChannelStatus(ch, b.httpClient)
 	if err != nil {
 		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
+
+		// Check for network errors to trigger immediate stability check
+		errStr := err.Error()
+		if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "dial tcp") || strings.Contains(errStr, "temporary failure in name resolution") {
+			b.TriggerConnectionCheck()
+		}
+
 		return err
 	}
 

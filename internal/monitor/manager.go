@@ -14,6 +14,13 @@ func (b *BaseMonitor) manageDownloads() {
 	for {
 		time.Sleep(managerInterval)
 
+		// Check connection pause state
+		b.pauseCond.L.Lock()
+		for !b.isConnected {
+			b.pauseCond.Wait()
+		}
+		b.pauseCond.L.Unlock()
+
 		// Periodically reset terminal title to prevent subprocesses from changing it
 		util.SetTerminalTitle("streammon")
 

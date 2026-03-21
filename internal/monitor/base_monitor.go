@@ -26,6 +26,9 @@ type BaseMonitor struct {
 	archivedVideos            map[string]bool             // map[videoID]bool - loaded from archive.txt
 	archivedVidMu             sync.RWMutex                // protects archivedVideos
 	rpsWarningSent            bool                        // Tracks if we've warned about RPS throttling
+	isConnected               bool                        // Tracks current internet connection status
+	pauseCond                 *sync.Cond                  // Condition variable to freeze/thaw monitoring loops
+	connCheckTrigger          chan struct{}               // Channel to trigger immediate connection checks
 }
 
 // NewBaseMonitor creates a new generic monitor.
@@ -41,5 +44,18 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		downloadedVidsLogged: make(map[string]bool),
 		archivedVideos:       make(map[string]bool),
 		rpsWarningSent:       false,
+		isConnected:          true,
+		pauseCond:            sync.NewCond(&sync.Mutex{}),
+		connCheckTrigger:     make(chan struct{}, 1),
+	}
+}
+
+// TriggerConnectionCheck signals the monitor loop to check connectivity immediately.
+// It uses a non-blocking send to avoid stalling the caller.
+func (b *BaseMonitor) TriggerConnectionCheck() {
+	select {
+	case b.connCheckTrigger <- struct{}{}:
+	default:
+		// Already triggered, skip
 	}
 }
