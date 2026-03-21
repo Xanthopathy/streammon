@@ -34,9 +34,9 @@ ignore_older_than = "24h"
 # This is your "freshness target" - how frequently you want to detect new streams.
 # Spread intelligently: A monitor with 40 channels at poll_interval=60s will space
 # individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
-# Lower = more responsive but higher load. Recommended range: 30s-120s depending on channel count.
+# Lower = more responsive but higher load. Recommended range: 60s-300s depending on channel count.
 # YouTube RSS has soft rate limits; test your setup and monitor error logs.
-poll_interval = "120s"
+poll_interval = "180s"
 
 # max_requests_per_second: Rate limit for API checks (default: 2)
 # Balances freshness with detection avoidance. Example:
