@@ -104,12 +104,11 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 	defer wg.Done()
 
 	globalCfg := b.controller.GetGlobalConfig()
-	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
 	newStatus, err := b.controller.CheckChannelStatus(ch, b.httpClient)
 	if err != nil {
-		fmt.Printf("%s [%s%s%s] Error checking %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
+		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
 		return err
 	}
 
@@ -162,20 +161,20 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 
 		if !matchesFilter {
 			if wasTracked && previousStatus.IsLive {
-				fmt.Printf("%s [%s%s%s] %s is live but filtered out: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, newStatus.Title)
+				b.logger.Logf("%s is live but filtered out: %s", ch.Name, newStatus.Title)
 				b.liveStatus[ch.ID] = LiveInfo{IsLive: false}
 			}
 			return nil
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
-			fmt.Printf("%s [%s%s%s] %s %sis now LIVE%s: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, util.ColorGreen, util.ColorReset, newStatus.Title)
+			b.logger.Logf("%s %sis now LIVE%s: %s", ch.Name, util.ColorGreen, util.ColorReset, newStatus.Title)
 		}
 		b.liveStatus[ch.ID] = newStatus
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			fmt.Printf("%s [%s%s%s] %s %shas gone offline%s.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, util.ColorRed, util.ColorReset)
+			b.logger.Logf("%s %shas gone offline%s.", ch.Name, util.ColorRed, util.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

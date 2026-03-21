@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -15,7 +14,6 @@ func (b *BaseMonitor) Run() {
 	globalCfg := b.controller.GetGlobalConfig()
 	streamMonCfg := b.controller.GetStreamMonConfig()
 	channels := b.controller.GetChannels()
-	logColor := b.controller.GetLogColor()
 	logPrefix := b.controller.GetLogPrefix()
 
 	// Seed random for jitter
@@ -24,8 +22,8 @@ func (b *BaseMonitor) Run() {
 	// Initialize the global download semaphore using the value from the global config.
 	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
 
-	fmt.Printf("[%s%s%s] Monitor started for %d channels.\n", logColor, logPrefix, util.ColorReset, len(channels))
-	fmt.Printf("[%s%s%s] Working Directory: %s\n", logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
+	b.logger.Logf("Monitor started for %d channels.", len(channels))
+	b.logger.Logf("Working Directory: %s", streamMonCfg.WorkingDirectory)
 
 	// Log request spacing configuration
 	channelCount := len(channels)
@@ -43,18 +41,17 @@ func (b *BaseMonitor) Run() {
 			effectiveSpacing = rpsSpacing
 		}
 
-		fmt.Printf("[%s%s%s] Configured poll_interval: %v | Channels: %d | Effective request spacing: ~%v\n",
-			logColor, logPrefix, util.ColorReset, pollInterval, channelCount, effectiveSpacing)
+		b.logger.Logf("Configured poll_interval: %v | Channels: %d | Effective request spacing: ~%v", pollInterval, channelCount, effectiveSpacing)
 	}
 
 	// Create working directory if it doesn't exist
 	if _, err := os.Stat(streamMonCfg.WorkingDirectory); os.IsNotExist(err) {
 		err := os.MkdirAll(streamMonCfg.WorkingDirectory, 0755)
 		if err != nil {
-			fmt.Printf("%s [%s%s%s] Error creating working directory: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, err)
+			b.logger.LogErrorf("Error creating working directory: %v", err)
 			return
 		}
-		fmt.Printf("%s [%s%s%s] Created working directory: %s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, streamMonCfg.WorkingDirectory)
+		b.logger.Logf("Created working directory: %s", streamMonCfg.WorkingDirectory)
 	}
 
 	// Load archive.txt if enabled to prevent re-downloads
@@ -69,7 +66,7 @@ func (b *BaseMonitor) Run() {
 		archivePath := filepath.Join(streamMonCfg.WorkingDirectory, "archive.txt")
 		if lines, err := util.ReadLinesToSet(archivePath); err == nil {
 			b.archivedVideos = lines
-			fmt.Printf("%s [%s%s%s] Loaded %d archived video IDs.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, len(b.archivedVideos))
+			b.logger.Logf("Loaded %d archived video IDs.", len(b.archivedVideos))
 		}
 	}
 
@@ -78,7 +75,7 @@ func (b *BaseMonitor) Run() {
 
 	// Configure the main check ticker
 	if err != nil {
-		fmt.Printf("%s [%s%s%s] Invalid poll_interval, defaulting to 60s. Error: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, err)
+		b.logger.LogErrorf("Invalid poll_interval, defaulting to 60s. Error: %v", err)
 		pollInterval = 60 * time.Second
 	}
 
@@ -106,8 +103,7 @@ func (b *BaseMonitor) Run() {
 			if backoff > 15*time.Minute {
 				backoff = 15 * time.Minute
 			}
-			fmt.Printf("%s [%s%s%s] Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)\n",
-				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, errorCount, backoff, consecutiveErrors)
+			b.logger.Logf("Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)", errorCount, backoff, consecutiveErrors)
 			sleepDuration += backoff
 		} else {
 			consecutiveErrors = 0

@@ -22,12 +22,12 @@ const (
 	LogLevelDebug                   // All logs including debug spam
 )
 
-// DownloadLogger handles logging for a download session
+// Logger handles logging for a monitor or a download session.
 // Single .log file for all output (subprocess, events, errors)
 // Terminal output controlled by debug toggles
-type DownloadLogger struct {
+type Logger struct {
 	mu                    sync.Mutex
-	logFile               *os.File
+	logFile               *os.File // Optional: for download-specific logs
 	globalCfg             *config.GlobalConfig
 	logPrefix             string
 	logColor              string
@@ -41,14 +41,25 @@ type DownloadLogger struct {
 	dlpDebug bool // For twitch-dlp/yt-dlp subprocess output
 }
 
-// NewDownloadLogger creates a new logger for a download session
+// NewLogger creates a new logger for general monitor-level logging (terminal only).
+func NewLogger(globalCfg *config.GlobalConfig, logPrefix, logColor string) *Logger {
+	return &Logger{
+		globalCfg:   globalCfg,
+		logPrefix:   logPrefix,
+		logColor:    logColor,
+		channelName: "Monitor", // Default context
+	}
+}
+
+// NewLoggerForDownload creates a new logger for a specific download session.
+// It can write to a dedicated log file in addition to the terminal.
 // logPrefix: "YT" or "Twitch"
 // logColor: use ColorRed, ColorPurple, etc.
 // apiDebug: show API calls in terminal
 // dlpDebug: show subprocess output in terminal
 // command: the subprocess command string to write at the top of the log file
 // logFile will be created only if save_download_logs is true in globalCfg
-func NewDownloadLogger(
+func NewLoggerForDownload(
 	channelDir string,
 	channelID string,
 	channelName string,
@@ -60,12 +71,12 @@ func NewDownloadLogger(
 	apiDebug bool,
 	dlpDebug bool,
 	command string,
-) (*DownloadLogger, error) {
+) (*Logger, error) {
 	sanitizedName := SanitizeFolderName(channelName)
 	dateStr := dateCreated.UTC().Format("2006-01-02")
 	baseFilename := fmt.Sprintf("%s-%s-%s", dateStr, sanitizedName, streamID)
 
-	logger := &DownloadLogger{
+	logger := &Logger{
 		globalCfg:   globalCfg,
 		logPrefix:   logPrefix,
 		logColor:    logColor,
@@ -107,7 +118,7 @@ func stripANSI(s string) string {
 
 // LogRegular logs a message to both terminal and log file
 // These are important events that should always be visible
-func (l *DownloadLogger) LogRegular(message string) {
+func (l *Logger) LogRegular(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -125,12 +136,35 @@ func (l *DownloadLogger) LogRegular(message string) {
 	}
 }
 
+// Logf is a convenience wrapper for LogRegular that uses fmt.Sprintf.
+func (l *Logger) Logf(format string, args ...any) {
+	l.LogRegular(fmt.Sprintf(format, args...))
+}
+
+// LogEvent logs a message with a specific event type tag (e.g., "LOCK").
+func (l *Logger) LogEvent(eventType, message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
+	// Format: [time] [Platform] [EventType] message
+	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, eventType, ColorReset, message)
+
+	fmt.Print(line)
+	// Event logs are important and should also go to the download log file if it exists.
+	if l.logFile != nil {
+		cleanedLine := stripANSI(line)
+		l.logFile.WriteString(cleanedLine)
+		l.logFile.Sync()
+	}
+}
+
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
 // Terminal visibility controlled by dlpDebug flag
 // Progress lines are throttled based on subprocess_progress_interval config
 // Log file always receives subprocess output (with throttling for progress lines)
 // debugType: the specific subprocess type (e.g., "yt-dlp", "twitch-dlp")
-func (l *DownloadLogger) LogSubprocessOutput(output string, debugType string) {
+func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -180,7 +214,7 @@ func (l *DownloadLogger) LogSubprocessOutput(output string, debugType string) {
 }
 
 // LogError logs an error to both terminal and log file
-func (l *DownloadLogger) LogError(message string) {
+func (l *Logger) LogError(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -198,8 +232,13 @@ func (l *DownloadLogger) LogError(message string) {
 	}
 }
 
+// LogErrorf is a convenience wrapper for LogError that uses fmt.Sprintf.
+func (l *Logger) LogErrorf(format string, args ...any) {
+	l.LogError(fmt.Sprintf(format, args...))
+}
+
 // Close flushes and closes the log file
-func (l *DownloadLogger) Close() {
+func (l *Logger) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -238,7 +277,7 @@ func scanCRLF(data []byte, atEOF bool) (advance int, token []byte, err error) {
 // Used for capturing twitch-dlp/yt-dlp stdout/stderr
 // Handles \r, \n, and \r\n line endings to capture progress output
 // debugType: the specific subprocess type (e.g., "YT-DLP", "TWITCH-DLP")
-func ReadPipeAndLog(pipe io.Reader, logger *DownloadLogger, debugType string, callback func(string)) {
+func ReadPipeAndLog(pipe io.Reader, logger *Logger, debugType string, callback func(string)) {
 	scanner := bufio.NewScanner(pipe)
 	scanner.Split(scanCRLF)
 	for scanner.Scan() {

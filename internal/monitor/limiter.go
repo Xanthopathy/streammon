@@ -13,7 +13,7 @@ type downloadProcess struct {
 	cmd               *exec.Cmd
 	videoID           string
 	lockPath          string
-	logger            *util.DownloadLogger
+	logger            *util.Logger
 	isWaiting         *atomic.Bool // Signals that the process is in a waiting/retry state
 	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
 }

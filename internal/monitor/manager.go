@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"path/filepath"
 	"time"
 
@@ -86,15 +85,11 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 		b.downloadedVidsLoggedMutex.Lock()
 		if !b.downloadedVidsLogged[status.VideoID] {
 			b.downloadedVidsLogged[status.VideoID] = true
-			globalCfg := b.controller.GetGlobalConfig()
-			logColor := b.controller.GetLogColor()
-			logPrefix := b.controller.GetLogPrefix()
 			reason := "already downloaded in this session"
 			if isArchived {
 				reason = "found in archive"
 			}
-			fmt.Printf("%s [%s%s%s] %s (%s) skipped: %s\n",
-				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID, reason)
+			b.logger.Logf("%s (%s) skipped: %s", ch.Name, status.VideoID, reason)
 		}
 		b.downloadedVidsLoggedMutex.Unlock()
 		return // Defer will release slot.
@@ -108,12 +103,8 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
 		b.queuedVideosLoggedMutex.Lock()
 		if !b.queuedVideosLogged[status.VideoID] {
 			b.queuedVideosLogged[status.VideoID] = true
-			globalCfg := b.controller.GetGlobalConfig()
-			logColor := b.controller.GetLogColor()
-			logPrefix := b.controller.GetLogPrefix()
 			lockFileName := filepath.Base(lockPath)
-			fmt.Printf("%s [%s%s%s] %s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s\n",
-				util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, status.VideoID, lockFileName)
+			b.logger.Logf("%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", ch.Name, status.VideoID, lockFileName)
 		}
 		b.queuedVideosLoggedMutex.Unlock()
 		return // Defer will release slot.

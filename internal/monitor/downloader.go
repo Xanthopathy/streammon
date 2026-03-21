@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
-	"time"
 
 	"streammon/internal/config"
 	"streammon/internal/util"
@@ -26,8 +25,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	if shouldLogSlots {
 		// Note: len(downloadSlots) shows the number of *active* slots.
 		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
-		fmt.Printf("%s [%s%s%s] Acquired download slot for %s. Slots used: %d/%d.\n",
-			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset,
+		b.logger.Logf("Acquired download slot for %s. Slots used: %d/%d.",
 			ch.Name, len(downloadSlots), cap(downloadSlots))
 	}
 
@@ -45,10 +43,11 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	}
 
 	// Create lockfile
-	if err := util.CreateLock(lockPath, globalCfg.Timezone, logPrefix, logColor); err != nil {
-		fmt.Printf("%s [%s%s%s] Error creating lockfile for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
+	if err := util.CreateLock(lockPath); err != nil {
+		b.logger.LogErrorf("Error creating lockfile for %s: %v", ch.Name, err)
 		return false
 	}
+	b.logger.LogEvent("LOCK", fmt.Sprintf("Created: %s", lockPath))
 
 	// Build command using the controller
 	cmd := b.controller.BuildDownloaderCmd(ch, status)
@@ -62,8 +61,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	// Create channel specific directory
 	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, util.SanitizeFolderName(ch.Name))
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
-		fmt.Printf("%s [%s%s%s] Error creating directory for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor)
+		b.logger.LogErrorf("Error creating directory for %s: %v", ch.Name, err)
+		util.DeleteLock(lockPath)
+		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
 	}
 	cmd.Dir = channelDir
@@ -81,7 +81,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
 
-	logger, err := util.NewDownloadLogger(
+	logger, err := util.NewLoggerForDownload(
 		channelDir,
 		ch.ID,
 		ch.Name,
@@ -95,8 +95,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		commandStr,
 	)
 	if err != nil {
-		fmt.Printf("%s [%s%s%s] Error creating logger for %s: %v\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, err)
-		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor)
+		b.logger.LogErrorf("Error creating logger for %s: %v", ch.Name, err)
+		util.DeleteLock(lockPath)
+		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
 	}
 
@@ -143,7 +144,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	// Start command
 	if err := cmd.Start(); err != nil {
 		logger.LogError(fmt.Sprintf("Error starting download for %s: %v", ch.Name, err))
-		util.DeleteLock(lockPath, globalCfg.Timezone, logPrefix, logColor) // Clean up lock on failure
+		util.DeleteLock(lockPath) // Clean up lock on failure
+		logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		logger.Close()
 		return false
 	}
@@ -182,15 +184,13 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
-	logColor := b.controller.GetLogColor()
-	util.DeleteLock(proc.lockPath, globalCfg.Timezone, logPrefix, logColor)
+	util.DeleteLock(proc.lockPath)
+	proc.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", proc.lockPath))
 
 	// Log slot release with correct styling (fixes double tag issue and enables for YT)
 	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
-		fmt.Printf("%s [%s%s%s] Released download slot for %s. Slots used: %d/%d.\n",
-			util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset,
-			ch.Name, len(downloadSlots), cap(downloadSlots))
+		proc.logger.Logf("Released download slot for %s. Slots used: %d/%d.", ch.Name, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Check if the error was due to forced termination (monitor stopped it)
