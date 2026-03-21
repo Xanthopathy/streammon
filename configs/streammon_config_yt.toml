@@ -34,9 +34,9 @@ ignore_older_than = "24h"
 # This is your "freshness target" - how frequently you want to detect new streams.
 # Spread intelligently: A monitor with 40 channels at poll_interval=60s will space
 # individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
-# Lower = more responsive but higher load. Recommended range: 60s-300s depending on channel count.
+# Lower = more responsive but higher load. Recommended range: 30s-180s depending on channel count.
 # YouTube RSS has soft rate limits; test your setup and monitor error logs.
-poll_interval = "60s"
+poll_interval = "30s"
 
 # max_requests_per_second: Rate limit for API checks (default: 2)
 # Balances freshness with detection avoidance. Example:
@@ -44,6 +44,13 @@ poll_interval = "60s"
 #  + Actual spacing = max(poll_interval / channels, 1 / max_requests_per_second)
 # Increase cautiously if you get rate-limited; YouTube doesn't like bursts. (Wait an hour or more before running this app again if it softblocks)
 max_requests_per_second = 2
+
+# check_method: The default method to check for live streams.
+# Options:
+#   - "rss": Low bandwidth, relies on YouTube's RSS feed updating (can be delayed).
+#   - "live": Checks the channel's /live page. More accurate/real-time but heavier.
+# If the default method fails, the other method is tried automatically as a fallback.
+check_method = "rss"
 
 # ========================== Channels ========================== #
 # Common filter presets (Copy-paste these into channel filters)

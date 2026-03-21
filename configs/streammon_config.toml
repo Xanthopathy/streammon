@@ -20,7 +20,7 @@ twitch_api_verbose_debug = false    # Show Twitch GraphQL API calls and response
 twitch_dlp_verbose_debug = true     # Show raw twitch-dlp subprocess output
 
 # Granular debug flags for YouTube (more precise control over terminal output)
-youtube_api_verbose_debug = false   # Show YouTube RSS API calls and responses
+youtube_api_verbose_debug = true   # Show YouTube RSS API calls and responses
 youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
 
 # Archive downloaded video IDs to 'archive.txt' in the working directory to prevent redundant redownloads

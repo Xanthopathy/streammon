@@ -10,7 +10,7 @@ import (
 	"streammon/internal/util"
 )
 
-const currentVersion = "v1.0.5"
+const currentVersion = "v1.0.4"
 
 func main() {
 	util.SetTerminalTitle("streammon")

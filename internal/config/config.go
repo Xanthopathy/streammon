@@ -42,6 +42,7 @@ type YTConfig struct {
 		PollInterval         string  `toml:"poll_interval"`
 		IgnoreOlderThan      string  `toml:"ignore_older_than"`
 		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
+		CheckMethod          string  `toml:"check_method"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

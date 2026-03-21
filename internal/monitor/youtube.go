@@ -82,7 +82,42 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s: %v, using default 24h", ch.Name, err))
 	}
 
-	return CheckLiveYouTube(httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
+	// Determine check order based on config
+	// Might add Invidious/Holodex later
+	var methods []string
+	defaultMethod := m.cfg.Scraper.CheckMethod
+
+	if defaultMethod == "live" {
+		methods = []string{"live", "rss"}
+	} else {
+		// Default to RSS first
+		methods = []string{"rss", "live"}
+	}
+
+	var lastErr error
+
+	for _, method := range methods {
+		var info LiveInfo
+		var err error
+
+		switch method {
+		case "rss":
+			info, err = CheckYouTubeViaRSS(httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
+		case "live":
+			info, err = CheckYouTubeViaLivePage(httpClient, ch.ID, ch.Name, m.base.logger)
+		default:
+			continue
+		}
+
+		if err == nil {
+			return info, nil
+		}
+
+		m.base.logger.Debug("YouTube", fmt.Sprintf("Method '%s' failed for %s: %v. Trying fallback...", method, ch.Name, err))
+		lastErr = err
+	}
+
+	return LiveInfo{}, fmt.Errorf("all check methods failed (last error: %w)", lastErr)
 }
 
 // BuildDownloaderCmd constructs the command to run yt-dlp.

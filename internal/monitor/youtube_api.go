@@ -37,11 +37,11 @@ const userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/201
 // - Lets yt-dlp determine if it's actually a live stream
 func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName string, logger *util.Logger, ignoreOlderThan time.Duration) (LiveInfo, error) {
 	rssURL := fmt.Sprintf("https://www.youtube.com/feeds/videos.xml?channel_id=%s", channelID)
-	logger.Debug("YouTubeAPI", fmt.Sprintf("Fetching RSS feed for %s (%s): %s", channelName, channelID, rssURL))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("Fetching RSS feed for %s%s%s (%s): %s", util.ColorOrange, channelName, util.ColorReset, channelID, rssURL))
 
 	req, err := http.NewRequest("GET", rssURL, nil)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to create request for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to create request for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -58,14 +58,14 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to fetch RSS feed for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to fetch RSS feed for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		errorMsg := fmt.Sprintf("RSS feed request returned non-200 status: %s", resp.Status)
+		errorMsg := fmt.Sprintf("RSS feed request for %s%s%s returned non-200 status: %s", util.ColorOrange, channelName, util.ColorReset, resp.Status)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -73,17 +73,17 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 	// Read the response body
 	body, err := io.ReadAll(resp.Body) // Consider replacing with io.LimitReader(resp.Body, 1024*512) if YT sends a bomb
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to read RSS feed for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to read RSS feed for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
 
-	logger.Debug("YouTubeAPI", fmt.Sprintf("RSS feed for %s (%s) (first 1000 chars): %s", channelName, channelID, string(body[:min(1000, len(body))])))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("RSS feed for %s%s%s (%s) (first 1000 chars): %s", util.ColorOrange, channelName, util.ColorReset, channelID, string(body[:min(1000, len(body))])))
 
 	// Parse the RSS feed
 	var feed YouTubeRSSFeed
 	if err := xml.Unmarshal(body, &feed); err != nil {
-		errorMsg := fmt.Sprintf("Failed to parse RSS feed for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to parse RSS feed for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -102,13 +102,13 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 
 		// Skip very old entries
 		if timestampToCheck.Before(cutoff) {
-			logger.Debug("YouTubeAPI", fmt.Sprintf("Skipping %s from %s: too old (Updated=%s < cutoff=%s)", entry.VideoID, channelName, timestampToCheck, cutoff))
+			logger.Debug("YouTubeAPI", fmt.Sprintf("Skipping %s from %s%s%s: too old (Updated=%s < cutoff=%s)", entry.VideoID, util.ColorOrange, channelName, util.ColorReset, timestampToCheck, cutoff))
 			continue
 		}
 
 		// Found a recent video that yt-dlp can try to download
 		if entry.VideoID != "" {
-			logger.Debug("YouTubeAPI", fmt.Sprintf("Found recent video from RSS: %s from %s (Published=%s, Updated=%s, Title=%s)", entry.VideoID, channelName, entry.Published, entry.Updated, entry.Title))
+			logger.Debug("YouTubeAPI", fmt.Sprintf("Found recent video from RSS: %s from %s%s%s (Published=%s, Updated=%s, Title=%s)", entry.VideoID, util.ColorOrange, channelName, util.ColorReset, entry.Published, entry.Updated, entry.Title))
 			return LiveInfo{
 				IsLive:    true, // Mark as "live" for processing, yt-dlp will determine actual status
 				VideoID:   entry.VideoID,
@@ -118,7 +118,7 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 		}
 	}
 
-	logger.Debug("YouTubeAPI", fmt.Sprintf("No recent videos found in RSS feed for %s (cutoff=%s)", channelName, cutoff))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("No recent videos found in RSS feed for %s%s%s (cutoff=%s)", util.ColorOrange, channelName, util.ColorReset, cutoff))
 	return LiveInfo{IsLive: false}, nil
 }
 
@@ -128,7 +128,7 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 // 3. Return the video details - let yt-dlp determine if it's actually a live stream
 // This avoids issues with strict live-detection methods and rate limiting.
 func CheckLiveYouTube(httpClient *http.Client, channelID string, channelName string, logger *util.Logger, ignoreOlderThan time.Duration) (LiveInfo, error) {
-	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking channel %s (%s) for recent videos", channelName, channelID))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking channel %s%s%s (%s) for recent videos", util.ColorOrange, channelName, util.ColorReset, channelID))
 	return CheckYouTubeViaRSS(httpClient, channelID, channelName, logger, ignoreOlderThan)
 }
 
@@ -137,11 +137,11 @@ func CheckLiveYouTube(httpClient *http.Client, channelID string, channelName str
 // We inspect the resulting page for "isLive":true markers to distinguish actual streams from VOD redirects.
 func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelName string, logger *util.Logger) (LiveInfo, error) {
 	liveURL := fmt.Sprintf("https://www.youtube.com/channel/%s/live", channelID)
-	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking /live endpoint for %s (%s): %s", channelName, channelID, liveURL))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking /live endpoint for %s%s%s (%s): %s", util.ColorOrange, channelName, util.ColorReset, channelID, liveURL))
 
 	req, err := http.NewRequest("GET", liveURL, nil)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to create /live request for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to create /live request for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -160,14 +160,14 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to fetch /live for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to fetch /live for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		errorMsg := fmt.Sprintf("/live request returned non-200 status: %s", resp.Status)
+		errorMsg := fmt.Sprintf("/live request for %s%s%s returned non-200 status: %s", util.ColorOrange, channelName, util.ColorReset, resp.Status)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -175,7 +175,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	// Read body (limit to 1MB to capture the scripts containing ytInitialPlayerResponse)
 	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to read /live body for %s: %v", channelName, err)
+		errorMsg := fmt.Sprintf("Failed to read /live body for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -202,7 +202,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 
 	if isScheduled {
 		timeUntil := time.Until(scheduledTime)
-		logger.Debug("YouTubeAPI", fmt.Sprintf("/live redirect for %s is a scheduled event. Starts: %s (in %v)", channelName, scheduledTime, timeUntil))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("/live redirect for %s%s%s is a scheduled event. Starts: %s (in %v)", util.ColorOrange, channelName, util.ColorReset, scheduledTime, timeUntil))
 
 		// If it's scheduled but not explicitly LIVE yet, treat it as offline.
 		// This filters out "glorified chatrooms" (streams scheduled far in the future).
@@ -216,7 +216,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	isLiveLoose := strings.Contains(body, `"isLive":true`)
 
 	if !isStatusLive && !isLiveLoose {
-		logger.Debug("YouTubeAPI", fmt.Sprintf("%s /live page did not contain live indicators (likely redirect to VOD or channel home).", channelName))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("%s%s%s /live page did not contain live indicators (likely redirect to VOD or channel home).", util.ColorOrange, channelName, util.ColorReset))
 		return LiveInfo{IsLive: false}, nil
 	}
 
@@ -224,7 +224,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	videoIDRegex := regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
 	videoIDMatch := videoIDRegex.FindStringSubmatch(body)
 	if len(videoIDMatch) < 2 {
-		logger.Debug("YouTubeAPI", fmt.Sprintf("Detected live status for %s but could not extract Video ID.", channelName))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", util.ColorOrange, channelName, util.ColorReset))
 		return LiveInfo{IsLive: false}, nil
 	}
 	videoID := videoIDMatch[1]
