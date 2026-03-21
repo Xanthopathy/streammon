@@ -16,7 +16,13 @@
 |   |   `-- config.go
 |   |-- monitor
 |   |   |-- base_monitor.go
+|   |   |-- checker.go
+|   |   |-- controller.go
+|   |   |-- downloader.go
+|   |   |-- limiter.go
+|   |   |-- manager.go
 |   |   |-- monitor.go
+|   |   |-- monitor_loop.go
 |   |   |-- twitch.go
 |   |   |-- twitch_api.go
 |   |   |-- youtube.go
@@ -30,4 +36,4 @@
 |-- todo.txt
 `-- tree.txt
 
-8 directories, 22 files
+8 directories, 28 files
