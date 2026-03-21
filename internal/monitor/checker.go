@@ -127,6 +127,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
 			if proc.isWaiting != nil && proc.isWaiting.Load() {
 				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline and downloader is waiting. Terminating downloader.", ch.Name))
+				proc.forcedTermination.Store(true)
 				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
 					proc.cmd.Process.Kill()
 				}
@@ -174,7 +175,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			fmt.Printf("%s [%s%s%s] %s%s has gone offline%s\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, util.ColorRed, ch.Name, util.ColorReset)
+			fmt.Printf("%s [%s%s%s] %s %shas gone offline%s.\n", util.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, util.ColorReset, ch.Name, util.ColorRed, util.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

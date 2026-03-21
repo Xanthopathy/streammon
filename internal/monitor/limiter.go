@@ -10,11 +10,12 @@ import (
 
 // downloadProcess holds information about a running download process.
 type downloadProcess struct {
-	cmd       *exec.Cmd
-	videoID   string
-	lockPath  string
-	logger    *util.DownloadLogger
-	isWaiting *atomic.Bool // Signals that the process is in a waiting/retry state
+	cmd               *exec.Cmd
+	videoID           string
+	lockPath          string
+	logger            *util.DownloadLogger
+	isWaiting         *atomic.Bool // Signals that the process is in a waiting/retry state
+	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
 }
 
 // --- Global Download Limiter ---
