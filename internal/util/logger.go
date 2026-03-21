@@ -169,9 +169,9 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	defer l.mu.Unlock()
 
 	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	// Format: [time] [Platform] [debugType] [channelName] message
-	// Platform in its color, debugType in blue
-	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] [%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, debugType, ColorReset, l.channelName, output)
+	// Format: [time] [Platform] [debugType] [ChannelName] message
+	// Platform in its color, debugType in blue, ChannelName in Orange
+	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] [%s%s%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, debugType, ColorReset, ColorOrange, l.channelName, ColorReset, output)
 
 	// Check if this is a progress line (contains [download] or [wait])
 	isDownloadLine := strings.Contains(output, "[download]")
@@ -235,6 +235,69 @@ func (l *Logger) LogError(message string) {
 // LogErrorf is a convenience wrapper for LogError that uses fmt.Sprintf.
 func (l *Logger) LogErrorf(format string, args ...any) {
 	l.LogError(fmt.Sprintf(format, args...))
+}
+
+// Debug logs a message if the corresponding debug flag is enabled in GlobalConfig.
+// debugType: e.g., "TwitchAPI", "YouTube", "Sema", etc.
+// logic matches the old util.DebugLog
+func (l *Logger) Debug(debugType, message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	shouldLog := false
+
+	// Determine Visibility based on specific flags
+	switch debugType {
+	case "TwitchAPI":
+		shouldLog = l.globalCfg.TwitchAPIVerboseDebug
+	case "TwitchDLP":
+		shouldLog = l.globalCfg.TwitchDlpVerboseDebug
+	case "YouTubeAPI":
+		shouldLog = l.globalCfg.YoutubeAPIVerboseDebug
+	case "YouTubeDLP":
+		shouldLog = l.globalCfg.YoutubeDlpVerboseDebug
+	default:
+		// Fallback to platform-level debug flags
+		if l.logPrefix == "Twitch" || strings.HasPrefix(debugType, "Twitch") {
+			shouldLog = l.globalCfg.TwitchVerboseDebug
+		} else if l.logPrefix == "YT" || strings.HasPrefix(debugType, "YT") || strings.HasPrefix(debugType, "YouTube") {
+			shouldLog = l.globalCfg.YoutubeVerboseDebug
+		}
+	}
+
+	if shouldLog {
+		timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
+		// Format: [time] [Platform] [DebugType] message
+		line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] %s\n",
+			timestamp, l.logColor, l.logPrefix, ColorReset,
+			ColorBlue, debugType, ColorReset,
+			message)
+
+		fmt.Print(line)
+
+		if l.logFile != nil {
+			cleanedLine := stripANSI(line)
+			l.logFile.WriteString(cleanedLine)
+			l.logFile.Sync()
+		}
+	}
+}
+
+// Warn logs a warning message.
+func (l *Logger) Warn(message string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
+	line := fmt.Sprintf("%s [%s%s%s] [%sWARN%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorYellow, ColorReset, message)
+
+	fmt.Print(line)
+
+	if l.logFile != nil {
+		cleanedLine := stripANSI(line)
+		l.logFile.WriteString(cleanedLine)
+		l.logFile.Sync()
+	}
 }
 
 // Close flushes and closes the log file

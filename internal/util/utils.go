@@ -11,18 +11,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"streammon/internal/config"
 )
 
 // --- Colors ---
 const (
 	ColorReset  = "\033[0m"
-	ColorRed    = "\033[91m" // FATAL and YT
-	ColorGreen  = "\033[92m" // Live
-	ColorYellow = "\033[93m" // Timestamps and WARN
-	ColorBlue   = "\033[94m" // INFO, debug, lock
-	ColorPurple = "\033[95m" // Twitch
+	ColorRed    = "\033[91m"       // FATAL and YT
+	ColorGreen  = "\033[92m"       // Live
+	ColorYellow = "\033[93m"       // Timestamps and WARN
+	ColorBlue   = "\033[94m"       // INFO, debug, lock
+	ColorPurple = "\033[95m"       // Twitch
+	ColorOrange = "\033[38;5;208m" // Channel Names
 )
 
 // --- UI Helpers ---
@@ -131,55 +130,6 @@ func parseUTCOffset(offsetStr string) (int, error) {
 
 	totalSeconds := sign * (hours*3600 + minutes*60)
 	return int(totalSeconds), nil
-}
-
-// --- Logging Helpers ---
-
-func DebugLog(cfg *config.GlobalConfig, module, message string) {
-	var shouldLog bool
-	var platformPrefix string
-	var platformColor string
-
-	// Granular controls take priority (API and DLP flags)
-	switch module {
-	case "TwitchAPI":
-		shouldLog = cfg.TwitchAPIVerboseDebug
-		platformPrefix = "Twitch"
-		platformColor = ColorPurple
-	case "TwitchDLP":
-		shouldLog = cfg.TwitchDlpVerboseDebug
-		platformPrefix = "Twitch"
-		platformColor = ColorPurple
-	case "YouTubeAPI":
-		shouldLog = cfg.YoutubeAPIVerboseDebug
-		platformPrefix = "YT"
-		platformColor = ColorRed
-	case "YouTubeDLP":
-		shouldLog = cfg.YoutubeDlpVerboseDebug
-		platformPrefix = "YT"
-		platformColor = ColorRed
-	default:
-		// Fallback to platform-level debug flags for other modules
-		if strings.HasPrefix(module, "Twitch") {
-			shouldLog = cfg.TwitchVerboseDebug
-			platformPrefix = "Twitch"
-			platformColor = ColorPurple
-		} else if strings.HasPrefix(module, "YT") {
-			shouldLog = cfg.YoutubeVerboseDebug
-			platformPrefix = "YT"
-			platformColor = ColorRed
-		}
-	}
-
-	if shouldLog {
-		// Format: [time] [Platform] [DebugType] message
-		// Platform in its color, DebugType in blue
-		fmt.Printf("%s [%s%s%s] [%s%s%s] %s\n",
-			FormatTime(time.Now(), cfg.Timezone),
-			platformColor, platformPrefix, ColorReset,
-			ColorBlue, module, ColorReset,
-			message)
-	}
 }
 
 // --- String Helpers ---

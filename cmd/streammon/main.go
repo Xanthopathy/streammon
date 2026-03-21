@@ -13,15 +13,20 @@ func main() {
 	util.SetTerminalTitle("streammon")
 	util.PrintBanner()
 
+	// Bootstrap logger with default settings for startup messages
+	// We use a dummy config initially, defaulting to UTC
+	defaultCfg := &config.GlobalConfig{Timezone: "UTC"}
+	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorBlue)
+
 	// 1. Load Configuration
-	fmt.Printf("[%sINFO%s] Loading configurations...\n", util.ColorBlue, util.ColorReset)
+	sysLogger.LogRegular("Loading configurations...")
 
 	globalCfg, err := config.LoadGlobalConfig("streammon_config.toml")
 	if err != nil {
 		globalCfg, err = config.LoadGlobalConfig("configs/streammon_config.toml")
 	}
 	if err != nil {
-		fmt.Printf("[%sWARN%s] Could not load streammon_config.toml: %v. Using defaults (UTC).\n", util.ColorYellow, err, util.ColorReset)
+		sysLogger.Warn(fmt.Sprintf("Could not load streammon_config.toml: %v. Using defaults (UTC).", err))
 		globalCfg = &config.GlobalConfig{
 			Timezone:                   "UTC",
 			MaxConcurrentDownloads:     10,
@@ -37,6 +42,9 @@ func main() {
 		}
 	}
 
+	// Update logger with loaded config (for correct timezone)
+	sysLogger = util.NewLogger(globalCfg, "System", util.ColorBlue)
+
 	var ytCfg *config.YTConfig
 	if globalCfg.EnableYoutube {
 		var err error
@@ -45,7 +53,7 @@ func main() {
 			ytCfg, err = config.LoadYTConfig("configs/streammon_config_yt.toml")
 		}
 		if err != nil {
-			fmt.Printf("[%sWARN%s] YouTube is enabled, but could not load streammon_config_yt.toml: %v. YouTube monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			sysLogger.Warn(fmt.Sprintf("YouTube is enabled, but could not load streammon_config_yt.toml: %v. YouTube monitor will not run.", err))
 			ytCfg = nil // Ensure it's nil
 		}
 	}
@@ -58,13 +66,13 @@ func main() {
 			twitchCfg, err = config.LoadTwitchConfig("configs/streammon_config_twitch.toml")
 		}
 		if err != nil {
-			fmt.Printf("[%sWARN%s] Twitch is enabled, but could not load streammon_config_twitch.toml: %v. Twitch monitor will not run.\n", util.ColorYellow, err, util.ColorReset)
+			sysLogger.Warn(fmt.Sprintf("Twitch is enabled, but could not load streammon_config_twitch.toml: %v. Twitch monitor will not run.", err))
 			twitchCfg = nil // Ensure it's nil
 		}
 	}
 
 	if ytCfg == nil && twitchCfg == nil {
-		fmt.Printf("%s[FATAL] No monitors are enabled or correctly configured. Exiting.%s\n", util.ColorRed, util.ColorReset)
+		sysLogger.LogError("No monitors are enabled or correctly configured. Exiting.")
 		return
 	}
 
@@ -89,5 +97,5 @@ func main() {
 
 	// Keep main thread alive until all goroutines are done
 	wg.Wait()
-	fmt.Println("[INFO] All monitors have finished.")
+	sysLogger.LogRegular("All monitors have finished.")
 }

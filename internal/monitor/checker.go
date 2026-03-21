@@ -103,7 +103,6 @@ func (b *BaseMonitor) checkAllChannels() int {
 func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
-	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
 
 	newStatus, err := b.controller.CheckChannelStatus(ch, b.httpClient)
@@ -125,14 +124,14 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
 			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
 			if proc.isWaiting != nil && proc.isWaiting.Load() {
-				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline and downloader is waiting. Terminating downloader.", ch.Name))
+				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s as offline and downloader is waiting. Terminating downloader.", ch.Name))
 				proc.forcedTermination.Store(true)
 				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
 					proc.cmd.Process.Kill()
 				}
 				// Fall through to update status to offline; waitForDownload will handle cleanup
 			} else {
-				util.DebugLog(globalCfg, logPrefix, fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
+				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s as offline, but download is active for same stream ID (%s). Ignoring.", ch.Name, proc.videoID))
 				return nil // Ignore this offline signal.
 			}
 		}
@@ -161,20 +160,20 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 
 		if !matchesFilter {
 			if wasTracked && previousStatus.IsLive {
-				b.logger.Logf("%s is live but filtered out: %s", ch.Name, newStatus.Title)
+				b.logger.Logf("%s%s%s is live but filtered out: %s", util.ColorOrange, ch.Name, util.ColorReset, newStatus.Title)
 				b.liveStatus[ch.ID] = LiveInfo{IsLive: false}
 			}
 			return nil
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
-			b.logger.Logf("%s %sis now LIVE%s: %s", ch.Name, util.ColorGreen, util.ColorReset, newStatus.Title)
+			b.logger.Logf("%s%s%s %sis now LIVE%s: %s", util.ColorOrange, ch.Name, util.ColorReset, util.ColorGreen, util.ColorReset, newStatus.Title)
 		}
 		b.liveStatus[ch.ID] = newStatus
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			b.logger.Logf("%s %shas gone offline%s.", ch.Name, util.ColorRed, util.ColorReset)
+			b.logger.Logf("%s%s%s %shas gone offline%s.", util.ColorOrange, ch.Name, util.ColorReset, util.ColorRed, util.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

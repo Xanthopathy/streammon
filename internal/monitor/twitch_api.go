@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"streammon/internal/config"
 	"streammon/internal/util"
 )
 
@@ -60,12 +59,12 @@ type streamMetadataGQLResponse []struct {
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
 // Includes retry logic with exponential backoff to handle temporary timeouts.
-func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
+func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Logger) (LiveInfo, error) {
 	const maxRetries = 2
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		result, err := checkLiveGQLOnce(httpClient, channelLogin, globalCfg)
+		result, err := checkLiveGQLOnce(httpClient, channelLogin, logger)
 		if err == nil {
 			return result, nil
 		}
@@ -80,7 +79,7 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *confi
 		// Only retry if we haven't exhausted attempts
 		if attempt < maxRetries {
 			backoffDuration := time.Duration((attempt+1)*1000) * time.Millisecond // 1s, 2s
-			util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
+			logger.Debug("TwitchAPI", fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
 			time.Sleep(backoffDuration)
 		}
 	}
@@ -89,7 +88,7 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, globalCfg *confi
 }
 
 // checkLiveGQLOnce performs a single GQL request without retries.
-func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *config.GlobalConfig) (LiveInfo, error) {
+func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util.Logger) (LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := streamMetadataGQLRequest{
 		OperationName: "StreamMetadata",
@@ -107,7 +106,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *c
 	// Pretty-print the JSON payload for readability
 	var prettyPayload bytes.Buffer
 	json.Indent(&prettyPayload, body, "", "  ")
-	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
+	logger.Debug("TwitchAPI", fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
@@ -137,7 +136,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *c
 	// Pretty-print the JSON response for readability
 	var prettyResponse bytes.Buffer
 	json.Indent(&prettyResponse, responseBody, "", "  ")
-	util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Raw response for %s:\n%s", channelLogin, prettyResponse.String()))
+	logger.Debug("TwitchAPI", fmt.Sprintf("Raw response for %s:\n%s", channelLogin, prettyResponse.String()))
 
 	// Decode the response
 	var gqlResp streamMetadataGQLResponse
@@ -177,7 +176,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, globalCfg *c
 		// Sanity check: if lastBroadcast.id and stream.id don't match, something is weird.
 		// The live stream ID should take precedence.
 		if lastBroadcast != nil && stream.ID != lastBroadcast.ID {
-			util.DebugLog(globalCfg, "TwitchAPI", fmt.Sprintf("Stream ID (%s) and LastBroadcast ID (%s) mismatch for %s", stream.ID, lastBroadcast.ID, channelLogin))
+			logger.Debug("TwitchAPI", fmt.Sprintf("Stream ID (%s) and LastBroadcast ID (%s) mismatch for %s", stream.ID, lastBroadcast.ID, channelLogin))
 		}
 	}
 

@@ -66,7 +66,7 @@ func (m *TwitchMonitor) GetLogPrefix() string {
 }
 
 func (m *TwitchMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
-	return CheckLiveGQL(httpClient, ch.ID, m.globalCfg)
+	return CheckLiveGQL(httpClient, ch.ID, m.base.logger)
 }
 
 func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status LiveInfo) *exec.Cmd {
