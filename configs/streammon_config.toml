@@ -23,12 +23,12 @@ twitch_dlp_verbose_debug = true     # Show raw twitch-dlp subprocess output
 youtube_api_verbose_debug = false   # Show YouTube RSS API calls and responses
 youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
 
-# Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
-save_download_logs = true
-
 # Archive downloaded video IDs to 'archive.txt' in the working directory to prevent redundant redownloads
 youtube_archive_downloads = true
 twitch_archive_downloads = true
+
+# Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
+save_download_logs = true
 
 # How often to write subprocess progress lines to log files (in seconds)
 # Set to 0 to log every progress update (can be verbose)
@@ -38,3 +38,8 @@ subprocess_progress_interval = 30
 # How often to write subprocess progress lines to log files (in seconds)
 # Exclusively for [wait] Remaining time until next attempt: hh:mm:ss
 subprocess_wait_interval = 600
+
+# Automatically delete old lockfiles (.lock-*) from working directories on startup.
+# This prevents "already queued" errors after a crash or forced restart.
+# Default: true
+clear_all_lockfiles = true

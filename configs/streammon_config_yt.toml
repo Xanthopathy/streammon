@@ -36,7 +36,7 @@ ignore_older_than = "24h"
 # individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
 # Lower = more responsive but higher load. Recommended range: 60s-300s depending on channel count.
 # YouTube RSS has soft rate limits; test your setup and monitor error logs.
-poll_interval = "180s"
+poll_interval = "60s"
 
 # max_requests_per_second: Rate limit for API checks (default: 2)
 # Balances freshness with detection avoidance. Example:

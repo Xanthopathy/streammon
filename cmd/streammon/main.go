@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"streammon/internal/config"
@@ -15,7 +16,7 @@ func main() {
 
 	// Bootstrap logger with default settings for startup messages
 	// We use a dummy config initially, defaulting to UTC
-	defaultCfg := &config.GlobalConfig{Timezone: "UTC"}
+	defaultCfg := config.GetDefaultGlobalConfig()
 	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorBlue)
 
 	// 1. Load Configuration
@@ -27,19 +28,7 @@ func main() {
 	}
 	if err != nil {
 		sysLogger.Warn(fmt.Sprintf("Could not load streammon_config.toml: %v. Using defaults (UTC).", err))
-		globalCfg = &config.GlobalConfig{
-			Timezone:                   "UTC",
-			MaxConcurrentDownloads:     10,
-			EnableYoutube:              true,
-			EnableTwitch:               true,
-			SaveDownloadLogs:           true,
-			YoutubeArchiveDownloads:    true,
-			TwitchArchiveDownloads:     true,
-			SubprocessProgressInterval: 10,
-			SubprocessWaitInterval:     60,
-			YoutubeVerboseDebug:        true,
-			TwitchVerboseDebug:         true,
-		}
+		globalCfg = config.GetDefaultGlobalConfig()
 	}
 
 	// Update logger with loaded config (for correct timezone)
@@ -76,7 +65,27 @@ func main() {
 		return
 	}
 
-	// 2. Start Monitors
+	// 2. Cleanup Lockfiles (if enabled)
+	if globalCfg.ClearAllLockfiles {
+		sysLogger.LogRegular("Cleaning up old lockfiles...")
+		if ytCfg != nil {
+			count, err := util.ClearLockfiles(ytCfg.StreamMon.WorkingDirectory)
+			if err != nil && !os.IsNotExist(err) {
+				// Ignore directory not exist error if we haven't started monitoring yet
+				// But here we rely on os.ReadDir which returns error if dir doesn't exist
+			} else if count > 0 {
+				sysLogger.Logf("Removed %d old lockfiles from %s", count, ytCfg.StreamMon.WorkingDirectory)
+			}
+		}
+		if twitchCfg != nil {
+			count, _ := util.ClearLockfiles(twitchCfg.StreamMon.WorkingDirectory)
+			if count > 0 {
+				sysLogger.Logf("Removed %d old lockfiles from %s", count, twitchCfg.StreamMon.WorkingDirectory)
+			}
+		}
+	}
+
+	// 3. Start Monitors
 	var wg sync.WaitGroup
 
 	if ytCfg != nil {

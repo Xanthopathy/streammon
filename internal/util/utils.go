@@ -193,6 +193,26 @@ func DeleteLock(path string) {
 	_ = err // Ignore error, best-effort deletion
 }
 
+// ClearLockfiles removes all files starting with ".lock-" in the specified directory.
+// Returns the number of files deleted.
+func ClearLockfiles(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), ".lock-") {
+			path := filepath.Join(dir, entry.Name())
+			if err := os.Remove(path); err == nil {
+				count++
+			}
+		}
+	}
+	return count, nil
+}
+
 // --- File Helpers ---
 
 func AppendLineToFile(path, line string) error {
