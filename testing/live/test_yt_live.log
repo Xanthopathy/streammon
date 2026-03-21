@@ -1,0 +1,10 @@
+Testing CheckYouTubeViaLivePage for Lofi Girl (UCSJ4gkVC6NrvII8umztf0Ow)...
+---------------------------------------------------
+[2026-03-21 15:46:35 UTC+00:00] [Test] [YouTubeAPI] Checking /live endpoint for Lofi Girl (UCSJ4gkVC6NrvII8umztf0Ow): https://www.youtube.com/channel/UCSJ4gkVC6NrvII8umztf0Ow/live
+[2026-03-21 15:46:36 UTC+00:00] [Test] [YouTubeAPI] Found live stream via /live: 
+christmas lofi music🎄cozy radio to get festive to (XSXEaikz0Bc)
+---------------------------------------------------
+Result:
+  IsLive:    true
+  VideoID:   XSXEaikz0Bc
+  Title:     christmas lofi music🎄cozy radio to get festive to

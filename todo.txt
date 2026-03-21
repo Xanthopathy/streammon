@@ -4,8 +4,6 @@ yt-dlp progress color (somehow twitch-dlp works fine but yt-dlp doesn't)
 [2026-03-17 03:21:01 UTC+00:00] [Twitch] [twitch-dlp] [Clio Aite] [download]   0.0% of ~     0.00B at     0.00B/s ETA 00:00:00 (frag 0/1164)
 0.0% light blue, 0.00B/s green, 00:00:00 darker yellow than time
 
-running app prints message of current version and whether an update is available
-
 durability for when wifi is unstable or offline for a duration of time
 don't have no such host/connection issues count towards rss error (implement simple baby connection tester to pause all processes while internet access is down?)
 
