@@ -25,6 +25,7 @@ type BaseMonitor struct {
 	downloadedVidsLoggedMutex sync.Mutex                  // protects downloadedVidsLogged
 	archivedVideos            map[string]bool             // map[videoID]bool - loaded from archive.txt
 	archivedVidMu             sync.RWMutex                // protects archivedVideos
+	rpsWarningSent            bool                        // Tracks if we've warned about RPS throttling
 }
 
 // NewBaseMonitor creates a new generic monitor.
@@ -39,5 +40,6 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		queuedVideosLogged:   make(map[string]bool),
 		downloadedVidsLogged: make(map[string]bool),
 		archivedVideos:       make(map[string]bool),
+		rpsWarningSent:       false,
 	}
 }

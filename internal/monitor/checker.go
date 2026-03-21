@@ -55,6 +55,14 @@ func (b *BaseMonitor) checkAllChannels() int {
 		requestSpacing = idealSpacing
 		if rpsSpacing > idealSpacing {
 			requestSpacing = rpsSpacing
+			if !b.rpsWarningSent {
+				b.logger.Warn(fmt.Sprintf(
+					"Configured poll_interval (%s) is too short for %d channels with max_requests_per_second limit. "+
+						"Forcing request spacing to %s to respect safety limits. "+
+						"Effective poll cycle will be slower than configured.",
+					pollInterval, channelCount, rpsSpacing))
+				b.rpsWarningSent = true
+			}
 		}
 	}
 
