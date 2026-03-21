@@ -4,35 +4,11 @@ yt-dlp progress color (somehow twitch-dlp works fine but yt-dlp doesn't)
 [2026-03-17 03:21:01 UTC+00:00] [Twitch] [twitch-dlp] [Clio Aite] [download]   0.0% of ~     0.00B at     0.00B/s ETA 00:00:00 (frag 0/1164)
 0.0% light blue, 0.00B/s green, 00:00:00 darker yellow than time
 
-clear_all_lockfiles = true for more seamless restarts?
-
-include progress for yt-dlp video downloads (currently only works for live streams)
-
-[2026-03-18 19:44:18 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] [out#0/mp4 @ 0000025138b4cd40] video:7034649KiB audio:190580KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.241314%
-[2026-03-18 19:44:18 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] frame=575436 fps=6101 q=-1.0 Lsize= 7242664KiB time=02:40:00.15 bitrate=6180.3kbits/s speed= 102x
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] [stats] Fragments
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] ┌────────────┬────────┐
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] │ (index)    │ Values │
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] ├────────────┼────────┤
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] │ Total      │ 807    │
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] │ Downloaded │ 807    │
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] │ Muted      │ 0      │
-[2026-03-18 19:44:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] └────────────┴────────┘
-[2026-03-18 19:45:19 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] Downloading stream metadata
-[2026-03-18 19:45:20 UTC+07:00] [Twitch] [twitch-dlp] [Gram Pico] [retry-streams] Waiting for streams. Retry every 60 second(s)
-[2026-03-18 19:45:39 UTC+07:00] [Twitch] [Twitch] API reports Gram Pico as offline and downloader is waiting. Terminating downloader.
-[2026-03-18 19:45:39 UTC+07:00] [Twitch] Gram Pico has gone OFFLINE
-[LOCK] Deleted: download_twitch\.lock-gram_pico-318285397082
-[2026-03-18 19:45:39 UTC+07:00] [Twitch] [Twitch] Released download slot for Gram Pico. Slots used: 1/10.
-[2026-03-18 19:45:39 UTC+07:00] [Twitch] ERROR: Download for Gram Pico finished with error: exit status 1
-[2026-03-18 19:47:32 UTC+07:00] [YT] [yt-dlp] [Ashelia Rinkou] [wait] Remaining time until next attempt: 82:12:27
-
 running app prints message of current version and whether an update is available
 
-durability for when wifi is unstable or offline for a duration of time 
+durability for when wifi is unstable or offline for a duration of time
+don't have no such host/connection issues count towards rss error (implement simple baby connection tester to pause all processes while internet access is down?)
 
 update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 
 merge = save to txt
-
-don't have no such host/connection issues count towards rss error (implement simple baby connection tester to pause all processes while internet access is down?)

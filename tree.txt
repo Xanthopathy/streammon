@@ -13,7 +13,8 @@
 |-- go.sum
 |-- internal
 |   |-- config
-|   |   `-- config.go
+|   |   |-- config.go
+|   |   `-- defaults.go
 |   |-- monitor
 |   |   |-- base_monitor.go
 |   |   |-- checker.go
@@ -36,4 +37,4 @@
 |-- todo.txt
 `-- tree.txt
 
-8 directories, 28 files
+8 directories, 29 files

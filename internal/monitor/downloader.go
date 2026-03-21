@@ -25,8 +25,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 	if shouldLogSlots {
 		// Note: len(downloadSlots) shows the number of *active* slots.
 		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
-		b.logger.Logf("Acquired download slot for %s. Slots used: %d/%d.",
-			ch.Name, len(downloadSlots), cap(downloadSlots))
+		b.logger.Logf("Acquired download slot for %s%s%s. Slots used: %d/%d.",
+			util.ColorOrange, ch.Name, util.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Create synchronization for waiting state detection
@@ -150,7 +150,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockP
 		return false
 	}
 
-	logger.LogRegular(fmt.Sprintf("%sStarted download for %s%s: %s", util.ColorGreen, ch.Name, util.ColorReset, status.Title))
+	logger.LogRegular(fmt.Sprintf("%sStarted download for%s %s%s%s: %s", util.ColorGreen, util.ColorReset, util.ColorOrange, ch.Name, util.ColorReset, status.Title))
 
 	// Store process info
 	proc := &downloadProcess{
