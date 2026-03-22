@@ -10,6 +10,14 @@ $BuildDir = Join-Path $ProjectRoot "build"
 $CmdDir = Join-Path $ProjectRoot "cmd\streammon"
 $ConfigsDir = Join-Path $ProjectRoot "configs"
 
+# Get version from git
+$Version = "dev"
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $GitVersion = git describe --tags --always --dirty 2>$null
+    if ($GitVersion) { $Version = $GitVersion }
+}
+Write-Host "Building Version: $Version" -ForegroundColor Cyan
+
 # Define build targets: @{OS; Arch; OutputName; FolderName; ZipName}
 $Targets = @(
     @{OS = "windows"; Arch = "amd64"; OutputName = "streammon.exe"; FolderName = "streammon-windows"; ZipName = "streammon-windows.zip"},
@@ -62,7 +70,7 @@ foreach ($Target in $Targets) {
     Push-Location $CmdDir
     $env:GOOS = $OS
     $env:GOARCH = $Arch
-    go build -o $OutputPath
+    go build -ldflags "-X main.currentVersion=$Version" -o $OutputPath
     $buildResult = $LASTEXITCODE
     [Environment]::SetEnvironmentVariable('GOOS', '')
     [Environment]::SetEnvironmentVariable('GOARCH', '')

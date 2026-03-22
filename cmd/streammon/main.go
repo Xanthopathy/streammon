@@ -10,7 +10,7 @@ import (
 	"streammon/internal/util"
 )
 
-const currentVersion = "v1.0.5"
+var currentVersion = "dev" // git tag v1.x.x then run build
 
 func main() {
 	util.SetTerminalTitle("streammon")
