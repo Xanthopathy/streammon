@@ -1,0 +1,64 @@
+[streammon]
+# working_directory: Where downloaded YouTube streams are saved.
+# Use relative paths (from current directory) or absolute paths.
+# Examples:
+#   - "download_yt"                  (current directory)
+#   - "../downloads/youtube"         (parent directory)
+#   - "../../streams/archive"        (two levels up)
+#   - "C:\\Archives\\YouTube"       (absolute Windows path)
+#   - "/mnt/media/youtube"           (absolute Linux path)
+working_directory = "download_yt"
+
+# Arguments passed to yt-dlp. (See https://github.com/yt-dlp/yt-dlp)
+# You can comment out lines using '#' to disable specific flags.
+args = [
+    "--wait-for-video", "60",
+    "--live-from-start",
+    "--js-runtime", "node",
+    "--embed-thumbnail",
+    "--convert-thumbnail", "png",
+    "--write-thumbnail",
+    "--retries", "10",
+    "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
+    # "--ignore-errors",
+    # "--cookies", "cookies.txt",
+    # "--cookies-from-browser", "firefox",
+]
+
+[scraper]
+# ignore_older_than: Ignores videos whose rss entries has a longer [updated] field's time to now than the configured limit 
+# 24h default means it only downloads videos with an [updated] time within 24h of the time the app started
+ignore_older_than = "24h"
+
+# poll_interval: How often to check each channel for new/live streams.
+# This is your "freshness target" - how frequently you want to detect new streams.
+# Spread intelligently: A monitor with 40 channels at poll_interval=60s will space
+# individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
+# Lower = more responsive but higher load. Recommended range: 30s-180s depending on channel count.
+# YouTube RSS has soft rate limits; test your setup and monitor error logs.
+poll_interval = "30s"
+
+# max_requests_per_second: Rate limit for API checks (default: 2)
+# Balances freshness with detection avoidance. Example:
+#  + 40 channels @ 2 RPS = minimum 20s between request waves
+#  + Actual spacing = max(poll_interval / channels, 1 / max_requests_per_second)
+# Increase cautiously if you get rate-limited; YouTube doesn't like bursts. (Wait an hour or more before running this app again if it softblocks)
+max_requests_per_second = 2
+
+# check_method: The default method to check for live streams.
+# Options:
+#   - "rss": Low bandwidth, relies on YouTube's RSS feed updating (can be delayed).
+#   - "live": Checks the channel's /live page. More accurate/real-time but heavier.
+# If the default method fails, the other method is tried automatically as a fallback.
+check_method = "rss"
+
+# ========================== Channels ========================== #
+# Common filter presets (Copy-paste these into channel filters)
+# All: [".*"]
+# Common keywords for yabai streams: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+
+# Example:
+# [[channel]]
+# id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
+# name = "Saya Sairroxs"
+# filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]

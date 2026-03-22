@@ -6,3 +6,6 @@ download_yt/
 *.zip
 tree.bat
 notes.txt
+streammon_config.toml
+streammon_config_youtube.toml
+streammon_config_twitch.toml

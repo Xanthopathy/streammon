@@ -26,8 +26,13 @@ $Targets = @(
     @{OS = "darwin"; Arch = "arm64"; OutputName = "streammon-macos-arm64"; FolderName = "streammon-macos-arm64"; ZipName = "streammon-macos-arm64.zip"}
 )
 
-# Config files to include in each build
-$ConfigFiles = @("streammon_config.toml", "streammon_config_yt.toml", "streammon_config_twitch.toml")
+# Config mapping: Source Filename (in configs/) -> Output Filename (in build/)
+# It is best practice to keep "clean" examples in git (e.g., *.example.toml) and rename them on build.
+$ConfigFiles = @{
+    "streammon_config.example.toml"        = "streammon_config.toml"
+    "streammon_config_yt.example.toml"     = "streammon_config_yt.toml"
+    "streammon_config_twitch.example.toml" = "streammon_config_twitch.toml"
+}
 
 Write-Host "Building StreamMon for multiple platforms..." -ForegroundColor Cyan
 
@@ -85,13 +90,23 @@ foreach ($Target in $Targets) {
     Write-Host "  Successfully built: $OutputName" -ForegroundColor Green
     
     # Copy config files to platform folder
-    foreach ($ConfigFile in $ConfigFiles) {
-        $SourcePath = Join-Path $ConfigsDir $ConfigFile
+    foreach ($Entry in $ConfigFiles.GetEnumerator()) {
+        $SourceFile = $Entry.Key
+        $DestFile = $Entry.Value
+        $SourcePath = Join-Path $ConfigsDir $SourceFile
+        $DestPath = Join-Path $PlatformBuildDir $DestFile
+
+        # Fallback: If example file missing, try finding the direct config file (legacy behavior)
+        if (-not (Test-Path $SourcePath)) {
+            $DirectPath = Join-Path $ConfigsDir $DestFile
+            if (Test-Path $DirectPath) { $SourcePath = $DirectPath }
+        }
+
         if (Test-Path $SourcePath) {
-            Copy-Item -Path $SourcePath -Destination $PlatformBuildDir -Force
-            Write-Host "  Copied $ConfigFile" -ForegroundColor Green
+            Copy-Item -Path $SourcePath -Destination $DestPath -Force
+            Write-Host "  Copied $(Split-Path $SourcePath -Leaf) -> $DestFile" -ForegroundColor Green
         } else {
-            Write-Host "  Warning: $ConfigFile not found in configs/" -ForegroundColor Yellow
+            Write-Host "  Warning: Config $SourceFile not found in configs/" -ForegroundColor Yellow
         }
     }
     
