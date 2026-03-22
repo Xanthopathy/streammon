@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
 )
 
 // MonitorController defines the platform-specific logic that a monitor must implement.
@@ -20,6 +21,6 @@ type MonitorController interface {
 	GetLogPrefix() string
 
 	// Core platform-specific logic
-	CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error)
-	BuildDownloaderCmd(ch config.Channel, status LiveInfo) *exec.Cmd
+	CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error)
+	BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd
 }

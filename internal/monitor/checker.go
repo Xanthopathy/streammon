@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
 	"streammon/internal/util"
 )
 
@@ -177,7 +178,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 		if !matchesFilter {
 			if wasTracked && previousStatus.IsLive {
 				b.logger.Logf("%s%s%s is live but filtered out: %s", util.ColorOrange, ch.Name, util.ColorReset, newStatus.Title)
-				b.liveStatus[ch.ID] = LiveInfo{IsLive: false}
+				b.liveStatus[ch.ID] = models.LiveInfo{IsLive: false}
 			}
 			return nil
 		}

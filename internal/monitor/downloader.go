@@ -8,13 +8,14 @@ import (
 	"sync/atomic"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
 	"streammon/internal/util"
 )
 
 // launchDownloader creates a lockfile and starts the downloader subprocess.
 // This function must be called with the downloadMutex held.
 // It returns true on success, false on failure.
-func (b *BaseMonitor) launchDownloader(ch config.Channel, status LiveInfo, lockPath string) bool {
+func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo, lockPath string) bool {
 	globalCfg := b.controller.GetGlobalConfig()
 	streamMonCfg := b.controller.GetStreamMonConfig()
 	logColor := b.controller.GetLogColor()

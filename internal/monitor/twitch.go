@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
+	"streammon/internal/scrapers/twitch"
 	"streammon/internal/util"
 )
 
@@ -65,11 +67,11 @@ func (m *TwitchMonitor) GetLogPrefix() string {
 	return "Twitch"
 }
 
-func (m *TwitchMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
-	return CheckLiveGQL(httpClient, ch.ID, m.base.logger)
+func (m *TwitchMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
+	return twitch.CheckLiveGQL(httpClient, ch.ID, m.base.logger)
 }
 
-func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status LiveInfo) *exec.Cmd {
+func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.twitch.tv/" + ch.ID
 	args := append(m.cfg.StreamMon.Args, url)
 	npxArgs := append([]string{"-y", "twitch-dlp"}, args...)

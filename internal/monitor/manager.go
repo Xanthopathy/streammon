@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
 	"streammon/internal/util"
 )
 
@@ -26,7 +27,7 @@ func (b *BaseMonitor) manageDownloads() {
 
 		b.statusMutex.RLock()
 		// Create a copy of live channels to avoid holding the lock for too long
-		liveChs := make(map[string]LiveInfo)
+		liveChs := make(map[string]models.LiveInfo)
 		for id, s := range b.liveStatus {
 			if s.IsLive {
 				liveChs[id] = s
@@ -47,7 +48,7 @@ func (b *BaseMonitor) manageDownloads() {
 }
 
 // tryStartDownload checks all conditions and launches a download if appropriate.
-func (b *BaseMonitor) tryStartDownload(ch config.Channel, status LiveInfo) {
+func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo) {
 	// 1. Try to acquire a global download slot. This is non-blocking.
 	select {
 	case downloadSlots <- struct{}{}:

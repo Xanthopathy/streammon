@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/models"
+	"streammon/internal/scrapers/youtube"
 	"streammon/internal/util"
 )
 
@@ -73,7 +75,7 @@ func (m *YTMonitor) GetLogPrefix() string {
 
 // CheckChannelStatus for YouTube uses RSS parsing to confirm a stream is live.
 // Only launches yt-dlp if both checks confirm the stream exists.
-func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (LiveInfo, error) {
+func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
 	// Parse the ignore_older_than duration from config
 	ignoreOlderThan, err := time.ParseDuration(m.cfg.Scraper.IgnoreOlderThan)
 	if err != nil {
@@ -97,14 +99,14 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 	var lastErr error
 
 	for _, method := range methods {
-		var info LiveInfo
+		var info models.LiveInfo
 		var err error
 
 		switch method {
 		case "rss":
-			info, err = CheckYouTubeViaRSS(httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
+			info, err = youtube.CheckYouTubeViaRSS(httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
 		case "live":
-			info, err = CheckYouTubeViaLivePage(httpClient, ch.ID, ch.Name, m.base.logger)
+			info, err = youtube.CheckYouTubeViaLivePage(httpClient, ch.ID, ch.Name, m.base.logger)
 		default:
 			continue
 		}
@@ -117,11 +119,11 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 		lastErr = err
 	}
 
-	return LiveInfo{}, fmt.Errorf("all check methods failed (last error: %w)", lastErr)
+	return models.LiveInfo{}, fmt.Errorf("all check methods failed (last error: %w)", lastErr)
 }
 
 // BuildDownloaderCmd constructs the command to run yt-dlp.
-func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status LiveInfo) *exec.Cmd {
+func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.youtube.com/watch?v=" + status.VideoID
 	// Note: yt-dlp args might need special handling for things like --paths
 	args := append(m.cfg.StreamMon.Args, url)

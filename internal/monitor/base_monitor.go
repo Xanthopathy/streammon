@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"streammon/internal/models"
 	"streammon/internal/util"
 )
 
@@ -15,7 +16,7 @@ type BaseMonitor struct {
 	httpClient                *http.Client
 	statusMutex               sync.RWMutex
 	downloadMutex             sync.Mutex
-	liveStatus                map[string]LiveInfo         // map[channelID]LiveInfo
+	liveStatus                map[string]models.LiveInfo  // map[channelID]LiveInfo
 	activeDownloads           map[string]*downloadProcess // map[channelID]*downloadProcess
 	downloadedVideos          map[string]map[string]bool  // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
 	downloadedVidMu           sync.RWMutex                // protects downloadedVideos
@@ -37,7 +38,7 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		logger:               util.NewLogger(controller.GetGlobalConfig(), controller.GetLogPrefix(), controller.GetLogColor()),
 		controller:           controller,
 		httpClient:           &http.Client{Timeout: 30 * time.Second},
-		liveStatus:           make(map[string]LiveInfo),
+		liveStatus:           make(map[string]models.LiveInfo),
 		activeDownloads:      make(map[string]*downloadProcess),
 		downloadedVideos:     make(map[string]map[string]bool),
 		queuedVideosLogged:   make(map[string]bool),

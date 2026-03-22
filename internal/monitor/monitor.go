@@ -1,12 +1,4 @@
 package monitor
 
-import "time"
-
-// LiveInfo stores details about a live stream.
-type LiveInfo struct {
-	IsLive          bool
-	VideoID         string
-	Title           string
-	CreatedAt       time.Time
-	LastBroadcastID string
-}
+// This package handles the orchestration of monitoring channels,
+// managing download processes, and enforcing concurrency limits.

@@ -1,4 +1,4 @@
-package monitor
+package twitch
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"streammon/internal/models"
 	"streammon/internal/util"
 )
 
@@ -59,7 +60,7 @@ type streamMetadataGQLResponse []struct {
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
 // Includes retry logic with exponential backoff to handle temporary timeouts.
-func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Logger) (LiveInfo, error) {
+func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Logger) (models.LiveInfo, error) {
 	const maxRetries = 2
 	var lastErr error
 
@@ -84,11 +85,11 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Log
 		}
 	}
 
-	return LiveInfo{}, fmt.Errorf("GQL request failed after %d retries: %w", maxRetries, lastErr)
+	return models.LiveInfo{}, fmt.Errorf("GQL request failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // checkLiveGQLOnce performs a single GQL request without retries.
-func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util.Logger) (LiveInfo, error) {
+func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util.Logger) (models.LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := streamMetadataGQLRequest{
 		OperationName: "StreamMetadata",
@@ -101,7 +102,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util
 	// The API expects a JSON array containing the request object
 	body, err := json.Marshal([]streamMetadataGQLRequest{payload})
 	if err != nil {
-		return LiveInfo{}, fmt.Errorf("failed to marshal GQL request: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("failed to marshal GQL request: %w", err)
 	}
 	// Pretty-print the JSON payload for readability
 	var prettyPayload bytes.Buffer
@@ -111,25 +112,25 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
 	if err != nil {
-		return LiveInfo{}, fmt.Errorf("failed to create GQL request: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("failed to create GQL request: %w", err)
 	}
 	req.Header.Set("Client-ID", TwitchClientID)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return LiveInfo{}, fmt.Errorf("GQL request failed: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("GQL request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return LiveInfo{}, fmt.Errorf("GQL request returned non-200 status: %s", resp.Status)
+		return models.LiveInfo{}, fmt.Errorf("GQL request returned non-200 status: %s", resp.Status)
 	}
 
 	// Read the body to allow for logging and decoding
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return LiveInfo{}, fmt.Errorf("failed to read GQL response body: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("failed to read GQL response body: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -141,19 +142,19 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util
 	// Decode the response
 	var gqlResp streamMetadataGQLResponse
 	if err := json.Unmarshal(responseBody, &gqlResp); err != nil {
-		return LiveInfo{}, fmt.Errorf("failed to decode GQL response: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("failed to decode GQL response: %w", err)
 	}
 
 	// Basic validation of the response structure
 	if len(gqlResp) == 0 {
-		return LiveInfo{}, fmt.Errorf("GQL response was an empty array")
+		return models.LiveInfo{}, fmt.Errorf("GQL response was an empty array")
 	}
 	if len(gqlResp[0].Errors) > 0 {
-		return LiveInfo{}, fmt.Errorf("GQL error: %s", gqlResp[0].Errors[0].Message)
+		return models.LiveInfo{}, fmt.Errorf("GQL error: %s", gqlResp[0].Errors[0].Message)
 	}
 	if gqlResp[0].Data.User == nil {
 		// This can happen for suspended or non-existent channels.
-		return LiveInfo{IsLive: false}, nil
+		return models.LiveInfo{IsLive: false}, nil
 	}
 
 	user := gqlResp[0].Data.User
@@ -161,7 +162,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util
 	lastBroadcast := user.LastBroadcast
 
 	// Prepare the result, starting with data that's always present
-	info := LiveInfo{IsLive: false}
+	info := models.LiveInfo{IsLive: false}
 	if lastBroadcast != nil {
 		info.Title = lastBroadcast.Title
 		info.LastBroadcastID = lastBroadcast.ID
@@ -187,5 +188,3 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util
 
 	return info, nil
 }
-
-// Note: The rest of the original CheckLiveGQL logic has been moved to checkLiveGQLOnce
