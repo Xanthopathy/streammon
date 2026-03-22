@@ -7,5 +7,5 @@ download_yt/
 tree.bat
 notes.txt
 streammon_config.toml
-streammon_config_youtube.toml
+streammon_config_yt.toml
 streammon_config_twitch.toml
