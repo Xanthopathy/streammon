@@ -19,7 +19,7 @@ func main() {
 	// Bootstrap logger with default settings for startup messages
 	// We use a dummy config initially, defaulting to UTC
 	defaultCfg := config.GetDefaultGlobalConfig()
-	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorBlue)
+	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorCyan)
 
 	sysLogger.Logf("streammon version %s", currentVersion)
 
@@ -36,7 +36,7 @@ func main() {
 	}
 
 	// Update logger with loaded config (for correct timezone)
-	sysLogger = util.NewLogger(globalCfg, "System", util.ColorBlue)
+	sysLogger = util.NewLogger(globalCfg, "System", util.ColorCyan)
 
 	// Start update check in the background
 	go func() {

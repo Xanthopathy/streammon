@@ -25,6 +25,7 @@ const (
 	ColorBlue   = "\033[94m"       // INFO, debug, lock
 	ColorPurple = "\033[95m"       // Twitch
 	ColorOrange = "\033[38;5;208m" // Channel Names
+	ColorCyan   = "\033[96m"       // System
 )
 
 // --- UI Helpers ---
@@ -252,13 +253,58 @@ func CheckForUpdates(currentVersion string) (string, error) {
 
 	latestVersion := releaseInfo.TagName
 
-	// Use a simple string comparison, but trim whitespace to make it robust against weird API responses.
-	if strings.TrimSpace(latestVersion) != "" && strings.TrimSpace(latestVersion) != strings.TrimSpace(currentVersion) {
+	if isNewerVersion(latestVersion, currentVersion) {
 		releasesURL := "https://github.com/Xanthopathy/streammon/releases"
 		return fmt.Sprintf("A new version is available: %s (current: %s). Get it here: %s", latestVersion, currentVersion, releasesURL), nil
 	}
 
 	return "", nil
+}
+
+// isNewerVersion compares two version strings (e.g. "v1.0.5" vs "v1.0.4").
+// Returns true if remote is strictly greater than local.
+func isNewerVersion(remote, local string) bool {
+	parse := func(v string) []int {
+		v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+		parts := strings.Split(v, ".")
+		var nums []int
+		for _, p := range parts {
+			// Handle potential suffixes like -beta by ignoring them
+			if idx := strings.IndexAny(p, "-+"); idx != -1 {
+				p = p[:idx]
+			}
+			n, _ := strconv.Atoi(p)
+			nums = append(nums, n)
+		}
+		return nums
+	}
+
+	rParts := parse(remote)
+	lParts := parse(local)
+
+	maxLen := len(rParts)
+	if len(lParts) > maxLen {
+		maxLen = len(lParts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		r := 0
+		if i < len(rParts) {
+			r = rParts[i]
+		}
+		l := 0
+		if i < len(lParts) {
+			l = lParts[i]
+		}
+
+		if r > l {
+			return true
+		}
+		if r < l {
+			return false
+		}
+	}
+	return false
 }
 
 // --- Connection Helpers ---

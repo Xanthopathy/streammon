@@ -140,6 +140,8 @@ func (b *BaseMonitor) monitorConnection() {
 	consecutiveFailure := 0
 	const threshold = 3
 
+	sysLogger := util.NewLogger(b.controller.GetGlobalConfig(), "System", util.ColorCyan)
+
 	for {
 		// Wait for timer or trigger
 		select {
@@ -166,10 +168,10 @@ func (b *BaseMonitor) monitorConnection() {
 				consecutiveFailure++
 				// Log a warning on the first failure so the user knows why checks might be failing
 				if consecutiveFailure == 1 {
-					b.logger.Warn("Connection check failed. Verifying stability...")
+					sysLogger.Warn("Connection check failed. Verifying stability...")
 				}
 				if consecutiveFailure >= threshold {
-					b.logger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", util.ColorRed, util.ColorReset)
+					sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", util.ColorRed, util.ColorReset)
 					b.isConnected = false
 					consecutiveSuccess = 0 // Reset success count for recovery
 				}
@@ -178,9 +180,9 @@ func (b *BaseMonitor) monitorConnection() {
 			// Currently disconnected
 			if connected {
 				consecutiveSuccess++
-				b.logger.Debug("System", fmt.Sprintf("Connection check passed (%d/%d)...", consecutiveSuccess, threshold))
+				sysLogger.Debug("System", fmt.Sprintf("Connection check passed (%d/%d)...", consecutiveSuccess, threshold))
 				if consecutiveSuccess >= threshold {
-					b.logger.Logf("%sConnection restored (stable).%s Resuming operations...", util.ColorGreen, util.ColorReset)
+					sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", util.ColorGreen, util.ColorReset)
 					b.isConnected = true
 					consecutiveFailure = 0
 					// Wake up all goroutines waiting on this condition (e.g. main loop, manager)
