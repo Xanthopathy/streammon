@@ -1,7 +1,4 @@
 .
-|-- PROCESS.md
-|-- README.md
-|-- build.ps1
 |-- cmd
 |   `-- streammon
 |       `-- main.go
@@ -9,12 +6,18 @@
 |   |-- streammon_config.toml
 |   |-- streammon_config_twitch.toml
 |   `-- streammon_config_yt.toml
+|-- docs
+|   |-- PROCESS.md
+|   |-- README.md
+|   `-- todo.txt
 |-- go.mod
 |-- go.sum
 |-- internal
 |   |-- config
 |   |   |-- config.go
 |   |   `-- defaults.go
+|   |-- models
+|   |   `-- live_info.go
 |   |-- monitor
 |   |   |-- base_monitor.go
 |   |   |-- checker.go
@@ -25,20 +28,23 @@
 |   |   |-- monitor.go
 |   |   |-- monitor_loop.go
 |   |   |-- twitch.go
-|   |   |-- twitch_api.go
-|   |   |-- youtube.go
-|   |   `-- youtube_api.go
+|   |   `-- youtube.go
+|   |-- scrapers
+|   |   |-- twitch
+|   |   |   `-- gql.go
+|   |   `-- youtube
+|   |       `-- client.go
 |   `-- util
 |       |-- logger.go
 |       `-- utils.go
-|-- testing
-|   |-- gql
-|   |   |-- test_gql.go
-|   |   `-- test_gql.json
-|   `-- live
-|       |-- test_yt_live.go
-|       `-- test_yt_live.log
-|-- todo.txt
-`-- tree.txt
+|-- scripts
+|   `-- build.ps1
+`-- tests
+    |-- gql
+    |   |-- test_gql.go
+    |   `-- test_gql.json
+    `-- live
+        |-- test_yt_live.go
+        `-- test_yt_live.log
 
-10 directories, 31 files
+16 directories, 31 files
