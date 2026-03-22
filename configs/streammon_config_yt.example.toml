@@ -52,6 +52,12 @@ max_requests_per_second = 2
 # If the default method fails, the other method is tried automatically as a fallback.
 check_method = "rss"
 
+# fallback_duration: How long to stick to the fallback method after a failure.
+# If the primary method (e.g., RSS) fails, the system switches to the fallback (e.g., Live Page)
+# and stays there for this duration before trying the primary method again.
+# Default: "15m"
+fallback_duration = 15m
+
 # ========================== Channels ========================== #
 # Common filter presets (Copy-paste these into channel filters)
 # All: [".*"]

@@ -132,6 +132,7 @@ go run ./cmd/streammon/main.go
 | `check_method`            | Default method to check for streams. Options: `"rss"` (low-bandwidth, can be delayed) or `"live"` (more accurate, heavier). The other is used as a fallback. |
 | `ignore_older_than`       | Prevents downloading old videos that reappear in the RSS feed.                                                                                               |
 | `poll_interval`           | How often to check for new streams (e.g., `60s`). This is a "freshness target" for the whole channel list.                                                   |
+| `fallback_duration`       | How long to stay on the fallback method after a failure (e.g., `15m`) before retrying the primary method.                                                    |
 | `max_requests_per_second` | Hard rate limit for API calls (default: `2`). This acts as a safety to prevent being flagged as a bot.                                                       |
 | `args`                    | Arguments passed to `yt-dlp`.                                                                                                                                |
 

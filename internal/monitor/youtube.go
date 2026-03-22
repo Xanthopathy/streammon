@@ -15,18 +15,25 @@ import (
 // YTMonitor holds the state and logic for monitoring YouTube.
 // It implements the MonitorController interface.
 type YTMonitor struct {
-	base      *BaseMonitor
-	cfg       *config.YTConfig
-	globalCfg *config.GlobalConfig
-	// lastSeenVideoID map[string]string // This state can be managed inside CheckChannelStatus if needed
+	base           *BaseMonitor
+	cfg            *config.YTConfig
+	globalCfg      *config.GlobalConfig
+	fallbackStates map[string]fallbackState
+
+	stats util.FallbackStats
+}
+
+type fallbackState struct {
+	method    string
+	expiresAt time.Time
 }
 
 // NewYTMonitor creates a new YouTube monitor instance.
 func NewYTMonitor(cfg *config.YTConfig, globalCfg *config.GlobalConfig) *YTMonitor {
 	m := &YTMonitor{
-		cfg:       cfg,
-		globalCfg: globalCfg,
-		// lastSeenVideoID: make(map[string]string),
+		cfg:            cfg,
+		globalCfg:      globalCfg,
+		fallbackStates: make(map[string]fallbackState),
 	}
 	m.base = NewBaseMonitor(m)
 	return m
@@ -84,12 +91,29 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s: %v, using default 24h", ch.Name, err))
 	}
 
+	fallbackDuration, err := time.ParseDuration(m.cfg.Scraper.FallbackDuration)
+	if err != nil {
+		fallbackDuration = 15 * time.Minute
+		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse fallback_duration, using default 15m: %v", err))
+	}
+
 	// Determine check order based on config
 	// Might add Invidious/Holodex later
 	var methods []string
 	defaultMethod := m.cfg.Scraper.CheckMethod
 
-	if defaultMethod == "live" {
+	// Check if channel is in fallback mode
+	currentState, hasState := m.fallbackStates[ch.ID]
+	now := time.Now()
+	if hasState && now.Before(currentState.expiresAt) {
+		// Use the fallback method as primary
+		// We assume only 2 methods for now. If persistent method is live, try live then rss.
+		if currentState.method == "live" {
+			methods = []string{"live", "rss"}
+		} else {
+			methods = []string{"rss", "live"}
+		}
+	} else if defaultMethod == "live" {
 		methods = []string{"live", "rss"}
 	} else {
 		// Default to RSS first
@@ -98,7 +122,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 
 	var lastErr error
 
-	for _, method := range methods {
+	for i, method := range methods {
 		var info models.LiveInfo
 		var err error
 
@@ -112,10 +136,31 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 		}
 
 		if err == nil {
+			// If we succeeded using a method that isn't the configured default, set/refresh fallback state
+			// This makes the fallback "sticky" for a duration (fallbackDuration)
+			if method != defaultMethod {
+				m.fallbackStates[ch.ID] = fallbackState{
+					method:    method,
+					expiresAt: now.Add(fallbackDuration),
+				}
+			} else {
+				// We succeeded with the default method. Clear any fallback state to revert to normal behavior.
+				delete(m.fallbackStates, ch.ID)
+			}
+
 			return info, nil
 		}
 
-		m.base.logger.Debug("YouTube", fmt.Sprintf("Method '%s' failed for %s: %v. Trying fallback...", method, ch.Name, err))
+		// Identify fallback method if one exists
+		var fallbackName string
+		if i+1 < len(methods) {
+			fallbackName = methods[i+1]
+			m.stats.Add(ch.Name, fallbackName)
+		}
+
+		// Log failure only if API verbose is on (to reduce spam)
+		// Use "YouTubeAPI" debug type which triggers on youtube_api_verbose_debug
+		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s: %v. Trying fallback to '%s'...", method, ch.Name, err, fallbackName))
 		lastErr = err
 	}
 
@@ -129,6 +174,12 @@ func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo
 	args := append(m.cfg.StreamMon.Args, url)
 	cmd := exec.Command("yt-dlp", args...)
 	return cmd
+}
+
+// LogStats prints a summary of any failures/swaps that occurred during the check loop.
+// It should be called by the main loop after checkAllChannels completes.
+func (m *YTMonitor) LogStats() {
+	m.stats.LogAndReset(m.base.logger)
 }
 
 // MonitorYouTube is the public entry point that sets up and runs the monitor.

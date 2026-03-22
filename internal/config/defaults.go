@@ -44,11 +44,13 @@ func GetDefaultYTConfig() *YTConfig {
 			IgnoreOlderThan      string  `toml:"ignore_older_than"`
 			MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
 			CheckMethod          string  `toml:"check_method"`
+			FallbackDuration     string  `toml:"fallback_duration"`
 		}{
 			PollInterval:         "60s",
 			IgnoreOlderThan:      "24h",
 			MaxRequestsPerSecond: 2,
 			CheckMethod:          "rss",
+			FallbackDuration:     "15m",
 		},
 	}
 }

@@ -43,6 +43,7 @@ type YTConfig struct {
 		IgnoreOlderThan      string  `toml:"ignore_older_than"`
 		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
 		CheckMethod          string  `toml:"check_method"`
+		FallbackDuration     string  `toml:"fallback_duration"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

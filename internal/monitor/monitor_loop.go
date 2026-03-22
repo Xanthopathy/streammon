@@ -97,6 +97,11 @@ func (b *BaseMonitor) Run() {
 		// Run check and track errors
 		errorCount := b.checkAllChannels()
 
+		// Report stats if supported (e.g. YouTube fallback summary)
+		if reporter, ok := b.controller.(interface{ LogStats() }); ok {
+			reporter.LogStats()
+		}
+
 		// Switch to fixed-delay scheduling aka sleep for the full interval AFTER the work is done.
 		// Previously we subtracted work duration, which dangerously reduced quiet time as the channel list grew.
 		sleepDuration := pollInterval
