@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"streammon/internal/config"
@@ -16,6 +17,10 @@ func main() {
 	util.SetTerminalTitle("streammon")
 	util.PrintBanner()
 
+	// Get executable directory for config loading
+	exePath, _ := os.Executable()
+	exeDir := filepath.Dir(exePath)
+
 	// Bootstrap logger with default settings for startup messages
 	// We use a dummy config initially, defaulting to UTC
 	defaultCfg := config.GetDefaultGlobalConfig()
@@ -26,9 +31,12 @@ func main() {
 	// 1. Load Configuration
 	sysLogger.LogRegular("Loading configurations...")
 
-	globalCfg, err := config.LoadGlobalConfig("streammon_config.toml")
+	globalCfg, err := config.LoadGlobalConfig(filepath.Join(exeDir, "streammon_config.toml"))
 	if err != nil {
-		globalCfg, err = config.LoadGlobalConfig("configs/streammon_config.toml")
+		globalCfg, err = config.LoadGlobalConfig("streammon_config.toml")
+		if err != nil {
+			globalCfg, err = config.LoadGlobalConfig("configs/streammon_config.toml")
+		}
 	}
 	if err != nil {
 		sysLogger.Warn(fmt.Sprintf("Could not load streammon_config.toml: %v. Using defaults (UTC).", err))
@@ -51,9 +59,12 @@ func main() {
 	var ytCfg *config.YTConfig
 	if globalCfg.EnableYoutube {
 		var err error
-		ytCfg, err = config.LoadYTConfig("streammon_config_yt.toml")
+		ytCfg, err = config.LoadYTConfig(filepath.Join(exeDir, "streammon_config_yt.toml"))
 		if err != nil {
-			ytCfg, err = config.LoadYTConfig("configs/streammon_config_yt.toml")
+			ytCfg, err = config.LoadYTConfig("streammon_config_yt.toml")
+			if err != nil {
+				ytCfg, err = config.LoadYTConfig("configs/streammon_config_yt.toml")
+			}
 		}
 		if err != nil {
 			sysLogger.Warn(fmt.Sprintf("YouTube is enabled, but could not load streammon_config_yt.toml: %v. YouTube monitor will not run.", err))
@@ -64,9 +75,12 @@ func main() {
 	var twitchCfg *config.TwitchConfig
 	if globalCfg.EnableTwitch {
 		var err error
-		twitchCfg, err = config.LoadTwitchConfig("streammon_config_twitch.toml")
+		twitchCfg, err = config.LoadTwitchConfig(filepath.Join(exeDir, "streammon_config_twitch.toml"))
 		if err != nil {
-			twitchCfg, err = config.LoadTwitchConfig("configs/streammon_config_twitch.toml")
+			twitchCfg, err = config.LoadTwitchConfig("streammon_config_twitch.toml")
+			if err != nil {
+				twitchCfg, err = config.LoadTwitchConfig("configs/streammon_config_twitch.toml")
+			}
 		}
 		if err != nil {
 			sysLogger.Warn(fmt.Sprintf("Twitch is enabled, but could not load streammon_config_twitch.toml: %v. Twitch monitor will not run.", err))
