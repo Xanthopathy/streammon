@@ -4,7 +4,8 @@ param(
     [switch]$Clean
 )
 
-$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
 $BuildDir = Join-Path $ProjectRoot "build"
 $CmdDir = Join-Path $ProjectRoot "cmd\streammon"
 $ConfigsDir = Join-Path $ProjectRoot "configs"
@@ -50,6 +51,9 @@ foreach ($Target in $Targets) {
     if (-not (Test-Path $PlatformBuildDir)) {
         New-Item -ItemType Directory -Path $PlatformBuildDir | Out-Null
     }
+    
+    # Normalize path to ensure length matches Get-ChildItem results (fixes issue with relative paths like ..)
+    $PlatformBuildDir = (Get-Item -Path $PlatformBuildDir).FullName
     
     $OutputPath = Join-Path $PlatformBuildDir $OutputName
     
