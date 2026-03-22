@@ -51,7 +51,7 @@ func PrintBanner() {
 	cmd.Run()
 
 	fmt.Println(ColorBlue + strings.Repeat("=", 60) + ColorReset)
-	fmt.Printf(" %sStreamMon%s - Automated Stream Archiver\n", ColorGreen, ColorReset)
+	fmt.Printf(" %sstreammon%s - Automated Stream Archiver\n", ColorGreen, ColorReset)
 	fmt.Println(ColorBlue + strings.Repeat("=", 60) + ColorReset)
 }
 

@@ -21,7 +21,7 @@ func main() {
 	defaultCfg := config.GetDefaultGlobalConfig()
 	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorBlue)
 
-	sysLogger.Logf("StreamMon version %s", currentVersion)
+	sysLogger.Logf("streammon version %s", currentVersion)
 
 	// 1. Load Configuration
 	sysLogger.LogRegular("Loading configurations...")
