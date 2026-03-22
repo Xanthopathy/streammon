@@ -74,7 +74,7 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 		return models.LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
 
-	logger.Debug("YouTubeAPI", fmt.Sprintf("RSS feed for %s%s%s (%s) (first 1000 chars): %s", util.ColorOrange, channelName, util.ColorReset, channelID, string(body[:min(1000, len(body))])))
+	// logger.Debug("YouTubeAPI", fmt.Sprintf("RSS feed for %s%s%s (%s) (first 1000 chars): %s", util.ColorOrange, channelName, util.ColorReset, channelID, string(body[:min(1000, len(body))])))
 
 	// Parse the RSS feed
 	var feed YouTubeRSSFeed
