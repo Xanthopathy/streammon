@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"streammon/internal/config"
-	"streammon/internal/monitor"
+	"streammon/internal/scrapers/youtube"
 	"streammon/internal/util"
 )
 
@@ -32,7 +32,7 @@ func main() {
 	fmt.Println("---------------------------------------------------")
 
 	// 3. Call the function directly
-	info, err := monitor.CheckYouTubeViaLivePage(client, testChannelID, testChannelName, logger)
+	info, err := youtube.CheckYouTubeViaLivePage(client, testChannelID, testChannelName, logger)
 
 	fmt.Println("---------------------------------------------------")
 	if err != nil {
