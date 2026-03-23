@@ -32,3 +32,5 @@ holodex or invidious api as a third option (important for member streams)
 [2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping IQCAJV5mCSQ from Kaneko Lumi: too old (Updated=2026-03-18 19:09:29 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
 [2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping sJA_njjZGiU from Kaneko Lumi: too old (Updated=2026-03-15 14:53:05 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
 [2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] No recent videos found in RSS feed for Kaneko Lumi (cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
+
+don't end downloader too quickly as it might need to clean residual files

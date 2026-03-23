@@ -45,7 +45,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Create lockfile
 	if err := util.CreateLock(lockPath); err != nil {
-		b.logger.LogErrorf("Error creating lockfile for %s: %v", ch.Name, err)
+		b.logger.LogErrorf("Error creating lockfile for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
 		return false
 	}
 	b.logger.LogEvent("LOCK", fmt.Sprintf("Created: %s", lockPath))
@@ -62,7 +62,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Create channel specific directory
 	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, util.SanitizeFolderName(ch.Name))
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
-		b.logger.LogErrorf("Error creating directory for %s: %v", ch.Name, err)
+		b.logger.LogErrorf("Error creating directory for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
 		util.DeleteLock(lockPath)
 		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
@@ -96,7 +96,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		commandStr,
 	)
 	if err != nil {
-		b.logger.LogErrorf("Error creating logger for %s: %v", ch.Name, err)
+		b.logger.LogErrorf("Error creating logger for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
 		util.DeleteLock(lockPath)
 		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
@@ -144,7 +144,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Start command
 	if err := cmd.Start(); err != nil {
-		logger.LogError(fmt.Sprintf("Error starting download for %s: %v", ch.Name, err))
+		logger.LogError(fmt.Sprintf("Error starting download for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err))
 		util.DeleteLock(lockPath) // Clean up lock on failure
 		logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		logger.Close()
@@ -191,16 +191,16 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	// Log slot release with correct styling (fixes double tag issue and enables for YT)
 	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
-		proc.logger.Logf("Released download slot for %s. Slots used: %d/%d.", ch.Name, len(downloadSlots), cap(downloadSlots))
+		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", util.ColorOrange, ch.Name, util.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Check if the error was due to forced termination (monitor stopped it)
 	if proc.forcedTermination.Load() {
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s stopped by monitor (stream offline).", ch.Name))
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", util.ColorOrange, ch.Name, util.ColorReset))
 	} else if err != nil {
-		proc.logger.LogError(fmt.Sprintf("Download for %s finished with error: %v", ch.Name, err))
+		proc.logger.LogError(fmt.Sprintf("Download for %s%s%s finished with error: %v", util.ColorOrange, ch.Name, util.ColorReset, err))
 	} else {
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s finished successfully.", ch.Name))
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", util.ColorOrange, ch.Name, util.ColorReset))
 	}
 
 	// Archive if success OR forced termination (assuming meaningful data was captured)

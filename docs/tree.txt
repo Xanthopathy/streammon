@@ -3,8 +3,11 @@
 |   `-- streammon
 |       `-- main.go
 |-- configs
+|   |-- streammon_config.example.toml
 |   |-- streammon_config.toml
+|   |-- streammon_config_twitch.example.toml
 |   |-- streammon_config_twitch.toml
+|   |-- streammon_config_yt.example.toml
 |   `-- streammon_config_yt.toml
 |-- docs
 |   |-- PROCESS.md
@@ -25,7 +28,6 @@
 |   |   |-- downloader.go
 |   |   |-- limiter.go
 |   |   |-- manager.go
-|   |   |-- monitor.go
 |   |   |-- monitor_loop.go
 |   |   |-- twitch.go
 |   |   `-- youtube.go
@@ -33,9 +35,12 @@
 |   |   |-- twitch
 |   |   |   `-- gql.go
 |   |   `-- youtube
-|   |       `-- client.go
+|   |       |-- client.go
+|   |       |-- live.go
+|   |       `-- rss.go
 |   `-- util
 |       |-- logger.go
+|       |-- stats.go
 |       `-- utils.go
 |-- scripts
 |   `-- build.ps1
@@ -47,4 +52,4 @@
         |-- test_yt_live.go
         `-- test_yt_live.log
 
-16 directories, 31 files
+16 directories, 36 files

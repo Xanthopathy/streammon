@@ -88,7 +88,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 	if err != nil {
 		// Default to 24 hours if parse fails
 		ignoreOlderThan = 24 * time.Hour
-		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s: %v, using default 24h", ch.Name, err))
+		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s%s%s: %v, using default 24h", util.ColorOrange, ch.Name, util.ColorReset, err))
 	}
 
 	fallbackDuration, err := time.ParseDuration(m.cfg.Scraper.FallbackDuration)
@@ -160,7 +160,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 
 		// Log failure only if API verbose is on (to reduce spam)
 		// Use "YouTubeAPI" debug type which triggers on youtube_api_verbose_debug
-		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s: %v. Trying fallback to '%s'...", method, ch.Name, err, fallbackName))
+		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s%s%s: %v. Trying fallback to '%s'...", method, util.ColorOrange, ch.Name, util.ColorReset, err, fallbackName))
 		lastErr = err
 	}
 
