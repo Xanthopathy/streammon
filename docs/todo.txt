@@ -15,22 +15,151 @@ CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Goo
 
 holodex or invidious api as a third option (important for member streams)
 
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Fetching RSS feed for Kaneko Lumi (UCx_zwZuGIS4jxO07kFk8G6Q): https://www.youtube.com/feeds/videos.xml?channel_id=UCx_zwZuGIS4jxO07kFk8G6Q
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping hLiXA30iZ1Y from Kaneko Lumi: too old (Updated=2026-03-20 10:21:43 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping SVpLu03kWvw from Kaneko Lumi: too old (Updated=2026-03-18 07:39:43 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping 6p3CUE-cgjA from Kaneko Lumi: too old (Updated=2026-03-19 06:38:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping F04BFST_BEg from Kaneko Lumi: too old (Updated=2026-03-18 03:15:27 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping JjBWdVMc9eo from Kaneko Lumi: too old (Updated=2026-03-13 21:50:51 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping SsJ49n9Y120 from Kaneko Lumi: too old (Updated=2026-03-10 23:15:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping 7EyVKwVs_mU from Kaneko Lumi: too old (Updated=2026-03-07 13:45:46 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping W-hdTnirtMI from Kaneko Lumi: too old (Updated=2026-03-04 08:09:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping wbmyvYAR4oM from Kaneko Lumi: too old (Updated=2026-03-04 03:10:20 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping NpS3ImH4m7Y from Kaneko Lumi: too old (Updated=2026-02-28 09:29:01 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping hXp5YtPkNZg from Kaneko Lumi: too old (Updated=2026-03-02 01:58:06 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping L1s8SCMaZYw from Kaneko Lumi: too old (Updated=2026-02-21 14:57:03 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping G7bgwyubJBg from Kaneko Lumi: too old (Updated=2026-02-22 18:13:59 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping IQCAJV5mCSQ from Kaneko Lumi: too old (Updated=2026-03-18 19:09:29 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] Skipping sJA_njjZGiU from Kaneko Lumi: too old (Updated=2026-03-15 14:53:05 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
-[2026-03-22 20:12:54 UTC+07:00] [YT] [YouTubeAPI] No recent videos found in RSS feed for Kaneko Lumi (cutoff=2026-03-21 20:12:54.7618126 +0700 +07 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Fetching RSS feed for Kaneko Lumi (UCx_zwZuGIS4jxO07kFk8G6Q): https://www.youtube.com/feeds/videos.xml?channel_id=UCx_zwZuGIS4jxO07kFk8G6Q
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping hLiXA30iZ1Y from Kaneko Lumi: too old (Updated=2026-03-20 10:21:43 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping SVpLu03kWvw from Kaneko Lumi: too old (Updated=2026-03-18 07:39:43 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping 6p3CUE-cgjA from Kaneko Lumi: too old (Updated=2026-03-19 06:38:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping F04BFST_BEg from Kaneko Lumi: too old (Updated=2026-03-18 03:15:27 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping JjBWdVMc9eo from Kaneko Lumi: too old (Updated=2026-03-13 21:50:51 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping SsJ49n9Y120 from Kaneko Lumi: too old (Updated=2026-03-10 23:15:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping 7EyVKwVs_mU from Kaneko Lumi: too old (Updated=2026-03-07 13:45:46 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping W-hdTnirtMI from Kaneko Lumi: too old (Updated=2026-03-04 08:09:52 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping wbmyvYAR4oM from Kaneko Lumi: too old (Updated=2026-03-04 03:10:20 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping NpS3ImH4m7Y from Kaneko Lumi: too old (Updated=2026-02-28 09:29:01 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping hXp5YtPkNZg from Kaneko Lumi: too old (Updated=2026-03-02 01:58:06 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping L1s8SCMaZYw from Kaneko Lumi: too old (Updated=2026-02-21 14:57:03 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping G7bgwyubJBg from Kaneko Lumi: too old (Updated=2026-02-22 18:13:59 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping IQCAJV5mCSQ from Kaneko Lumi: too old (Updated=2026-03-18 19:09:29 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] Skipping sJA_njjZGiU from Kaneko Lumi: too old (Updated=2026-03-15 14:53:05 +0000 +0000 < cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
+[2026-03-22 20:12:54 UTC+00:00] [YT] [YouTubeAPI] No recent videos found in RSS feed for Kaneko Lumi (cutoff=2026-03-21 20:12:54.7618126 +0000 +00 m=-86364.046015199)
 
 don't end downloader too quickly as it might need to clean residual files
+
+[2026-03-23 12:37:35 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 13:14:38 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 13:14:38 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 13:14:38 UTC+00:00] [YT] ERROR: Error checking Wilhelmina Frost: all check methods failed (last error: Failed to fetch /live for Wilhelmina Frost: Get "https://
+www.youtube.com/channel/UCzA7j_ixOvBz39saDYlbRiA/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:14:39 UTC+00:00] [Twitch] ERROR: Error checking Ashelia Rinkou: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such
+ host
+[2026-03-23 13:14:40 UTC+00:00] [Twitch] ERROR: Error checking Utatane Nasa: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such h
+ost
+[2026-03-23 13:14:40 UTC+00:00] [System] Connection lost (confirmed). Pausing monitors...
+[2026-03-23 13:14:42 UTC+00:00] [Twitch] ERROR: Error checking Iori Hakushika: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such
+ host
+[2026-03-23 13:14:43 UTC+00:00] [YT] ERROR: Error checking Sameko Saba: all check methods failed (last error: Failed to fetch /live for Sameko Saba: Get "https://www.youtub
+e.com/channel/UCxsZ6NCzjU_t4YSxQLBcM5A/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:14:43 UTC+00:00] [System] Connection lost (confirmed). Pausing monitors...
+[2026-03-23 13:15:00 UTC+00:00] [Twitch] ERROR: Error checking Fujikura Uruka: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp 151.101.2.214:443: connectex:
+An established connection was aborted by the software in your host machine.
+[2026-03-23 13:15:00 UTC+00:00] [YT] ERROR: Error checking Eva Ananova: all check methods failed (last error: Failed to fetch /live for Eva Ananova: Get "https://www.youtub
+e.com/channel/UCTNpwWyoLgeJ-tsxWq7ucvw/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:15:00 UTC+00:00] [YT] ERROR: Error checking Dooby: all check methods failed (last error: Failed to fetch /live for Dooby: Get "https://www.youtube.com/channe
+l/UC6T7TJZbW6nO-qsc5coo8Pg/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:15:00 UTC+00:00] [Twitch] ERROR: Error checking Ember Amane: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such ho
+st
+[2026-03-23 13:15:00 UTC+00:00] [YT] ERROR: Error checking Chikafuji Lisa: all check methods failed (last error: Failed to fetch /live for Chikafuji Lisa: Get "https://www.
+youtube.com/channel/UCdureux7B_V-xhM7tYImASQ/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:15:01 UTC+00:00] [Twitch] ERROR: Error checking Jelly Hoshiumi: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such
+ host
+[2026-03-23 13:15:01 UTC+00:00] [Twitch] ERROR: Error checking Dizzy Dokuro: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such h
+ost
+[2026-03-23 13:15:01 UTC+00:00] [Twitch] ERROR: Error checking Michiru Shisui: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such
+ host
+[2026-03-23 13:15:01 UTC+00:00] [Twitch] ERROR: Error checking Remilia Nephys: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such
+ host
+[2026-03-23 13:15:02 UTC+00:00] [YT] ERROR: Error checking Fuzuki Miki: all check methods failed (last error: Failed to fetch /live for Fuzuki Miki: Get "https://www.youtub
+e.com/channel/UCRVYDlnhf6MCqbbf5-jjjsQ/live": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 13:15:02 UTC+00:00] [YT] Fallback Report: 6 channels failed primary check and swapped methods: [Wilhelmina Frost (->live) Sameko Saba (->live) Dooby (->live) Ch
+ikafuji Lisa (->live) Eva Ananova (->live) Fuzuki Miki (->live)]
+[2026-03-23 13:15:02 UTC+00:00] [YT] Detected 6 errors during poll. Staggering next poll by +3m0s (Consecutive failures: 1)
+[2026-03-23 13:15:02 UTC+00:00] [Twitch] ERROR: Error checking Chisaka Airi: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such h
+ost
+[2026-03-23 13:15:07 UTC+00:00] [Twitch] ERROR: Error checking Amanogawa Shiina: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:07 UTC+00:00] [Twitch] ERROR: Error checking Erina Makina: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:09 UTC+00:00] [Twitch] ERROR: Error checking Komachi Panko: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:10 UTC+00:00] [Twitch] ERROR: Error checking Eimi Isami: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:13 UTC+00:00] [Twitch] ERROR: Error checking Himemiya Rie: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:13 UTC+00:00] [Twitch] ERROR: Error checking Hikanari Hina: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:13 UTC+00:00] [Twitch] ERROR: Error checking Kokoromo Memory: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:15 UTC+00:00] [Twitch] ERROR: Error checking Gram Pico: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:17 UTC+00:00] [Twitch] ERROR: Error checking Ayase Yuu: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:18 UTC+00:00] [Twitch] ERROR: Error checking Muu Muyu: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:21 UTC+00:00] [Twitch] ERROR: Error checking Kaminari Clara: GQL request failed: Post "https://gql.twitch.tv/gql": EOF
+[2026-03-23 13:15:28 UTC+00:00] [Twitch] Detected 21 errors during poll. Staggering next poll by +3m0s (Consecutive failures: 1)
+[2026-03-23 13:15:33 UTC+00:00] [System] Connection restored (stable). Resuming operations...
+[2026-03-23 13:15:34 UTC+00:00] [System] Connection restored (stable). Resuming operations...
+
+
+
+
+[2026-03-23 16:05:16 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 16:05:17 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 16:05:51 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 16:06:50 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 16:07:04 UTC+00:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-03-23 16:07:16 UTC+00:00] [Twitch] ERROR: Error checking Erina Makina: GQL request failed: Post "https://gql.twitch.tv/gql": read tcp 172.172.28.220:9391->151.101.130.214:443: wsarecv: An established connection was aborted by the software in your host machine.
+[2026-03-23 16:07:16 UTC+00:00] [Twitch] ERROR: Error checking Komachi Panko: GQL request failed: Post "https://gql.twitch.tv/gql": read tcp 172.172.28.220:9391->151.101.130.214:443: wsarecv: An established connection was aborted by the software in your host machine.
+[2026-03-23 16:07:16 UTC+00:00] [Twitch] ERROR: Error checking Eimi Isami: GQL request failed: Post "https://gql.twitch.tv/gql": read tcp 172.172.28.220:9391->151.101.130.214:443: wsarecv: An established connection was aborted by the software in your host machine.
+[2026-03-23 16:07:16 UTC+00:00] [System] Connection lost (confirmed). Pausing monitors...
+[2026-03-23 16:07:16 UTC+00:00] [Twitch] ERROR: Error checking Himemiya Rie: GQL request failed: Post "https://gql.twitch.tv/gql": read tcp 172.172.28.220:9391->151.101.130.214:443: wsarecv: An established connection was aborted by the software in your host machine.
+[2026-03-23 16:07:16 UTC+00:00] [Twitch] ERROR: Error checking Muu Muyu: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:16 UTC+00:00] [YT] ERROR: Error checking Eimi Isami: all check methods failed (last error: Failed to fetch RSS feed for Eimi Isami: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UC-tBLCGTheczDn5mYNoNWTQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:16 UTC+00:00] [YT] ERROR: Error checking Runie Ruse: all check methods failed (last error: Failed to fetch RSS feed for Runie Ruse: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCoAQsc-DQ0MjfTp059otQAw": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:16 UTC+00:00] [System] Connection lost (confirmed). Pausing monitors...
+[2026-03-23 16:07:16 UTC+00:00] [YT] ERROR: Error checking Muu Muyu: all check methods failed (last error: Failed to fetch RSS feed for Muu Muyu: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCejbicoRnQjCOdAPAv5JPwg": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:16 UTC+00:00] [YT] ERROR: Error checking Komachi Panko: all check methods failed (last error: Failed to fetch RSS feed for Komachi Panko: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCVo_KgPNsDKxHwzib7uarCw": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:16 UTC+00:00] [YT] ERROR: Error checking Hikanari Hina: all check methods failed (last error: Failed to fetch RSS feed for Hikanari Hina: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCXDytlJU6RL8D68VrPZGyIA": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:18 UTC+00:00] [Twitch] ERROR: Error checking Hikanari Hina: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:19 UTC+00:00] [Twitch] ERROR: Error checking Kokoromo Memory: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:20 UTC+00:00] [Twitch] ERROR: Error checking Gram Pico: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:20 UTC+00:00] [YT] ERROR: Error checking Kannagi Loki: all check methods failed (last error: Failed to fetch RSS feed for Kannagi Loki: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCucJYLJSEFRRfV2CA_JGHIQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:21 UTC+00:00] [Twitch] ERROR: Error checking Ayase Yuu: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:22 UTC+00:00] [Twitch] ERROR: Error checking Kaminari Clara: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:24 UTC+00:00] [Twitch] ERROR: Error checking Chikafuji Lisa: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-03-23 16:07:24 UTC+00:00] [Twitch] Detected 11 errors during poll. Staggering next poll by +3m0s (Consecutive failures: 1)
+[2026-03-23 16:07:25 UTC+00:00] [YT] ERROR: Error checking Kokoromo Memory: all check methods failed (last error: Failed to fetch RSS feed for Kokoromo Memory: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCGXwv2zYOxeWiNNyPiLCBCQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:31 UTC+00:00] [YT] ERROR: Error checking Gram Pico: all check methods failed (last error: Failed to fetch RSS feed for Gram Pico: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCtWH0tVAcUcSm4v96H5cAqQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:37 UTC+00:00] [YT] ERROR: Error checking Ayase Yuu: all check methods failed (last error: Failed to fetch RSS feed for Ayase Yuu: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCnNLZWjl4GvVF4s8zBT9_kA": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:41 UTC+00:00] [YT] ERROR: Error checking Clio Aite: all check methods failed (last error: Failed to fetch RSS feed for Clio Aite: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCrGTSXWMiAWoPlowSuMVZ4Q": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:45 UTC+00:00] [YT] ERROR: Error checking MARIMARI_EN: all check methods failed (last error: Failed to fetch RSS feed for MARIMARI_EN: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCG5vZgELi3on_pksaLrIoxw": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:50 UTC+00:00] [YT] ERROR: Error checking Eepy Sleepy: all check methods failed (last error: Failed to fetch RSS feed for Eepy Sleepy: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UC3aEtHpGzCFvoSn_wRWzgZQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:07:56 UTC+00:00] [YT] ERROR: Error checking Malice Evermore: all check methods failed (last error: Failed to fetch RSS feed for Malice Evermore: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UC0mEc9OzI-B9HRi1v-GCVBw": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:00 UTC+00:00] [YT] ERROR: Error checking Anya Nyabyss: all check methods failed (last error: Failed to fetch RSS feed for Anya Nyabyss: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UC9ig_HmTzk-8yuW708TQk3w": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:04 UTC+00:00] [YT] ERROR: Error checking Nitya Nil: all check methods failed (last error: Failed to fetch RSS feed for Nitya Nil: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCBXLH5mn0nxgFH3udMtw4ig": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:10 UTC+00:00] [YT] ERROR: Error checking Sinon Sinfonia: all check methods failed (last error: Failed to fetch RSS feed for Sinon Sinfonia: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCjqlgGE9PA7xEbE6XW5Tl9g": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:16 UTC+00:00] [YT] ERROR: Error checking Bibi Biscuit: all check methods failed (last error: Failed to fetch RSS feed for Bibi Biscuit: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCmbokzv5VTe9LeuzAFcDu9A": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:20 UTC+00:00] [YT] ERROR: Error checking Wilhelmina Frost: all check methods failed (last error: Failed to fetch RSS feed for Wilhelmina Frost: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCzA7j_ixOvBz39saDYlbRiA": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:25 UTC+00:00] [YT] ERROR: Error checking Sameko Saba: all check methods failed (last error: Failed to fetch RSS feed for Sameko Saba: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCxsZ6NCzjU_t4YSxQLBcM5A": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:30 UTC+00:00] [YT] ERROR: Error checking Dooby: all check methods failed (last error: Failed to fetch RSS feed for Dooby: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UC6T7TJZbW6nO-qsc5coo8Pg": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:34 UTC+00:00] [YT] ERROR: Error checking Chikafuji Lisa: all check methods failed (last error: Failed to fetch RSS feed for Chikafuji Lisa: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCdureux7B_V-xhM7tYImASQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:38 UTC+00:00] [YT] ERROR: Error checking Eva Ananova: all check methods failed (last error: Failed to fetch RSS feed for Eva Ananova: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCTNpwWyoLgeJ-tsxWq7ucvw": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:43 UTC+00:00] [YT] ERROR: Error checking Fuzuki Miki: all check methods failed (last error: Failed to fetch RSS feed for Fuzuki Miki: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCRVYDlnhf6MCqbbf5-jjjsQ": dial tcp: lookup www.youtube.com: no such host)
+[2026-03-23 16:08:43 UTC+00:00] [YT] Fallback Report: 23 channels failed primary check and swapped methods: [Komachi Panko (->rss) Runie Ruse (->rss) Muu Muyu (->rss) Eimi Isami (->rss) Hikanari Hina (->rss) Kannagi Loki (->rss) Kokoromo Memory (->rss) Gram Pico (->rss) Ayase Yuu (->rss) Clio Aite (->rss) MARIMARI_EN (->rss) Eepy Sleepy (->rss) Malice Evermore (->rss) Anya Nyabyss (->rss) Nitya Nil (->rss) Sinon Sinfonia (->rss) Bibi Biscuit (->rss) Wilhelmina Frost (->rss) Sameko Saba (->rss) Dooby (->rss) Chikafuji Lisa (->rss) Eva Ananova (->rss) Fuzuki Miki (->rss)]
+[2026-03-23 16:08:43 UTC+00:00] [YT] Detected 23 errors during poll. Staggering next poll by +3m0s (Consecutive failures: 1)
+[2026-03-23 16:33:29 UTC+00:00] [System] Connection restored (stable). Resuming operations...
+[2026-03-23 16:33:29 UTC+00:00] [System] Connection restored (stable). Resuming operations...
+
+ensure finished videos save to archive.txt
+
+
+[2026-03-30 12:04:18 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] [download] Got error: HTTP Error 500: Internal Server Error. Giving up after 10 retries
+[2026-03-30 12:04:37 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 2: [download]  153.47MiB at  130.44KiB/s (02:29:28) (frag 9322)
+[2026-03-30 12:04:53 UTC+00:00] [YT] Muu Muyu has gone offline.
+[2026-03-30 12:05:07 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 2: [download]  153.92MiB at      0.00B/s (02:29:58) (frag 9349)
+[2026-03-30 12:05:37 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.90GiB at    1.52MiB/s (02:30:25) (frag 9375)
+[2026-03-30 12:06:07 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 2: [download]  154.98MiB at  182.55KiB/s (02:30:58) (frag 9412)
+[2026-03-30 12:06:38 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.91GiB at  602.40KiB/s (02:31:25) (frag 9437)
+[2026-03-30 12:07:08 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.92GiB at  568.11KiB/s (02:31:59) (frag 9469)
+[2026-03-30 12:07:17 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] [download] fragment not found; Skipping fragment 18101 ...
+[2026-03-30 12:07:17 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] [Merger] Merging formats into "[20260329] [6GvFVXkATJs] [wtf new update] [Muyu Ch. むうむゆ【Phase Connect】].mp4"
+[2026-03-30 12:07:38 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 2: [download]  156.45MiB at   63.10KiB/s (02:32:29) (frag 9502)
+[2026-03-30 12:08:08 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.93GiB at  686.62KiB/s (02:32:59) (frag 9529)
+[2026-03-30 12:08:38 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.94GiB at    1.00MiB/s (02:33:29) (frag 9560)
+[2026-03-30 12:08:45 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] Deleting original file [20260329] [6GvFVXkATJs] [wtf new update] [Muyu Ch. むうむゆ【Phase Connect】].f140.mp4 (pass -k to keep)
+[2026-03-30 12:08:45 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] Deleting original file [20260329] [6GvFVXkATJs] [wtf new update] [Muyu Ch. むうむゆ【Phase Connect】].f137.mp4 (pass -k to keep)
+[2026-03-30 12:08:45 UTC+00:00] [YT] [yt-dlp] [Muu Muyu] [EmbedThumbnail] mutagen: Adding thumbnail to "[20260329] [6GvFVXkATJs] [wtf new update] [Muyu Ch. むうむゆ【Phase Connect】].mp4"
+[2026-03-30 12:09:08 UTC+00:00] [YT] [yt-dlp] [Chisaka Airi] 1: [download]    3.95GiB at  744.55KiB/s (02:33:59) (frag 9587)
+[2026-03-30 12:09:30 UTC+00:00] [YT] [LOCK] Deleted: download_yt\.lock-muu_muyu-6GvFVXkATJs
+[2026-03-30 12:09:30 UTC+00:00] [YT] Released download slot for Muu Muyu. Slots used: 1/10.
+[2026-03-30 12:09:30 UTC+00:00] [YT] ERROR: Download for Muu Muyu finished with error: exit status 1

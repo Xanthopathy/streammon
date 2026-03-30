@@ -37,15 +37,25 @@ When the application starts (`main.go`):
 
 1. **Create Working Directory**
    - Each monitor creates its configured `working_directory` if it doesn't exist
-   - Subdirectories are created per channel as needed
+   - Example: `download_yt/` and `download_twitch/`
 
-2. **Initialize Download Semaphore**
+2. **Load Archive.txt** (Platform-Specific, if enabled)
+   - If `youtube_archive_downloads: true`: Load `download_yt/archive.txt` into memory (`archivedVideos` map)
+   - If `twitch_archive_downloads: true`: Load `download_twitch/archive.txt` into memory (`archivedVideos` map)
+   - Archive contains successfully downloaded video IDs; persists across application restarts
+   - Log message shows count of archived video IDs loaded
+   - Safety mechanism: Previous downloads won't be re-attempted even if app restarts
+
+3. **Initialize Download Semaphore**
    - A global semaphore (buffered channel) is created with capacity = `max_concurrent_downloads`
-   - This limits concurrent downloads across both platforms
+   - Shared across both YouTube and Twitch monitors (limits overall concurrency)
 
-3. **Start Monitors**
+4. **Start Monitors**
    - If YouTube is enabled, spawn `MonitorYouTube()` in a goroutine
    - If Twitch is enabled, spawn `MonitorTwitch()` in a goroutine
+   - Each monitor's `Run()` method starts:
+     - **Download Manager**: `manageDownloads()` loop (every 5 seconds)
+     - **Connection Monitor**: `monitorConnection()` loop (every 10 seconds normally, checked on demand)
    - Main thread waits for all monitors to complete (via `sync.WaitGroup`)
 
 ---
@@ -65,10 +75,33 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 
 ### 2. Continuous Polling Loop
 
-**Frequency**: Every `poll_interval` (e.g., 60 seconds) in `config_yt.toml`
+**Frequency**: Every `poll_interval` (e.g., 60 seconds) in `config_yt.toml`, with jitter and intelligent backoff
 
-1. **Initial Check**: Immediately upon startup
-2. **Recurring Checks**: Every polling interval
+1. **Connection Check Gate**
+   - Before any work, acquire `pauseCond` lock and wait if `!isConnected`
+   - If internet is down, main loop blocks until connection is restored
+   - Connection monitor goroutine will signal via `pauseCond.Broadcast()` when restored
+
+2. **Request Rate Limiting & Spacing**
+   - Calculates dynamic request spacing from two constraints:
+     - **Freshness target**: `poll_interval / channelCount` (spread across polling cycle)
+     - **Safety limit**: `1.0 / max_requests_per_second` (respect API rate limits)
+   - Uses more conservative (larger) spacing from these two
+   - Example: 10 channels @ 60s poll interval → ideal spacing 6s
+   - Example: max_requests_per_second=0.5 (1 req every 2s) → force 2s spacing
+   - Result: If safety limit is more conservative, logs warning and uses that instead
+   - Applies **jittered delays** (±25% variance) to prevent bot-like perfect timing patterns
+
+3. **Error Backoff**
+   - Track `consecutiveErrors` counter
+   - If errors occur on a poll:
+     - Add backoff: `3 minutes × consecutiveErrors` (capped at 15 minutes max)
+     - Log: "Detected {errorCount} errors during poll. Staggering next poll by +{backoff}"
+     - Example: First error round → +3m backoff; Second → +6m; etc.
+     - Reset counter to 0 on successful poll with no errors
+   - Purpose: Prevent hammer-like polling during API outages
+
+4. **Initial Check**: Immediately upon monitor startup, then recurring every polling interval
 
 #### Channel Status Check (`checkAllChannels()` → `checkChannel()`)
 
@@ -108,55 +141,81 @@ For each configured YouTube channel:
 
 2. **Pre-Flight Checks** (`tryStartDownload()`)
 
-   a. **Global Capacity Check**
-   - Attempt to acquire a slot from the download semaphore
-   - If all slots are in use, skip this channel (retry next manager cycle)
+   a. **Archive Check**
+   - Check if this video ID exists in `archivedVideos` map (loaded from archive.txt at startup)
+   - If yes: Video was previously downloaded successfully; skip with log message "already downloaded in archive"
+   - Purpose: Prevents re-downloading the same video across app restarts
 
-   b. **Local Download Check**
-   - Check if a download for this channel is already running
+   b. **Session Cache Check**
+   - Check if this video was already downloaded in current app instance
+   - Maintains in-memory map: `downloadedVideos[channelID][videoID]`
+   - If yes: Video is queued or already downloaded in THIS session; skip
+   - Log behavior (controlled by tracking maps):
+     - First time skip → log message with "DownloadedVidsLogged" tracking
+     - Subsequent skips in same session → don't spam logs (use `downloadedVidsLogged` map to track)
+   - Purpose: Prevents redundant downloads of same video within same session while keeping logs clean
+
+   c. **Global Capacity Check**
+   - Attempt to acquire a slot from the download semaphore (`downloadSlots`)
+   - If all slots are in use, skip this channel (retry next manager cycle in 5 seconds)
+   - If acquired and verbose debug enabled, log: "Acquired download slot. Slots used: X/Y"
+
+   d. **Local Download Check**
+   - Check if a download for this channel is already running (in `activeDownloads` map)
    - If yes, skip
 
-   c. **Session Cache Check** (NEW)
-   - Check if this video was already downloaded in this app instance
-   - Maintains in-memory map: `downloadedVideos[channelID][videoID]`
-   - If video is in cache, skip (prevents redundant downloads of same video in same session)
-   - This survives across polling cycles but resets when app restarts
-
-   d. **Lockfile Check**
+   e. **Lockfile Check**
    - Check if lockfile exists: `.lock-{sanitized_channel_name}-{videoID}`
    - If yes, release semaphore slot and skip
+   - Purpose: Handles app crashes, concurrent instances, or partial downloads
 
 3. **Launch Download** (`launchDownloader()`)
 
    a. **Create Lockfile**
-   - Create `.lock-{sanitized_channel_name}-{videoID}` file
-   - If creation fails, release slot and return
+   - Create `.lock-{sanitized_channel_name}-{videoID}` file in working directory
+   - If creation fails, release slot, log error, and return
+   - Log event: "LOCK: Created: {lockPath}"
 
    b. **Create Channel Directory**
-   - Create `{working_directory}/{sanitized_channel_name}/` if needed
+   - Create `{working_directory}/{sanitized_channel_name}/` if needed (lowercase, spaces→underscores)
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log`
-   - Redirects subprocess stdout/stderr to be captured and logged
+   - Create single log file: `{channel_dir}/{date_created}-{channel_name}-{videoID}.log`
+   - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
      - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
-     - `[wait]` lines throttled by `subprocess_wait_interval` (60s default)
-   - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
+     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (60s default)
+     - All other lines logged immediately
+   - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
+   - Initialize logger instance with metadata (channel ID, name, video ID, creation timestamp, command being executed)
 
-   d. **Build Downloader Command**
-   - YouTube uses `yt-dlp`
+   d. **Output Callback Setup**
+   - Register callback function to detect subprocess state:
+     - If line contains `[retry-streams]`: Set `isWaiting = true` (stream not yet available for download)
+     - If line contains `frame=` or `[download]`: Set `isWaiting = false` (active downloading in progress)
+   - Purpose: Detect when process is just waiting for live stream vs actively downloading
+   - Used for intelligent progress reporting and timeout handling
+
+   e. **Build Downloader Command**
+   - YouTube uses `yt-dlp` with arguments from config
    - Command: `yt-dlp [args from config] https://www.youtube.com/watch?v={videoID}`
    - Working directory: channel-specific directory
+   - Env variables: Set `FORCE_COLOR=1` and `TERM=xterm-256color` to enable color output
 
-   e. **Start Process**
+   f. **Setup Subprocess Piping**
+   - If logging enabled OR dlpDebug enabled, pipe stdout and stderr
+   - Spawn goroutines `ReadPipeAndLog()` to capture and log output in real-time
+   - Each piped line is throttled according to its type ([download], [wait], etc.)
+
+   g. **Start Process**
    - Execute command via `cmd.Start()` (non-blocking)
-   - If start fails, delete lockfile, release slot, and return
+   - If start fails, delete lockfile, release slot, log error, and return
    - Log: "[YT] Started download for {channel}: {title}"
 
-   f. **Track Process**
-   - Store process info in `activeDownloads[channelID]`
-   - Spawn goroutine `waitForDownload()` to monitor completion
+   h. **Track Process**
+   - Store process info in `activeDownloads[channelID]` with process handle
+   - Spawn goroutine `waitForDownload()` to monitor completion asynchronously
 
 ### 4. Download Completion (YouTube)
 
@@ -164,23 +223,30 @@ For each configured YouTube channel:
 
 1. **Wait for Process Exit**
    - Block on `cmd.Wait()`
+   - Detects both successful completion and crashes
 
 2. **Reset Terminal Title**
-   - Reset title to "streammon" when process completes
+   - Reset title to "streammon" when process completes (prevents subprocesses from changing it)
 
 3. **Release Resources** (immediately upon exit)
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
-   - Delete lockfile
+   - Delete lockfile: "LOCK: Deleted: {lockPath}"
    - Close log file if exists
 
 4. **Log Completion**
    - If error: Log "[YT] Download for {channel} finished with error: {error}"
-   - If success: Log "[YT] Download for {channel} finished successfully."
+   - If success (exit code 0): Log "[YT] Download for {channel} finished successfully."
 
-5. **Mark as Downloaded** (on success)
+5. **Persist to Archive** (if `youtube_archive_downloads: true` and download succeeded)
+   - Append video ID to `archive.txt` file in working directory
+   - Format: One video ID per line (same format as yt-dlp's archive file)
+   - Purpose: Ensure video won't be re-downloaded even after app restart
+
+6. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
    - Prevents re-downloading the same video in subsequent polling cycles
+   - Cache is temporary (cleared on app restart)
 
 ### 5. Safety Net Logic
 
@@ -207,10 +273,29 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
 
 ### 2. Continuous Polling Loop
 
-**Frequency**: Every `poll_interval` (e.g., 30 seconds) in `config_twitch.toml`
+**Frequency**: Every `poll_interval` (e.g., 30 seconds) in `config_twitch.toml`, with jitter and intelligent backoff
 
-1. **Initial Check**: Immediately upon startup
-2. **Recurring Checks**: Every polling interval
+1. **Connection Check Gate**
+   - Before any work, acquire `pauseCond` lock and wait if `!isConnected`
+   - If internet is down, main loop blocks until connection is restored
+   - Connection monitor goroutine will signal via `pauseCond.Broadcast()` when restored
+
+2. **Request Rate Limiting & Spacing**
+   - Calculates dynamic request spacing from two constraints:
+     - **Freshness target**: `poll_interval / channelCount` (spread across polling cycle)
+     - **Safety limit**: `1.0 / max_requests_per_second` (respect GraphQL rate limits)
+   - Uses more conservative (larger) spacing from these two
+   - Applies **jittered delays** (±25% variance) to prevent bot-like perfect timing patterns
+   - If safety limit is more conservative, logs warning
+
+3. **Error Backoff**
+   - Track `consecutiveErrors` counter
+   - If errors occur on a poll:
+     - Add backoff: `3 minutes × consecutiveErrors` (capped at 15 minutes max)
+     - Example: First error round → +3m backoff; Second → +6m; etc.
+     - Reset counter to 0 on successful poll with no errors
+
+4. **Initial Check**: Immediately upon monitor startup, then recurring every polling interval
 
 #### Channel Status Check (`checkAllChannels()` → `checkChannel()`)
 
@@ -251,51 +336,78 @@ For each configured Twitch channel:
 
 2. **Pre-Flight Checks** (`tryStartDownload()`)
 
-   a. **Global Capacity Check**
-   - Attempt to acquire a slot from the download semaphore
-   - If all slots are in use, skip this channel (retry next manager cycle)
+   a. **Archive Check**
+   - Check if this broadcast/stream ID exists in `archivedVideos` map (loaded from archive.txt at startup)
+   - If yes: Stream was previously downloaded successfully; skip with log message
+   - Purpose: Prevents re-downloading the same stream across app restarts
 
-   b. **Local Download Check**
-   - Check if a download for this channel is already running
+   b. **Session Cache Check**
+   - Check if this broadcast was already downloaded in current app instance
+   - Maintains in-memory map: `downloadedVideos[channelID][broadcastID]`
+   - If yes: Stream is queued or already downloaded in THIS session; skip
+   - Log tracking prevents log spam (uses `downloadedVidsLogged` map)
+   - Purpose: Prevents redundant downloads within same session while keeping logs clean
+
+   c. **Global Capacity Check**
+   - Attempt to acquire a slot from the download semaphore
+   - If all slots are in use, skip this channel (retry next manager cycle in 5 seconds)
+   - If acquired and verbose debug enabled, log: "Acquired download slot. Slots used: X/Y"
+
+   d. **Local Download Check**
+   - Check if a download for this channel is already running (in `activeDownloads` map)
    - If yes, skip
 
-   c. **Session Cache Check** (NEW)
-   - Check if this broadcast/stream was already downloaded in this app instance
-   - Maintains in-memory map: `downloadedVideos[channelID][broadcastID]`
-   - If stream is in cache, skip (prevents redundant downloads)
-   - This survives across polling cycles but resets when app restarts
-
-   d. **Lockfile Check**
+   e. **Lockfile Check**
    - Check if lockfile exists: `.lock-{sanitized_channel_name}-{broadcastID}`
    - If yes, release semaphore slot and skip
 
 3. **Launch Download** (`launchDownloader()`)
 
    a. **Create Lockfile**
-   - Create `.lock-{sanitized_channel_name}-{broadcastID}` file
-   - If creation fails, release slot and return
+   - Create `.lock-{sanitized_channel_name}-{broadcastID}` file in working directory
+   - If creation fails, release slot, log error, and return
+   - Log event: "LOCK: Created: {lockPath}"
 
    b. **Create Channel Directory**
-   - Create `{working_directory}/{sanitized_channel_name}/` if needed
+   - Create `{working_directory}/{sanitized_channel_name}/` if needed (lowercase, spaces→underscores)
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create single log file: `{channel_dir}/{date_created}-{sanitized_channel_name}-{broadcastID}.log`
-   - Redirects subprocess stdout/stderr to be captured and logged
+   - Create single log file: `{channel_dir}/{date_created}-{channel_name}-{broadcastID}.log`
+   - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
      - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
-     - `[wait]` lines throttled by `subprocess_wait_interval` (60s default)
-   - Subprocess output visibility in terminal controlled by `*_dlp_verbose_debug` flags (independent of file logging)
+     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (60s default)
+     - All other lines logged immediately
+   - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
+   - Initialize logger instance with metadata
 
-   d. **Build Downloader Command**
+   d. **Output Callback Setup**
+   - Register callback function to detect subprocess state:
+     - If line contains `[retry-streams]`: Set `isWaiting = true` (waiting for stream to go live)
+     - If line contains `frame=` or `[download]`: Set `isWaiting = false` (actively downloading)
+   - Purpose: Detect download state for intelligent progress reporting
+
+   e. **Build Downloader Command**
    - Twitch uses `twitch-dlp` via npm/npx
-   - Command: `npx -y twitch-dlp [args from config] https://www.twitch.tv/{channelID}` (-y/--yes automatically updates)
+   - Command: `npx -y twitch-dlp [args from config] https://www.twitch.tv/{channelLogin}`
    - Working directory: channel-specific directory
+   - Env variables: Set `FORCE_COLOR=1` and `TERM=xterm-256color` to enable color output
+   - Note: `-y/--yes` flag auto-updates twitch-dlp
 
-   e. **Start Process**
+   f. **Setup Subprocess Piping**
+   - If logging enabled OR dlpDebug enabled, pipe stdout and stderr
+   - Spawn goroutines `ReadPipeAndLog()` to capture and log output in real-time
+   - Each piped line is throttled according to its type
+
+   g. **Start Process**
    - Execute command via `cmd.Start()` (non-blocking)
-   - If start fails, delete lockfile, release slot, and return
+   - If start fails, delete lockfile, release slot, log error, and return
    - Log: "[Twitch] Started download for {channel}: {title}"
+
+   h. **Track Process**
+   - Store process info in `activeDownloads[channelID]` with process handle
+   - Spawn goroutine `waitForDownload()` to monitor completion asynchronously
 
 ### 4. Download Completion (Twitch)
 
@@ -303,6 +415,7 @@ For each configured Twitch channel:
 
 1. **Wait for Process Exit**
    - Block on `cmd.Wait()`
+   - Detects both successful completion and crashes
 
 2. **Reset Terminal Title**
    - Reset title to "streammon" when process completes
@@ -310,16 +423,22 @@ For each configured Twitch channel:
 3. **Release Resources** (immediately upon exit)
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
-   - Delete lockfile
+   - Delete lockfile: "LOCK: Deleted: {lockPath}"
    - Close log file if exists
 
 4. **Log Completion**
    - If error: Log "[Twitch] Download for {channel} finished with error: {error}"
-   - If success: Log "[Twitch] Download for {channel} finished successfully."
+   - If success (exit code 0): Log "[Twitch] Download for {channel} finished successfully."
 
-5. **Mark as Downloaded** (on success)
+5. **Persist to Archive** (if `twitch_archive_downloads: true` and download succeeded)
+   - Append broadcast ID to `archive.txt` file in working directory
+   - Format: One broadcast ID per line
+   - Purpose: Ensure broadcast won't be re-downloaded even after app restart
+
+6. **Update Session Cache** (on success)
    - Add broadcast ID to session cache: `downloadedVideos[channelID][broadcastID] = true`
    - Prevents re-downloading the same broadcast in subsequent polling cycles
+   - Cache is temporary (cleared on app restart)
 
 ### 5. Safety Net Logic
 
@@ -331,7 +450,71 @@ For each configured Twitch channel:
 
 ---
 
-## Key Architectural Patterns
+## Connection Monitoring
+
+### Connection Monitor Loop (`monitorConnection()`)
+
+Runs continuously in a background goroutine, independent of polling/download manager. Provides intelligent pause/resume capability when internet connectivity is lost.
+
+**Hysteresis-Based Stability Detection:**
+
+```
+Connection Status Flow:
+├─ Start: isConnected = true
+├─ Loop: Every 10 seconds (normal) or 5 seconds (recovery mode)
+│
+├─ Attempt connection check: CheckInternetConnection()
+│  └─ Uses TCP dial to Cloudflare DNS (1.1.1.1:53) with 3-second timeout
+│
+├─ Success:
+│  ├─ Increment successCounter++
+│  ├─ If successCounter >= 3:
+│  │  ├─ Set isConnected = true
+│  │  ├─ Reset failureCounter = 0
+│  │  ├─ Issue pauseCond.Broadcast() to wake main loop
+│  │  ├─ Log: "Connection restored (stable)"
+│  │  └─ Switch to normal 10s interval
+│  └─ Else: No action (still verifying)
+│
+└─ Failure:
+   ├─ Increment failureCounter++
+   ├─ If failureCounter == 1:
+   │  ├─ Log: "WARN Connection check failed. Verifying stability..."
+   ├─ If failureCounter >= 3:
+   │  ├─ Set isConnected = false
+   │  ├─ Reset successCounter = 0
+   │  ├─ Log: "Connection lost (confirmed). Pausing monitors..."
+   │  ├─ Main monitoring loop blocks on pauseCond.Wait()
+   │  └─ Switch to recovery 5s interval (faster reconnect detection)
+   └─ Else: No action (still verifying)
+```
+
+**Parameters:**
+
+- `normalInterval`: 10 seconds (during normal operation)
+- `recoveryInterval`: 5 seconds (when connection is down, checking more frequently)
+- `threshold`: 3 consecutive successes OR failures needed to change state (prevents flapping)
+
+**Connection Check Method:**
+
+- Attempts TCP connection to Cloudflare DNS: `1.1.1.1:53`
+- Timeout: 3 seconds (fail fast on timeouts)
+- Returns boolean: true if connection succeeded, false otherwise
+
+**Integration with Main Loop:**
+
+- Main polling loop acquires `pauseCond` lock before each check cycle
+- If `!isConnected`, calls `pauseCond.Wait()` (blocks indefinitely)
+- Connection monitor calls `pauseCond.Broadcast()` when connection is restored
+- This prevents log spam and API errors during outages
+
+**Result:**
+
+- When internet is down: No errors in logs, no API requests, graceful pause
+- When internet returns: Automatic resume within 5-15 seconds (3 consecutive successes × 5s interval)
+- Prevents "flapping" (rapid on/off toggling) with hysteresis counters
+
+---
 
 ### 1. Concurrent Polling
 
@@ -349,71 +532,159 @@ For each configured Twitch channel:
 
 ### 3. Deduplication (Multi-Layer)
 
-- **Layer 1 - In-Memory Session Cache**: `downloadedVideos[channelID][videoID/broadcastID]`
-  - Prevents re-launching downloads for videos already downloaded in this app instance
-  - Temporary (cleared on app restart)
-  - Supercedes lockfiles for same-session re-attempts
+**Three-Layer Deduplication System:**
 
-- **Layer 2 - Lockfiles**: `.lock-{sanitized_channel_name}-{videoID/broadcastID}`
-  - Files in working directory
-  - Persistence across app restarts (survives crashes)
-  - Purpose: Handle app crashes, concurrent downloads, etc.
+- **Layer 1 - Archive File**: `{working_directory}/archive.txt"
+  - Persistent storage of successfully downloaded video IDs
+  - Loaded into `archivedVideos` map at monitor startup
+  - Appended to on every successful download
+  - Survives application restarts and crashes
+  - Prevents re-downloading the same video across any future app instance
+  - Note: Can be manually edited / reset by deleting archive.txt
+
+- **Layer 2 - In-Memory Session Cache**: `downloadedVideos[channelID][videoID]`
+  - Tracks downloads detected and downloaded in current app instance
+  - Used to prevent re-queueing of pending downloads
+  - Discarded when app exits (temporary)
+  - Prevents redundant downloads of videos detected in same session
+
+- **Layer 3 - Lockfiles**: `.lock-{sanitized_channel_name}-{videoID}` in working directory
+  - Files in working directory exist while download is in-progress or crashed
+  - Prevents multiple instances of app from downloading same video concurrently
+  - Prevents re-launching downloads for partially-complete files
   - Lifecycle: Created before launch, deleted after process exit
+  - Survives across app restarts (even if app crashes mid-download)
+  - Purpose: Handle app crashes, concurrent instances, cleanup detection
+
+**Deduplication Decision Tree:**
+
+```
+Is video in archive.txt? (Persistent)
+├─ YES: SKIP ✓ (prevent re-download across restarts)
+├─ NO: Continue to next check
+│
+Is video in session cache? (Active app)
+├─ YES: SKIP ✓ (prevent redundant queue in same session)
+├─ NO: Continue to next check
+│
+Is lockfile present?
+├─ YES: SKIP ✓ (download already in progress or crashed)
+├─ NO: Continue to launch
+│
+LAUNCH DOWNLOAD ✓
+└─ On success: Add to archive.txt + session cache
+└─ On crash: Lockfile remains (will be detected on next app instance)
+```
+
+**Benefits:**
+
+- Robust across restarts, crashes, and concurrent instances
+- Prevents bandwidth waste from duplicate downloads
+- Prevents disk space waste from multiple copies
+- Self-healing: Cleanup on next app restart if lockfile left behind
 
 ### 4. State Monitoring
 
-- **Live Status Map**: `map[channelID]LiveInfo`
-- **Active Downloads Map**: `map[channelID]*downloadProcess`
-- **Protected by Mutexes**:
-  - `statusMutex`: Protects live status map
-  - `downloadMutex`: Protects active downloads map
+**Live Status Map**: `map[channelID]LiveInfo`
+
+- Tracks current live status for each channel
+- Protected by `statusMutex` (RWMutex for concurrent reads, exclusive writes)
+- Updated on every polling cycle
+
+**Active Downloads Map**: `map[channelID]*downloadProcess`
+
+- Tracks currently-running downloads by channel
+- Protected by `downloadMutex`
+- Prevents concurrent downloads for same channel
+
+**Session Cache (Downloads)**: `map[channelID]map[videoID]bool`
+
+- In-memory cache of successfully downloaded IDs in current session
+- Protected by `downloadedVidMu` (RWMutex)
+- Persists across polling cycles but cleared on app restart
+
+**Archive Cache**: `map[videoID]bool`
+
+- Loaded from archive.txt at startup
+- Protected by `archivedVidMu` (RWMutex)
+- Used for quick lookup of previously downloaded IDs
+
+**Logging Tracking Maps**:
+
+- `queuedVideosLogged`: Track which queued videos have logged "already queued" message
+- `downloadedVidsLogged`: Track which downloaded videos have logged "already downloaded" message
+- Purpose: Log once per video ID per app instance (prevent log spam)
+- Protected by their respective mutexes
 
 ### 5. Process Isolation
 
-- Each download runs in a separate subprocess
+- Each download runs in a separate subprocess (via `cmd.Start()`)
 - Crash of one downloader doesn't crash monitor
-- Crashes release their semaphore slots and lockfiles
+- Crashes release their semaphore slots and lockfiles automatically (in `waitForDownload()`)
+- Each subprocess gets its own logger instance for isolated output capture
 
 ### 6. Logging
 
 #### Log File
 
-**Single `.log` file** (created if `save_download_logs: true`):
+**Single `.log` file per download** (if `save_download_logs: true`):
 
+- Location: `{channel_dir}/{date_created}-{channel_name}-{videoID}.log`
+- Contains subprocess command executed (logged on startup)
 - All subprocess output from twitch-dlp/yt-dlp (every line captured)
-- Download progress lines throttled by `subprocess_progress_interval` config
-- All important events (download start/completion, errors, state transitions)
-- Format: `{channel_dir}/{date_created}-{sanitized_channel_name}-{videoID}.log`
-- **SUBPROCESS lines tagged with**: `[SUBPROCESS] [{channel_name}] {output}`
+- Each line tagged with source: `[dlp]` for yt-dlp or `[twitch-dlp]`
+- Throttling applied per line type (separate throttling counters):
+  - `[download]` progress lines: Throttled by `subprocess_progress_interval` (10s default)
+  - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (60s default)
+  - All other lines: Logged immediately
+- Log file always receives all output (independent of debug flags)
+- Created via `NewLoggerForDownload()` with full metadata
 
 #### Terminal Output
 
 **Always shown:**
 
-- Monitor startup/shutdown
+- Monitor startup/shutdown messages
 - Channel status transitions ("is now LIVE", "has gone OFFLINE")
 - Download start/completion with title and status
 - Important errors and warnings
+- Connection state changes ("Connection lost", "Connection restored")
 - Session cache hits ("already downloaded in this session")
 
 **Conditional (debug flags control visibility):**
 
 - If `youtube_verbose_debug: true`: YouTube monitor debug output
 - If `twitch_verbose_debug: true`: Twitch monitor debug output
-- If `youtube_api_verbose_debug: true`: YouTube RSS API calls and responses
-- If `twitch_api_verbose_debug: true`: Twitch GraphQL API calls and responses
-- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output (with throttling on [download] and [wait] lines)
-- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output (with throttling on [download] and [wait] lines)
-- **Note:** DLP verbose flags control **terminal** printing only; log files always receive subprocess output with separate throttling per line type
+- If `youtube_api_verbose_debug: true`: YouTube RSS API calls and responses (very verbose)
+- If `twitch_api_verbose_debug: true`: Twitch GraphQL API calls and responses (very verbose)
+- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output in terminal (with throttling on [download]/[wait])
+- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output in terminal (with throttling on [download]/[wait])
+- **Note:** DLP verbose flags control **terminal** printing only; log files always receive all subprocess output
 
 #### Terminal Colors
 
-- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), info (blue)
-- **Timestamps**: All terminal output includes timestamp with configurable timezone (IANA timezone names or UTC offsets like UTC+7)
-- **Subprocess lines** tagged with `[SUBPROCESS]` and throttled:
-  - `[download]` lines: throttled by `subprocess_progress_interval` (default 10s)
-  - `[wait]` lines: throttled by `subprocess_wait_interval` (default 60s)
-- **Debug lines** colored cyan
+- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), System (cyan), Info (blue)
+- **Timestamps**: All terminal output includes timestamp with configurable timezone (IANA timezone names like "Asia/Tokyo" or UTC offsets like "UTC+7")
+- **Subprocess lines** tagged with `[SUBPROCESS]` and subject to throttling
+- **Debug lines** colored cyan with `[DEBUG]` prefix
+
+#### Output Callback System
+
+Each download subprocess has a callback function that monitors output:
+
+```go
+outputCallback := func(line string) {
+    if strings.Contains(line, "[retry-streams]") {
+        isWaiting.Store(true)  // Stream not yet live
+    } else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
+        isWaiting.Store(false) // Active downloading
+    }
+}
+```
+
+- Purpose: Detect if subprocess is waiting vs actively downloading
+- Used for intelligent timeout and state tracking
+- Runs in real-time as output is piped from subprocess
 
 ---
 
@@ -485,56 +756,118 @@ filters = ["(?i).*english.*"]
 
 ### Configuration Errors
 
-- Missing config files: Use defaults, skip that platform
+- Missing config files: Use defaults, skip that platform with warning
 - Invalid poll intervals: Default to 60 seconds, log warning
 - Invalid lockfile paths: Log error, skip download, release slot
+- Invalid timezone: Fall back to UTC with warning
 
-### API Errors
+### API Errors (YouTube RSS / Twitch GraphQL)
 
-- HTTP request failures: Log error, continue monitoring
-- GraphQL/RSS parsing errors: Log error, continue monitoring
-- Rate limiting (HTTP 429): Implicitly backed off by failing checks
+- HTTP request failures: Log error, increment consecutive error counter, continue monitoring
+- Parsing errors (XML, JSON): Log error, skip channel, continue
+- Rate limiting (HTTP 429): Caught as generic error, contributes to backoff logic
+- Fallback activation (YouTube): If primary method fails N times, switch to secondary method
+
+### Connection Errors
+
+- Network timeouts: Caught during API calls
+- DNS resolution failures: Caught during connection checks
+- TCP connection failures: Trigger hysteresis-based pause mechanism
+- Temporary vs persistent: Hysteresis (3-threshold) prevents false pauses
 
 ### Download Errors
 
-- Command start failure: Log error, delete lockfile, release slot
-- Process crash: Log error, clean up resources, release slot
-- Log file creation failure: Log warning, continue download without log file
+- Command start failure: Log error, delete lockfile, release slot, close logger
+- Process crash during download: Automatically cleaned up via `waitForDownload()` goroutine
+- Process exit with non-zero code: Log error, but still release resources and persist archive
+- Log file creation failure: Log warning, continue download without log output
+
+### Resource Cleanup on Errors
+
+All errors in `launchDownloader()` or `waitForDownload()` are guaranteed to:
+
+1. Release semaphore slot (`<-downloadSlots`)
+2. Delete lockfile (if created)
+3. Close logger (if created)
+4. Update active download tracking
+5. Log the error for visibility
+
+This prevents resource leaks and ensures no stale lockfiles or semaphore slots remain after errors.
+
+### Backoff & Retry Logic
+
+- **Poll Errors**: Add 3-minute backoff per consecutive error (capped at 15 minutes)
+- **RPS Throttling**: Warn once if poll_interval is too short for channel count and max RPS
+- **Request Spacing**: Automatically increased if RPS safety limit is more conservative than freshness target
+- **Connection Recovery**: Resume automatically after 3 consecutive successful connection checks
 
 ---
 
 ## Shutdown Behavior
 
-- Monitors run indefinitely (until manually stopped)
+- Monitors run indefinitely (until manually stopped with SIGINT/SIGTERM)
 - On SIGTERM/interrupt:
-  - Active downloads continue to completion
-  - Monitor goroutines exit
-  - Main thread waits for monitor goroutines (via `WaitGroup`)
-  - Program exits cleanly
-
----
+  - Active downloads continue to completion (graceful shutdown)
+  - Monitor goroutines detect signal and exit main loop
+  - Main thread waits for all monitor goroutines (via `WaitGroup.Wait()`)
+  - All goroutines clean up their resources before exiting
+  - Program exits cleanly (exit code 0)
+  - Lockfiles remain if downloads were in progress; will be detected on next app startup
 
 ## Summary: Core Workflow
 
 ```
 1. Load Configs (Global + Platform-specific)
-2. Initialize Download Semaphore
+   └─ Validate at least one platform is enabled
+
+2. Initialize Systems
+   ├─ Create download semaphore (global buffered channel)
+   └─ Spawn system goroutine for update checks
+
 3. Spawn Monitors (YouTube + Twitch in parallel)
    ├─ For each monitor:
+   │  ├─ Load archive.txt into memory (if enabled)
+   │  ├─ Create working directory
    │  ├─ Start polling loop (check every {poll_interval})
+   │  │  ├─ Check connection status (block if offline)
+   │  │  ├─ Calculate request spacing (freshness target vs RPS safety limit)
+   │  │  ├─ Stagger requests with jitter (±25%)
+   │  │  ├─ Fetch live status from API/RSS (with rate limiting)
+   │  │  ├─ Apply regex filters
+   │  │  └─ Track state changes in liveStatus map
+   │  │
    │  ├─ Start download manager (every 5 seconds)
-   │  └─ For each check:
-   │     ├─ Fetch live status from API/RSS
-   │     ├─ Apply filters
-   │     └─ Track state changes
+   │  │  └─ For each live channel:
+   │  │     ├─ Check archive (skip if already downloaded)
+   │  │     ├─ Check session cache (skip if already in this session)
+   │  │     ├─ Check for lockfile (skip if download already in progress)
+   │  │     ├─ Acquire semaphore slot
+   │  │     ├─ Launch downloader subprocess
+   │  │     └─ Spawn waitForDownload() goroutine
+   │  │
+   │  └─ Start connection monitor (every 10s or 5s in recovery)
+   │     ├─ Test TCP connection to Cloudflare DNS
+   │     ├─ Apply hysteresis (3-threshold)
+   │     ├─ Pause main loop if offline
+   │     ├─ Resume main loop when connection restored
+   │     └─ Use faster interval during recovery
    │
-   └─ For each discovered live stream:
-      ├─ Check capacity (acquire semaphore slot)
-      ├─ Check for lockfile (dedup)
-      ├─ Create lockfile
-      ├─ Launch downloader subprocess
-      ├─ Wait for completion asynchronously
-      └─ Clean up (lockfile, slot, logs, process tracking)
-4. Wait for monitors to complete
-5. Exit
+   └─ waitForDownload() goroutine (per download):
+      ├─ Wait for process exit
+      ├─ Release semaphore slot
+      ├─ Delete lockfile
+      ├─ Append video ID to archive.txt (if success)
+      ├─ Update session cache
+      └─ Close logger and clean up
+
+4. Connection Monitor (background):
+   └─ Continuously check connectivity (independent of polling)
+
+5. Main thread waits for all monitors to complete
+
+6. On SIGINT/SIGTERM:
+   ├─ Monitors exit main loops gracefully
+   ├─ Downloads continue to completion in background
+   ├─ All goroutines clean up resources
+   └─ Program exits
 ```
