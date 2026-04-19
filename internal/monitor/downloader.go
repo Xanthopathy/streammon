@@ -33,13 +33,21 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Create synchronization for waiting state detection
 	isWaiting := &atomic.Bool{}
 
-	// Callback to detect waiting state from subprocess output
+	// Create synchronization for merger detection
+	mergerDetected := &atomic.Bool{}
+
+	// Callback to detect waiting state and completion markers from subprocess output
 	outputCallback := func(line string) {
 		if strings.Contains(line, "[retry-streams]") {
 			isWaiting.Store(true)
 		} else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
 			// If we see active download progress, we are no longer waiting.
 			isWaiting.Store(false)
+		}
+
+		// Track successful completion markers (for yt-dlp and twitch-dlp)
+		if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") {
+			mergerDetected.Store(true)
 		}
 	}
 
@@ -155,11 +163,12 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Store process info
 	proc := &downloadProcess{
-		cmd:       cmd,
-		videoID:   status.VideoID,
-		lockPath:  lockPath,
-		logger:    logger,
-		isWaiting: isWaiting,
+		cmd:            cmd,
+		videoID:        status.VideoID,
+		lockPath:       lockPath,
+		logger:         logger,
+		isWaiting:      isWaiting,
+		mergerDetected: mergerDetected,
 	}
 	b.activeDownloads[ch.ID] = proc
 
@@ -194,17 +203,67 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", util.ColorOrange, ch.Name, util.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
-	// Check if the error was due to forced termination (monitor stopped it)
+	// Extract exit code from the process
+	exitCode := -1
+	if proc.cmd.ProcessState != nil {
+		exitCode = proc.cmd.ProcessState.ExitCode()
+	}
+
+	// Determine success based on BOTH file existence AND merger detection
+	// (rather than trusting exit code, which yt-dlp can return non-zero even on success)
+	outputFileExists := false
+	mergerSuccess := proc.mergerDetected.Load()
+
+	// Check if output file exists in the working directory
+	// The output file should match the pattern from the downloader command
+	if proc.cmd.Dir != "" {
+		files, err := os.ReadDir(proc.cmd.Dir)
+		if err == nil {
+			for _, file := range files {
+				// Look for .mp4 or .mkv or webm files that contain the video ID
+				if !file.IsDir() {
+					name := file.Name()
+					if (strings.Contains(name, proc.videoID) || strings.Contains(name, proc.videoID[:8])) &&
+						(strings.HasSuffix(name, ".mp4") || strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".webm")) {
+						outputFileExists = true
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Log exit code and diagnostic info
+	if exitCode >= 0 {
+		proc.logger.LogRegular(fmt.Sprintf("[diagnostic] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", exitCode, mergerSuccess, outputFileExists))
+	}
+
+	// Determine final success status
+	isSuccess := false
 	if proc.forcedTermination.Load() {
+		// Forced termination by monitor (stream went offline)
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", util.ColorOrange, ch.Name, util.ColorReset))
-	} else if err != nil {
-		proc.logger.LogError(fmt.Sprintf("Download for %s%s%s finished with error: %v", util.ColorOrange, ch.Name, util.ColorReset, err))
-	} else {
+		isSuccess = true // Treat forced termination as success (meaningful data captured)
+	} else if mergerSuccess && outputFileExists {
+		// Both success conditions met
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", util.ColorOrange, ch.Name, util.ColorReset))
+		isSuccess = true
+	} else {
+		// One or both success conditions failed
+		failureReasons := []string{}
+		if !mergerSuccess {
+			failureReasons = append(failureReasons, "no_merger_detected")
+		}
+		if !outputFileExists {
+			failureReasons = append(failureReasons, "output_file_not_found")
+		}
+		proc.logger.LogError(fmt.Sprintf("Download for %s%s%s finished with error: %v (exit_code=%d, reasons=%v)",
+			util.ColorOrange, ch.Name, util.ColorReset, err, exitCode, failureReasons))
+		isSuccess = false
 	}
 
 	// Archive if success OR forced termination (assuming meaningful data was captured)
-	if err == nil || proc.forcedTermination.Load() {
+	if isSuccess {
 		// Mark this video as downloaded in the session cache
 		b.downloadedVidMu.Lock()
 		if _, ok := b.downloadedVideos[ch.ID]; !ok {

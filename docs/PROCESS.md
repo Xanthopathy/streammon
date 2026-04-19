@@ -247,16 +247,35 @@ For each configured YouTube channel:
    - Delete lockfile: "LOCK: Deleted: {lockPath}"
    - Close log file if exists
 
-4. **Log Completion**
-   - If error: Log "[YT] Download for {channel} finished with error: {error}"
-   - If success (exit code 0): Log "[YT] Download for {channel} finished successfully."
+4. **Determine Success** (Two-Condition Verification)
+   - **Extract exit code** from subprocess (may be non-zero even on success)
+   - **Check for completion markers** in output:
+     - Detect `[Merger]` or `Merging formats` in subprocess output (indicates successful format merge)
+     - `mergerDetected = true` if marker found
+   - **Verify output file exists** in working directory:
+     - Look for `.mp4`, `.mkv`, or `.webm` files containing the video ID
+     - `outputFileExists = true` if file found
+   - **Success condition**: `mergerDetected && outputFileExists`
+     - This handles the yt-dlp quirk: exit code 1 with warnings but output file IS created
+     - Previous implementation trusted exit codes → false positives when warnings occurred
+     - New implementation verifies actual completion + file creation instead
+   - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
-5. **Persist to Archive** (if `youtube_archive_downloads: true` and download succeeded)
+5. **Log Completion**
+   - **Diagnostic info** (always logged): `[diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool}`
+     - Provides visibility for debugging without affecting success logic
+   - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
+   - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
+   - **If failure** (one or both conditions missing): 
+     - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
+     - Reasons list includes: "no_merger_detected" and/or "output_file_not_found"
+
+6. **Persist to Archive** (if `youtube_archive_downloads: true` and download succeeded)
    - Append video ID to `archive.txt` file in working directory
    - Format: One video ID per line (same format as yt-dlp's archive file)
    - Purpose: Ensure video won't be re-downloaded even after app restart
 
-6. **Update Session Cache** (on success)
+7. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
    - Prevents re-downloading the same video in subsequent polling cycles
    - Cache is temporary (cleared on app restart)

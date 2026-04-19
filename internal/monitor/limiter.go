@@ -16,6 +16,7 @@ type downloadProcess struct {
 	logger            *util.Logger
 	isWaiting         *atomic.Bool // Signals that the process is in a waiting/retry state
 	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
+	mergerDetected    *atomic.Bool // Tracks if [Merger] or successful completion marker was detected in output
 }
 
 // --- Global Download Limiter ---
