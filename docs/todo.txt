@@ -9,12 +9,8 @@
 [DONE] CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9, OpenDNS)
 [DONE] durability for when wifi is unstable or offline for a duration of time
 [DONE] yt-dlp false positive errors (exit code 1 but successful merge+file exists) - now checks BOTH conditions: merger detection + file existence
-
-
-merge = save to txt
+[DONE] merge = save to txt
+[DONE] ensure finished videos save to archive.txt
+[DONE] don't end downloader too quickly as it might need to clean residual files (added 1 second sleep after process.Wait)
 
 holodex or invidious api as a third option (important for member streams)
-
-don't end downloader too quickly as it might need to clean residual files
-
-ensure finished videos save to archive.txt

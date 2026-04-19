@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"streammon/internal/config"
 	"streammon/internal/models"
@@ -180,6 +181,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 // waitForDownload blocks until a download process finishes, then cleans up.
 func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
 	err := proc.cmd.Wait() // This blocks until the process exits
+
+	// Give subprocess time to clean up residual files, temp files, and finalize disk writes
+	// (yt-dlp and twitch-dlp may still be flushing data after process.Wait returns)
+	time.Sleep(time.Second * 5)
 
 	// Reset terminal title once subprocess completes
 	util.SetTerminalTitle("streammon")
