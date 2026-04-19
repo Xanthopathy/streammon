@@ -12,12 +12,14 @@ import (
 // manageDownloads is a loop that periodically checks for live channels that need downloading.
 func (b *BaseMonitor) manageDownloads() {
 	managerInterval := 5 * time.Second
+	connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
+	
 	for {
 		time.Sleep(managerInterval)
 
 		// Check connection pause state
 		b.pauseCond.L.Lock()
-		for !b.isConnected {
+		for !connMonitor.IsConnected() {
 			b.pauseCond.Wait()
 		}
 		b.pauseCond.L.Unlock()

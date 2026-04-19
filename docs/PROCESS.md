@@ -50,12 +50,18 @@ When the application starts (`main.go`):
    - A global semaphore (buffered channel) is created with capacity = `max_concurrent_downloads`
    - Shared across both YouTube and Twitch monitors (limits overall concurrency)
 
-4. **Start Monitors**
+4. **Start Global Connection Monitor** (Singleton)
+   - `GetGlobalConnectionMonitor(globalCfg)` creates a single shared instance
+   - Runs in a background goroutine (checks every 10 seconds, or 5 seconds in recovery mode)
+   - All monitors subscribe to this instance to receive connection state changes
+   - Prevents duplicate logging by centralizing connection state management
+
+5. **Start Monitors**
    - If YouTube is enabled, spawn `MonitorYouTube()` in a goroutine
    - If Twitch is enabled, spawn `MonitorTwitch()` in a goroutine
    - Each monitor's `Run()` method starts:
+     - Subscribes to the global connection monitor
      - **Download Manager**: `manageDownloads()` loop (every 5 seconds)
-     - **Connection Monitor**: `monitorConnection()` loop (every 10 seconds normally, checked on demand)
    - Main thread waits for all monitors to complete (via `sync.WaitGroup`)
 
 ---
@@ -78,9 +84,9 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 **Frequency**: Every `poll_interval` (e.g., 60 seconds) in `config_yt.toml`, with jitter and intelligent backoff
 
 1. **Connection Check Gate**
-   - Before any work, acquire `pauseCond` lock and wait if `!isConnected`
+   - Before any work, acquire `pauseCond` lock and wait if `!connMonitor.IsConnected()`
    - If internet is down, main loop blocks until connection is restored
-   - Connection monitor goroutine will signal via `pauseCond.Broadcast()` when restored
+   - Global connection monitor will signal via `pauseCond.Broadcast()` when restored
 
 2. **Request Rate Limiting & Spacing**
    - Calculates dynamic request spacing from two constraints:
@@ -276,9 +282,9 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
 **Frequency**: Every `poll_interval` (e.g., 30 seconds) in `config_twitch.toml`, with jitter and intelligent backoff
 
 1. **Connection Check Gate**
-   - Before any work, acquire `pauseCond` lock and wait if `!isConnected`
+   - Before any work, acquire `pauseCond` lock and wait if `!connMonitor.IsConnected()`
    - If internet is down, main loop blocks until connection is restored
-   - Connection monitor goroutine will signal via `pauseCond.Broadcast()` when restored
+   - Global connection monitor will signal via `pauseCond.Broadcast()` when restored
 
 2. **Request Rate Limiting & Spacing**
    - Calculates dynamic request spacing from two constraints:
@@ -452,27 +458,40 @@ For each configured Twitch channel:
 
 ## Connection Monitoring
 
-### Connection Monitor Loop (`monitorConnection()`)
+### Global Connection Monitor (Singleton - `connection.go`)
 
-Runs continuously in a background goroutine, independent of polling/download manager. Provides intelligent pause/resume capability when internet connectivity is lost.
+Runs once as a singleton instance in a background goroutine, independent of polling/download manager. All monitors subscribe to this single instance, providing centralized pause/resume capability when internet connectivity is lost.
+
+**Why Global?**
+
+- **Single source of truth**: All monitors check the same connection state
+- **Prevents duplicate logging**: Connection state changes logged only once, not per monitor
+- **Efficient error handling**: Network errors count once toward backoff timers, not per-monitor
+- **Reduced system load**: One connection checker instead of N (one per monitor)
 
 **Hysteresis-Based Stability Detection:**
 
 ```
-Connection Status Flow:
-├─ Start: isConnected = true
+Global Connection Status Flow:
+├─ Start: isConnected = true, lastLogged = true
 ├─ Loop: Every 10 seconds (normal) or 5 seconds (recovery mode)
 │
 ├─ Attempt connection check: CheckInternetConnection()
-│  └─ Uses TCP dial to Cloudflare DNS (1.1.1.1:53) with 3-second timeout
+│  └─ Rotates through 4 reliable hosts with fallback:
+│     ├─ Primary: Cloudflare DNS (1.1.1.1:53)
+│     ├─ Fallback 1: Google DNS (8.8.8.8:53)
+│     ├─ Fallback 2: Quad9 DNS (9.9.9.9:53)
+│     └─ Fallback 3: OpenDNS (208.67.222.222:53)
+│     └─ Returns true if ANY host responds within 3-second timeout
 │
 ├─ Success:
 │  ├─ Increment successCounter++
 │  ├─ If successCounter >= 3:
 │  │  ├─ Set isConnected = true
 │  │  ├─ Reset failureCounter = 0
-│  │  ├─ Issue pauseCond.Broadcast() to wake main loop
-│  │  ├─ Log: "Connection restored (stable)"
+│  │  ├─ Check if lastLogged is false (prevents duplicate logs)
+│  │  ├─ If yes: Set lastLogged = true, broadcast to all subscribers
+│  │  ├─ Log: "Connection restored (stable). Resuming operations..."
 │  │  └─ Switch to normal 10s interval
 │  └─ Else: No action (still verifying)
 │
@@ -483,8 +502,9 @@ Connection Status Flow:
    ├─ If failureCounter >= 3:
    │  ├─ Set isConnected = false
    │  ├─ Reset successCounter = 0
+   │  ├─ Check if lastLogged is true (prevents duplicate logs)
+   │  ├─ If yes: Set lastLogged = false, broadcast to all subscribers
    │  ├─ Log: "Connection lost (confirmed). Pausing monitors..."
-   │  ├─ Main monitoring loop blocks on pauseCond.Wait()
    │  └─ Switch to recovery 5s interval (faster reconnect detection)
    └─ Else: No action (still verifying)
 ```
@@ -495,24 +515,50 @@ Connection Status Flow:
 - `recoveryInterval`: 5 seconds (when connection is down, checking more frequently)
 - `threshold`: 3 consecutive successes OR failures needed to change state (prevents flapping)
 
-**Connection Check Method:**
+**Connection Check Method (`CheckInternetConnection()`):**
 
-- Attempts TCP connection to Cloudflare DNS: `1.1.1.1:53`
-- Timeout: 3 seconds (fail fast on timeouts)
-- Returns boolean: true if connection succeeded, false otherwise
+- Rotates through 4 reliable public DNS servers
+- Primary check: Connect to next host in rotation (round-robin)
+- If primary fails, tries remaining 3 hosts as fallback
+- Timeout: 3 seconds per host (fail fast on timeouts)
+- Returns: `true` if ANY host responds, `false` if all fail
+- Purpose: More robust than single-host check; handles regional DNS issues
 
-**Integration with Main Loop:**
+**Triggered Immediate Checks:**
 
-- Main polling loop acquires `pauseCond` lock before each check cycle
-- If `!isConnected`, calls `pauseCond.Wait()` (blocks indefinitely)
-- Connection monitor calls `pauseCond.Broadcast()` when connection is restored
-- This prevents log spam and API errors during outages
+- When checker.go detects network errors ("no such host", "dial tcp", etc.), it calls `connMonitor.TriggerImmediateCheck()`
+- Connection monitor processes this immediately without waiting for next timer interval
+- Enables faster detection and response to connection issues
+
+**Integration with Monitors:**
+
+1. During `Run()` startup:
+   - Each monitor calls `GetGlobalConnectionMonitor(globalCfg)` (returns singleton)
+   - Calls `connMonitor.Subscribe(b.pauseCond)` to receive broadcasts
+
+2. During main polling loop:
+   - Before work, acquire `pauseCond` lock
+   - Check `connMonitor.IsConnected()`
+   - If offline, call `pauseCond.Wait()` (blocks indefinitely)
+
+3. When connection state changes:
+   - Global monitor calls `pauseCond.Broadcast()` for all subscribers
+   - All monitors wake up and resume/pause accordingly
+
+**Duplicate Logging Prevention:**
+
+- Tracks `lastLogged` boolean to record the last logged state
+- When connection state changes:
+  - If `isConnected=true` AND `lastLogged=false`: Log "Connection restored", set `lastLogged=true`
+  - If `isConnected=false` AND `lastLogged=true`: Log "Connection lost", set `lastLogged=false`
+- This ensures each state change logs exactly once, even with multiple monitors
 
 **Result:**
 
-- When internet is down: No errors in logs, no API requests, graceful pause
+- When internet is down: No errors in logs, no API requests, graceful pause across all monitors
 - When internet returns: Automatic resume within 5-15 seconds (3 consecutive successes × 5s interval)
 - Prevents "flapping" (rapid on/off toggling) with hysteresis counters
+- No duplicate log messages regardless of monitor count
 
 ---
 
@@ -822,35 +868,32 @@ This prevents resource leaks and ensures no stale lockfiles or semaphore slots r
 
 2. Initialize Systems
    ├─ Create download semaphore (global buffered channel)
+   ├─ Spawn Global Connection Monitor (singleton - background)
+   │  └─ Continuously check connectivity every 10s (normal) or 5s (recovery)
    └─ Spawn system goroutine for update checks
 
 3. Spawn Monitors (YouTube + Twitch in parallel)
    ├─ For each monitor:
    │  ├─ Load archive.txt into memory (if enabled)
    │  ├─ Create working directory
+   │  ├─ Subscribe to global connection monitor
    │  ├─ Start polling loop (check every {poll_interval})
-   │  │  ├─ Check connection status (block if offline)
+   │  │  ├─ Check global connection status (block if offline via pauseCond.Wait())
    │  │  ├─ Calculate request spacing (freshness target vs RPS safety limit)
-   │  │  ├─ Stagger requests with jitter (±25%)
+   │  │  ├─ Stagger requests with jitter (±10%)
    │  │  ├─ Fetch live status from API/RSS (with rate limiting)
    │  │  ├─ Apply regex filters
    │  │  └─ Track state changes in liveStatus map
    │  │
-   │  ├─ Start download manager (every 5 seconds)
-   │  │  └─ For each live channel:
-   │  │     ├─ Check archive (skip if already downloaded)
-   │  │     ├─ Check session cache (skip if already in this session)
-   │  │     ├─ Check for lockfile (skip if download already in progress)
-   │  │     ├─ Acquire semaphore slot
-   │  │     ├─ Launch downloader subprocess
-   │  │     └─ Spawn waitForDownload() goroutine
-   │  │
-   │  └─ Start connection monitor (every 10s or 5s in recovery)
-   │     ├─ Test TCP connection to Cloudflare DNS
-   │     ├─ Apply hysteresis (3-threshold)
-   │     ├─ Pause main loop if offline
-   │     ├─ Resume main loop when connection restored
-   │     └─ Use faster interval during recovery
+   │  └─ Start download manager (every 5 seconds)
+   │     └─ For each live channel:
+   │        ├─ Check global connection status (block if offline)
+   │        ├─ Check archive (skip if already downloaded)
+   │        ├─ Check session cache (skip if already in this session)
+   │        ├─ Check for lockfile (skip if download already in progress)
+   │        ├─ Acquire semaphore slot
+   │        ├─ Launch downloader subprocess
+   │        └─ Spawn waitForDownload() goroutine
    │
    └─ waitForDownload() goroutine (per download):
       ├─ Wait for process exit
@@ -860,8 +903,12 @@ This prevents resource leaks and ensures no stale lockfiles or semaphore slots r
       ├─ Update session cache
       └─ Close logger and clean up
 
-4. Connection Monitor (background):
-   └─ Continuously check connectivity (independent of polling)
+4. Global Connection Monitor (singleton, runs once):
+   ├─ Rotate through 4 reliable DNS hosts (with fallback)
+   ├─ Apply hysteresis (3-threshold) to prevent flapping
+   ├─ Broadcast state changes to all subscribed monitors via pauseCond.Broadcast()
+   ├─ Track lastLogged to prevent duplicate logs
+   └─ Use faster interval during recovery (5s instead of 10s)
 
 5. Main thread waits for all monitors to complete
 

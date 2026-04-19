@@ -122,7 +122,9 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 		// Check for network errors to trigger immediate stability check
 		errStr := err.Error()
 		if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "dial tcp") || strings.Contains(errStr, "temporary failure in name resolution") {
-			b.TriggerConnectionCheck()
+			// Trigger immediate connection check via the global connection monitor
+			connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
+			connMonitor.TriggerImmediateCheck()
 		}
 
 		return err

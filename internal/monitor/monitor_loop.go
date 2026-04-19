@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -22,6 +21,10 @@ func (b *BaseMonitor) Run() {
 
 	// Initialize the global download semaphore using the value from the global config.
 	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
+
+	// Get the global connection monitor and subscribe to connection state changes
+	connMonitor := GetGlobalConnectionMonitor(globalCfg)
+	connMonitor.Subscribe(b.pauseCond)
 
 	b.logger.Logf("Monitor started for %d channels.", len(channels))
 	b.logger.Logf("Working Directory: %s", streamMonCfg.WorkingDirectory)
@@ -74,8 +77,8 @@ func (b *BaseMonitor) Run() {
 	// Start the download manager in the background
 	go b.manageDownloads()
 
-	// Start connection monitor in background
-	go b.monitorConnection()
+	// Connection monitoring is now handled globally by GetGlobalConnectionMonitor()
+	// so we don't start a separate monitorConnection goroutine here.
 
 	// Configure the main check ticker
 	if err != nil {
@@ -87,8 +90,9 @@ func (b *BaseMonitor) Run() {
 
 	for {
 		// Check connection status before doing any work
+		// Wait until connected (global connection monitor will broadcast when state changes)
 		b.pauseCond.L.Lock()
-		for !b.isConnected {
+		for !connMonitor.IsConnected() {
 			// Wait releases the lock and suspends the goroutine until Broadcast/Signal is called
 			b.pauseCond.Wait()
 		}
@@ -127,85 +131,5 @@ func (b *BaseMonitor) Run() {
 		}
 
 		time.Sleep(sleepDuration)
-	}
-}
-
-// monitorConnection runs in the background and periodically checks internet connectivity.
-// If connection is lost, it sets isConnected=false (which blocks the main loop).
-// When connection is restored, it sets isConnected=true and wakes up the main loop.
-func (b *BaseMonitor) monitorConnection() {
-	normalInterval := 10 * time.Second
-	recoveryInterval := 5 * time.Second
-
-	timer := time.NewTimer(normalInterval)
-	defer timer.Stop()
-
-	// Hysteresis counters to prevent flapping
-	consecutiveSuccess := 0
-	consecutiveFailure := 0
-	const threshold = 3
-
-	sysLogger := util.NewLogger(b.controller.GetGlobalConfig(), "System", util.ColorCyan)
-
-	for {
-		// Wait for timer or trigger
-		select {
-		case <-b.connCheckTrigger:
-			// Immediate check requested by checker.go.
-			// Drain the timer so we don't double-check immediately after.
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-		case <-timer.C:
-			// Periodic check
-		}
-
-		connected := util.CheckInternetConnection()
-
-		b.pauseCond.L.Lock()
-		if b.isConnected {
-			if connected {
-				consecutiveFailure = 0 // Reset failure count
-			} else {
-				consecutiveFailure++
-				// Log a warning on the first failure so the user knows why checks might be failing
-				if consecutiveFailure == 1 {
-					sysLogger.Warn("Connection check failed. Verifying stability...")
-				}
-				if consecutiveFailure >= threshold {
-					sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", util.ColorRed, util.ColorReset)
-					b.isConnected = false
-					consecutiveSuccess = 0 // Reset success count for recovery
-				}
-			}
-		} else {
-			// Currently disconnected
-			if connected {
-				consecutiveSuccess++
-				sysLogger.Debug("System", fmt.Sprintf("Connection check passed (%d/%d)...", consecutiveSuccess, threshold))
-				if consecutiveSuccess >= threshold {
-					sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", util.ColorGreen, util.ColorReset)
-					b.isConnected = true
-					consecutiveFailure = 0
-					// Wake up all goroutines waiting on this condition (e.g. main loop, manager)
-					b.pauseCond.Broadcast()
-				}
-			} else {
-				consecutiveSuccess = 0 // Connection still flaky, reset success count
-			}
-		}
-
-		currentState := b.isConnected
-		b.pauseCond.L.Unlock()
-
-		if currentState {
-			timer.Reset(normalInterval)
-		} else {
-			// Check more frequently when offline to resume quickly
-			timer.Reset(recoveryInterval)
-		}
 	}
 }
