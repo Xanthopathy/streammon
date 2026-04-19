@@ -99,13 +99,20 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
    - Applies **jittered delays** (±25% variance) to prevent bot-like perfect timing patterns
 
 3. **Error Backoff**
-   - Track `consecutiveErrors` counter
-   - If errors occur on a poll:
+   - Track `consecutiveErrors` counter (only counts non-network errors)
+   - **Network Error Filtering**: Errors like "no such host", "dial tcp", or DNS failures are wrapped in `NetworkError` type
+     - These are NOT counted toward backoff timers (they don't increment errorCount)
+     - Why? Connection monitor already pauses operations when offline anyway
+     - Network errors still trigger immediate connection checks via `TriggerImmediateCheck()`
+   - If non-network errors occur on a poll:
      - Add backoff: `1 minute × consecutiveErrors` (capped at 10 minutes max)
      - Log: "Detected {errorCount} errors during poll. Staggering next poll by +{backoff}"
      - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors
-   - Purpose: Prevent hammer-like polling during API outages
+   - Purpose: 
+     - Prevent hammer-like polling during actual API outages (non-network errors)
+     - Allow graceful pause during connectivity loss without artificial backoff penalty
+     - Distinguish between "internet is down" (monitored separately) vs "API is broken" (needs backoff)
 
 4. **Initial Check**: Immediately upon monitor startup, then recurring every polling interval
 
@@ -295,11 +302,19 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
    - If safety limit is more conservative, logs warning
 
 3. **Error Backoff**
-   - Track `consecutiveErrors` counter
-   - If errors occur on a poll:
+   - Track `consecutiveErrors` counter (only counts non-network errors)
+   - **Network Error Filtering**: Errors like "no such host", "dial tcp", or DNS failures are wrapped in `NetworkError` type
+     - These are NOT counted toward backoff timers (they don't increment errorCount)
+     - Why? Connection monitor already pauses operations when offline anyway
+     - Network errors still trigger immediate connection checks via `TriggerImmediateCheck()`
+   - If non-network errors occur on a poll:
      - Add backoff: `1 minutes × consecutiveErrors` (capped at 10 minutes max)
      - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors
+   - Purpose: 
+     - Prevent hammer-like polling during actual API outages (non-network errors)
+     - Allow graceful pause during connectivity loss without artificial backoff penalty
+     - Distinguish between "internet is down" (monitored separately) vs "API is broken" (needs backoff)
 
 4. **Initial Check**: Immediately upon monitor startup, then recurring every polling interval
 
@@ -553,11 +568,47 @@ Global Connection Status Flow:
   - If `isConnected=false` AND `lastLogged=true`: Log "Connection lost", set `lastLogged=false`
 - This ensures each state change logs exactly once, even with multiple monitors
 
+**Network Error Filtering (Prevents Backoff During Outages):**
+
+The system intelligently distinguishes between network errors and actual API errors:
+
+1. **Network Error Detection** (in `checkChannel()`)
+   - When errors like "no such host", "dial tcp", or "temporary failure in name resolution" occur
+   - These are wrapped in `NetworkError` type to mark them as connectivity issues
+   - Still log the error for visibility
+   - Trigger immediate connection check: `connMonitor.TriggerImmediateCheck()`
+
+2. **Error Counting** (in `checkAllChannels()`)
+   - Loop through all channel check results
+   - Only count errors that are NOT `NetworkError` type
+   - Network errors are skipped: `if !IsNetworkError(err) { errorCount.Add(1) }`
+
+3. **Result**
+   - **Network errors don't trigger backoff timers** (no artificial delay penalty)
+   - **Why?** Connection monitor already pauses the main loop when offline
+   - **Real API errors still trigger backoff** (e.g., GraphQL errors, 429 rate limits, 500 server errors)
+   - **Distinction**: Network layer issues → paused by connection monitor | API layer issues → backed off by error counter
+
+**Example Timeline - Internet Outage:**
+
+```
+16:07:16 [System] Connection check failed. Verifying stability...     (1st failure)
+16:07:16 [YT] ERROR: Error checking Eimi: no such host               (Network error - NOT counted)
+16:07:17 [System] Connection check failed. Verifying stability...     (2nd failure)
+16:07:17 [Twitch] ERROR: Error checking Komachi: dial tcp            (Network error - NOT counted)
+16:07:21 [System] Connection lost (confirmed). Pausing monitors...    (3rd failure threshold reached)
+         ↑↑↑ Main loop blocks here, no more API requests until restored ↑↑↑
+16:07:22 [YT] [waiting - offline]                                     (Blocked, not polling)
+16:33:29 [System] Connection restored (stable). Resuming operations... (3 successes)
+         ↑↑↑ Main loop resumes, errorCount is still 0 (no backoff penalty) ↑↑↑
+```
+
 **Result:**
 
 - When internet is down: No errors in logs, no API requests, graceful pause across all monitors
 - When internet returns: Automatic resume within 5-15 seconds (3 consecutive successes × 5s interval)
 - Prevents "flapping" (rapid on/off toggling) with hysteresis counters
+- No artificial backoff penalty when connection is lost
 - No duplicate log messages regardless of monitor count
 
 ---

@@ -15,6 +15,29 @@ import (
 	"streammon/internal/util"
 )
 
+// NetworkError represents an error caused by internet connectivity issues.
+// These errors should NOT count toward backoff timers, as the connection monitor
+// will pause operations anyway when offline.
+type NetworkError struct {
+	Err error
+}
+
+// Error implements the error interface for NetworkError.
+func (ne *NetworkError) Error() string {
+	return ne.Err.Error()
+}
+
+// Unwrap returns the underlying error for error chain compatibility.
+func (ne *NetworkError) Unwrap() error {
+	return ne.Err
+}
+
+// IsNetworkError checks if an error is a NetworkError.
+func IsNetworkError(err error) bool {
+	_, ok := err.(*NetworkError)
+	return ok
+}
+
 // checkAllChannels concurrently checks all configured channels with request pacing.
 // Uses bounded concurrency (4 requests) plus request spacing to avoid API rate limits.
 // Balances freshness target (poll_interval) with safety limit (max_requests_per_second).
@@ -101,7 +124,12 @@ func (b *BaseMonitor) checkAllChannels() int {
 			// Ensure we release the slot when this goroutine finishes
 			defer func() { <-sem }()
 			if err := b.checkChannel(c, &wg); err != nil {
-				errorCount.Add(1)
+				// Only count non-network errors toward backoff timers.
+				// NetworkErrors indicate connection issues, which are handled by the
+				// global connection monitor (it will pause operations anyway).
+				if !IsNetworkError(err) {
+					errorCount.Add(1)
+				}
 			}
 		}(ch)
 	}
@@ -125,6 +153,9 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 			// Trigger immediate connection check via the global connection monitor
 			connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
 			connMonitor.TriggerImmediateCheck()
+			
+			// Wrap in NetworkError so it won't count toward backoff timers
+			return &NetworkError{Err: err}
 		}
 
 		return err
