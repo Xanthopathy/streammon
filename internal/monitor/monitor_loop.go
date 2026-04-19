@@ -115,10 +115,10 @@ func (b *BaseMonitor) Run() {
 		// Backoff logic if errors occurred
 		if errorCount > 0 {
 			consecutiveErrors++
-			// Add 3 minute per consecutive error run, cap at 15 minutes
-			backoff := time.Duration(consecutiveErrors) * 3 * time.Minute
-			if backoff > 15*time.Minute {
-				backoff = 15 * time.Minute
+			// Add 1 minute per consecutive error run, cap at 10 minutes
+			backoff := time.Duration(consecutiveErrors) * 1 * time.Minute
+			if backoff > 10*time.Minute {
+				backoff = 10 * time.Minute
 			}
 			b.logger.Logf("Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)", errorCount, backoff, consecutiveErrors)
 			sleepDuration += backoff

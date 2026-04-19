@@ -95,9 +95,9 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 3. **Error Backoff**
    - Track `consecutiveErrors` counter
    - If errors occur on a poll:
-     - Add backoff: `3 minutes × consecutiveErrors` (capped at 15 minutes max)
+     - Add backoff: `1 minute × consecutiveErrors` (capped at 10 minutes max)
      - Log: "Detected {errorCount} errors during poll. Staggering next poll by +{backoff}"
-     - Example: First error round → +3m backoff; Second → +6m; etc.
+     - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors
    - Purpose: Prevent hammer-like polling during API outages
 
@@ -291,8 +291,8 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
 3. **Error Backoff**
    - Track `consecutiveErrors` counter
    - If errors occur on a poll:
-     - Add backoff: `3 minutes × consecutiveErrors` (capped at 15 minutes max)
-     - Example: First error round → +3m backoff; Second → +6m; etc.
+     - Add backoff: `1 minutes × consecutiveErrors` (capped at 10 minutes max)
+     - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors
 
 4. **Initial Check**: Immediately upon monitor startup, then recurring every polling interval
