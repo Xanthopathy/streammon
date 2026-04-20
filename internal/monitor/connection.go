@@ -82,10 +82,9 @@ func (cm *ConnectionMonitor) IsConnected() bool {
 }
 
 // broadcastStateChange notifies all subscribers and handles logging.
+// MUST be called while holding cm.mu lock to avoid races.
 func (cm *ConnectionMonitor) broadcastStateChange() {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
+	// Log state transitions
 	if cm.isConnected && !cm.lastLogged {
 		// Connection just restored
 		cm.sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", util.ColorGreen, util.ColorReset)
@@ -98,16 +97,27 @@ func (cm *ConnectionMonitor) broadcastStateChange() {
 		cm.stateChangedAt = time.Now()
 	}
 
-	// Notify all subscribers
+	// Collect subscriber list for broadcasting outside the lock
+	subscribers := make([]*sync.Cond, 0, len(cm.subscribers))
 	for cond := range cm.subscribers {
+		subscribers = append(subscribers, cond)
+	}
+
+	// Unlock before broadcasting to prevent nested lock calls
+	cm.mu.Unlock()
+
+	// Notify all subscribers (without holding the lock)
+	for _, cond := range subscribers {
 		cond.Broadcast()
 	}
+
+	// Re-acquire lock for caller
+	cm.mu.Lock()
 }
 
 // run is the main connection monitoring loop (runs in background).
 func (cm *ConnectionMonitor) run() {
 	normalInterval := 10 * time.Second
-	recoveryInterval := 5 * time.Second
 	const threshold = 3
 
 	timer := time.NewTimer(normalInterval)
@@ -130,6 +140,8 @@ func (cm *ConnectionMonitor) run() {
 
 		connected := util.CheckInternetConnection()
 
+		shouldBroadcast := false
+
 		cm.mu.Lock()
 		if cm.isConnected {
 			if connected {
@@ -143,7 +155,7 @@ func (cm *ConnectionMonitor) run() {
 				if cm.consecutiveFailure >= threshold {
 					cm.isConnected = false
 					cm.consecutiveSuccess = 0 // Reset success count for recovery
-					cm.broadcastStateChange()
+					shouldBroadcast = true
 				}
 			}
 		} else {
@@ -154,21 +166,19 @@ func (cm *ConnectionMonitor) run() {
 				if cm.consecutiveSuccess >= threshold {
 					cm.isConnected = true
 					cm.consecutiveFailure = 0
-					cm.broadcastStateChange()
+					shouldBroadcast = true
 				}
 			} else {
 				cm.consecutiveSuccess = 0 // Connection still flaky, reset success count
 			}
 		}
 
-		currentState := cm.isConnected
+		if shouldBroadcast {
+			cm.broadcastStateChange()
+		}
 		cm.mu.Unlock()
 
-		if currentState {
-			timer.Reset(normalInterval)
-		} else {
-			// Check more frequently when offline to resume quickly
-			timer.Reset(recoveryInterval)
-		}
+		// Reset timer for next check
+		timer.Reset(normalInterval)
 	}
 }
