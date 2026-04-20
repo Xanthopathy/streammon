@@ -148,8 +148,27 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
 
 		// Check for network errors to trigger immediate stability check
+		// Network errors include: DNS failures, connection timeouts, socket errors, etc.
 		errStr := err.Error()
-		if strings.Contains(errStr, "no such host") || strings.Contains(errStr, "dial tcp") || strings.Contains(errStr, "temporary failure in name resolution") {
+		isNetworkErr := false
+		networkErrPatterns := []string{
+			// DNS resolution failures
+			"no such host", "lookup", "temporary failure in name resolution",
+			// Connection establishment failures
+			"dial tcp", "connection refused", "connection reset",
+			// Active connection failures (e.g., socket reads/writes during existing connection)
+			"read tcp", "write tcp", "wsarecv", "wsasend",
+			// Generic network issues
+			"network is unreachable", "network is down", "host is down",
+		}
+		for _, pattern := range networkErrPatterns {
+			if strings.Contains(errStr, pattern) {
+				isNetworkErr = true
+				break
+			}
+		}
+
+		if isNetworkErr {
 			// Trigger immediate connection check via the global connection monitor
 			connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
 			connMonitor.TriggerImmediateCheck()
