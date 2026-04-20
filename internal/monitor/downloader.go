@@ -240,7 +240,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	// Log exit code and diagnostic info
 	if exitCode >= 0 {
-		proc.logger.LogRegular(fmt.Sprintf("[diagnostic] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", exitCode, mergerSuccess, outputFileExists))
+		proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", util.ColorBlue, util.ColorReset, exitCode, mergerSuccess, outputFileExists))
 	}
 
 	// Determine final success status
