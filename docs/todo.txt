@@ -1,10 +1,13 @@
+[CORE ISSUE] yt-dlp progress output loses ANSI color because it is being read through pipes instead of an interactive terminal; either force yt-dlp color explicitly or recolor parsed progress fields in streammon.
 [???] yt-dlp progress color (somehow twitch-dlp works fine but yt-dlp doesn't)
 [2026-03-17 03:21:01 UTC+00:00] [Twitch] [twitch-dlp] [Clio Aite] [download]   0.0% of ~     0.00B at     0.00B/s ETA 00:00:00 (frag 0/1164)
 0.0% light blue, 0.00B/s green, 00:00:00 darker yellow than time
 
+[CORE ISSUE] UI/config chores are separate product-maintenance items: Bubble Tea would change interaction model, while config auto-update needs an explicit migration/defaulting policy.
 [shafted] do something with bubbletea
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 
+[CORE ISSUE] Completed durability work exists, but the remaining bugs show the pause/cancel behavior is still not wired deeply enough into in-flight polling and subprocess handling.
 [DONE] don't have no such host/connection issues count towards backoff error (implemented NetworkError wrapper + global connection monitor to pause operations)
 [DONE] CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9, OpenDNS)
 [DONE] durability for when wifi is unstable or offline for a duration of time
@@ -13,4 +16,163 @@
 [DONE] ensure finished videos save to archive.txt
 [DONE] don't end downloader too quickly as it might need to clean residual files (added 1 second sleep after process.Wait)
 
+[CORE ISSUE] YouTube has only rss/live checks, so member streams and fragile YouTube responses need a third metadata source instead of making fallback do all recovery work.
 holodex or invidious api as a third option (important for member streams)
+
+[CORE ISSUE] Connection loss is detected too late and only pauses future loops; active checks/download attempts continue producing network errors until the current poll/subprocess path exits.
+[2026-04-21 08:35:16 UTC+07:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-04-21 08:35:16 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (1/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (2/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (3/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] Unable to download webpage: HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed) (caused by TransportError("HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed)")). Giving up after 3 retries
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (1/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (2/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (3/3)...
+[2026-04-21 08:35:17 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:18 UTC+07:00] [Twitch] ERROR: Error checking Ashelia Rinkou: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:19 UTC+07:00] [Twitch] ERROR: Error checking Utatane Nasa: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:19 UTC+07:00] [System] Connection lost (confirmed). Pausing monitors...
+[2026-04-21 08:35:20 UTC+07:00] [Twitch] ERROR: Error checking Iori Hakushika: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (1/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (2/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading webpage
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (3/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] Unable to download webpage: HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed) (caused by TransportError("HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed)")). Giving up after 3 retries
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (1/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] [youtube] RZfwVc5blM4: Downloading initial data API JSON
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (2/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] WARNING: [youtube] HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed). Retrying (3/3)...
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR:
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR:
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR:
+[2026-04-21 08:35:21 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR:
+[2026-04-21 08:35:22 UTC+07:00] [YT] ERROR: Error checking Ashelia Rinkou: all check methods failed (last error: Failed to fetch RSS feed for Ashelia Rinkou: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCg7sW-h1PUowdiR5K4HlBew": dial tcp: lookup www.youtube.com: no such host)
+[2026-04-21 08:35:22 UTC+07:00] [Twitch] ERROR: Error checking Fujikura Uruka: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:23 UTC+07:00] [Twitch] ERROR: Error checking Michiru Shisui: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:24 UTC+07:00] [Twitch] ERROR: Error checking Dizzy Dokuro: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:26 UTC+07:00] [Twitch] ERROR: Error checking Jelly Hoshiumi: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:26 UTC+07:00] [YT] ERROR: Error checking Utatane Nasa: all check methods failed (last error: Failed to fetch RSS feed for Utatane Nasa: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCB7sSUNwh_dXE7ZL3DsGDpw": dial tcp: lookup www.youtube.com: no such host)
+[2026-04-21 08:35:27 UTC+07:00] [Twitch] ERROR: Error checking Ember Amane: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:28 UTC+07:00] [Twitch] ERROR: Error checking Chisaka Airi: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:30 UTC+07:00] [Twitch] ERROR: Error checking Amanogawa Shiina: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:30 UTC+07:00] [YT] ERROR: Error checking Hakushika Iori: all check methods failed (last error: Failed to fetch RSS feed for Hakushika Iori: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCN5bD1YYapThOeadG7YkBOA": dial tcp: lookup www.youtube.com: no such host)
+[2026-04-21 08:35:31 UTC+07:00] [Twitch] ERROR: Error checking Himemiya Rie: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:32 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR:
+[2026-04-21 08:35:32 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] ERROR: Unable to download API page: HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed) (caused by TransportError("HTTPSConnection(host='www.youtube.com', port=443): Failed to resolve 'www.youtube.com' ([Errno 11001] getaddrinfo failed)"))
+[2026-04-21 08:35:33 UTC+07:00] [Twitch] ERROR: Error checking Erina Makina: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:35 UTC+07:00] [Twitch] ERROR: Error checking Komachi Panko: GQL request failed: Post "https://gql.twitch.tv/gql": dial tcp: lookup gql.twitch.tv: no such host
+[2026-04-21 08:35:38 UTC+07:00] [YT] [LOCK] Deleted: download_yt\.lock-muu_muyu-RZfwVc5blM4
+[2026-04-21 08:35:38 UTC+07:00] [YT] Released download slot for Muu Muyu. Slots used: 0/10.
+[2026-04-21 08:35:38 UTC+07:00] [YT] [Diagnostic] yt-dlp exit code: 1 | merger_detected: false | file_exists: false
+[2026-04-21 08:35:38 UTC+07:00] [YT] ERROR: Download for Muu Muyu finished with error: exit status 1 (exit_code=1, reasons=[no_merger_detected output_file_not_found])
+[2026-04-21 08:36:08 UTC+07:00] [System] Connection restored (stable). Resuming operations...
+[2026-04-21 08:36:08 UTC+07:00] [YT] Acquired download slot for Muu Muyu. Slots used: 1/10.
+[2026-04-21 08:36:08 UTC+07:00] [YT] [LOCK] Created: download_yt\.lock-muu_muyu-RZfwVc5blM4
+[2026-04-21 08:36:08 UTC+07:00] [YT] Raw subprocess output will be shown (dlp_verbose_debug=true)
+[2026-04-21 08:36:08 UTC+07:00] [YT] [yt-dlp] [Muu Muyu] COMMAND: D:\yt-dlp_n_co\yt-dlp.exe --wait-for-video 60 --live-from-start --js-runtime node --embed-thumbnail --convert-thumbnail png --write-thumbnail --retries 10 --output "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s" --concurrent-fragments 4 --cookies-from-browser firefox https://www.youtube.com/watch?v=RZfwVc5blM4
+[2026-04-21 08:36:09 UTC+07:00] [YT] Started download for Muu Muyu: VR chat hangout and stuff
+[2026-04-21 08:38:22 UTC+07:00] [YT] Fallback Report: 3 channels failed primary check and swapped methods: [Ashelia Rinkou (->rss) Utatane Nasa (->rss) Hakushika Iori (->rss)]
+
+[CORE ISSUE] Download log filenames derive from UTC CreatedAt, so streams crossing local midnight can split/mislabel logs; remove the date or use configured timezone.
+2026-04-20-muu_muyu-RZfwVc5blM4 2026-04-21-muu_muyu-RZfwVc5blM4.log (changes at UTC+0 12am) (remove the date)
+
+[CORE ISSUE] YouTube fallback state is a shared map mutated by concurrent channel checks without a lock, causing fatal concurrent map writes.
+============================================================
+ streammon - Automated Stream Archiver
+============================================================
+[2026-04-21 06:01:49 UTC+00:00] [System] streammon version v1.0.8
+[2026-04-21 06:01:49 UTC+00:00] [System] Loading configurations...
+[2026-04-21 13:01:49 UTC+07:00] [System] Cleaning up old lockfiles...
+[2026-04-21 13:01:49 UTC+07:00] [Twitch] Monitor started for 21 channels.
+[2026-04-21 13:01:49 UTC+07:00] [YT] Monitor started for 40 channels.
+[2026-04-21 13:01:49 UTC+07:00] [Twitch] Working Directory: download_twitch
+[2026-04-21 13:01:49 UTC+07:00] [YT] Working Directory: download_yt
+[2026-04-21 13:01:49 UTC+07:00] [Twitch] Configured poll_interval: 30s | Channels: 21 | Effective request spacing: ~1.428571428s
+[2026-04-21 13:01:49 UTC+07:00] [YT] Configured poll_interval: 3m0s | Channels: 40 | Effective request spacing: ~4.5s
+[2026-04-21 13:01:49 UTC+07:00] [Twitch] Loaded 15 archived video IDs.
+[2026-04-21 13:01:49 UTC+07:00] [YT] Loaded 69 archived video IDs.
+[2026-04-21 18:10:59 UTC+07:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-04-21 23:44:14 UTC+07:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-04-21 23:44:59 UTC+07:00] [YT] Eimi Isami is now LIVE: weak, fragile hamster hours 【Tomodachi Life】
+fatal error: concurrent map writes
+
+goroutine 36126 [running]:
+internal/runtime/maps.fatal({0x7ff6979e3b14?, 0x7ff6979833c0?})
+        C:/Program Files/Go/src/runtime/panic.go:1181 +0x18
+streammon/internal/monitor.(*YTMonitor).CheckChannelStatus(0x9eb7828c000, {{0x9eb7820e9fb, 0x18}, {0x9eb7820ea1e, 0xd}, {0x9eb78219040, 0x1, 0x1}}, 0x9eb7828a150)
+        D:/Proj/Personal/streammon/internal/monitor/youtube.go:142 +0xa10
+streammon/internal/monitor.(*BaseMonitor).checkChannel(0x9eb78294000, {{0x9eb7820e9fb, 0x18}, {0x9eb7820ea1e, 0xd}, {0x9eb78219040, 0x1, 0x1}}, 0x0?)
+        D:/Proj/Personal/streammon/internal/monitor/checker.go:146 +0x14b
+streammon/internal/monitor.(*BaseMonitor).checkAllChannels.func1({{0x9eb7820e9fb, 0x18}, {0x9eb7820ea1e, 0xd}, {0x9eb78219040, 0x1, 0x1}})
+        D:/Proj/Personal/streammon/internal/monitor/checker.go:126 +0xc8
+created by streammon/internal/monitor.(*BaseMonitor).checkAllChannels in goroutine 19
+        D:/Proj/Personal/streammon/internal/monitor/checker.go:123 +0x265
+
+
+ Detected 1 errors during poll. Staggering next poll by +1m0s (Consecutive failures: 1)
+[CORE ISSUE] Backoff has a start log but no recovery log; when errorCount returns to zero, announce that poll staggering has been cleared.
+ This ^ must also have a correspond log message that announces a reversion of the stagger. The plan is to have the program running indefinitely instead of needing occassional restarts. 
+
+
+
+
+[CORE ISSUE] Timeout errors are not classified as network errors, so outage-like failures still trigger YouTube fallback reports and the giant channel-check loop instead of stopping promptly.
+ [2026-05-28 08:35:08 UTC+07:00] [System] [WARN] Connection check failed. Verifying stability...
+[2026-05-28 08:35:52 UTC+07:00] [YT] ERROR: Error checking Kokoromo Memory: all check methods failed (last error: Failed to fetch RSS feed for Kokoromo Memory: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCGXwv2zYOxeWiNNyPiLCBCQ": context deadline exceeded (Client.Timeout exceeded while awaiting headers))
+[2026-05-28 08:43:15 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] 1: [download]    8.38GiB at      0.00B/s (04:24:24) (frag 16137)
+[2026-05-28 08:43:15 UTC+07:00] [YT] ERROR: Error checking Gram Pico: all check methods failed (last error: Failed to fetch RSS feed for Gram Pico: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCtWH0tVAcUcSm4v96H5cAqQ": context deadline exceeded (Client.Timeout exceeded while awaiting headers))
+[2026-05-28 08:43:15 UTC+07:00] [YT] ERROR: Error checking Clio Aite: all check methods failed (last error: Failed to fetch RSS feed for Clio Aite: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCrGTSXWMiAWoPlowSuMVZ4Q": context deadline exceeded (Client.Timeout exceeded while awaiting headers))
+[2026-05-28 08:43:15 UTC+07:00] [YT] ERROR: Error checking Ayase Yuu: all check methods failed (last error: Failed to fetch RSS feed for Ayase Yuu: Get "https://www.youtube.com/feeds/videos.xml?channel_id=UCnNLZWjl4GvVF4s8zBT9_kA": context deadline exceeded (Client.Timeout exceeded while awaiting headers))
+[2026-05-28 08:43:16 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] [youtube] uFUd0IKI758: Downloading m3u8 information
+[2026-05-28 08:43:18 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] [youtube] [jsc:node] Solving JS challenges using node
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (1/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (1/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (2/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (2/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (3/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Retrying (3/3)...
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Giving up after 3 retries
+[2026-05-28 08:43:20 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] WARNING: [youtube] uFUd0IKI758: Video is no longer live. Giving up after 3 retries
+[2026-05-28 08:43:21 UTC+07:00] [YT] Eepy Sleepy has gone offline.
+[2026-05-28 08:43:46 UTC+07:00] [YT] [yt-dlp] [Eepy Sleepy] 1: [download]    8.40GiB at  320.28KiB/s (04:38:47) (frag 16182)
+[2026-05-28 08:44:14 UTC+07:00] [YT] Fallback Report: 4 channels failed primary check and swapped methods: [Kokoromo Memory (->rss) Gram Pico (->rss) Ayase Yuu (->rss) Clio Aite (->rss)]
+Problem ^ is that we only have a limited amount of check methods (rss and live atm), fix so the program genuinely stops working (including the giant channel checking loops) when an internet connection is no longer detected
+
+
+
+[CORE ISSUE] Downloader diagnostics use yt-dlp wording and YouTube merger/file heuristics for Twitch, but twitch-dlp completion/stopped-by-monitor paths need platform-specific labels and success detection.
+[2026-05-28 02:08:59 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] frame=797178 fps=5221 q=-1.0 size=10001664KiB time=03:41:26.26 bitrate=6166.8kbits/s speed=  87x
+[2026-05-28 02:09:00 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] frame=799200 fps=5216 q=-1.0 size=10027008KiB time=03:41:59.96 bitrate=6166.8kbits/s speed=86.9x
+[2026-05-28 02:09:00 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] frame=801777 fps=5215 q=-1.0 size=10059264KiB time=03:42:42.91 bitrate=6166.7kbits/s speed=86.9x
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] [out#0/mp4 @ 000002957ad8a780] video:9816763KiB audio:271908KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.262831%
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] frame=803839 fps=5208 q=-1.0 Lsize=10115187KiB time=03:43:17.28 bitrate=6185.1kbits/s speed=86.8x
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] [stats] Fragments
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] ┌────────────┬────────┐
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] │ (index)    │ Values │
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] ├────────────┼────────┤
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] │ Total      │ 1340   │
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] │ Downloaded │ 1340   │
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] │ Muted      │ 0      │
+[2026-05-28 02:09:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] └────────────┴────────┘
+[2026-05-28 02:09:44 UTC+07:00] [Twitch] [Twitch] API reports Ayase Yuu as offline, but download is active for same stream ID (316012186227). Ignoring.
+[2026-05-28 02:10:01 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] Downloading stream metadata
+[2026-05-28 02:10:02 UTC+07:00] [Twitch] [twitch-dlp] [Ayase Yuu] [retry-streams] Waiting for streams. Retry every 60 second(s)
+[2026-05-28 02:10:41 UTC+07:00] [Twitch] [Twitch] API reports Ayase Yuu as offline and downloader is waiting. Terminating downloader.
+[2026-05-28 02:10:41 UTC+07:00] [Twitch] Ayase Yuu has gone offline.
+[2026-05-28 02:10:47 UTC+07:00] [Twitch] [LOCK] Deleted: download_twitch\.lock-ayase_yuu-316012186227
+[2026-05-28 02:10:47 UTC+07:00] [Twitch] Released download slot for Ayase Yuu. Slots used: 0/10.
+[2026-05-28 02:10:47 UTC+07:00] [Twitch] [Diagnostic] yt-dlp exit code: 1 | merger_detected: false | file_exists: false
+[2026-05-28 02:10:47 UTC+07:00] [Twitch] Download for Ayase Yuu stopped by monitor (stream offline).
+Change ^ diagnostic for twitch-dlp
