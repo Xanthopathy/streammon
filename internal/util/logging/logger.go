@@ -67,7 +67,6 @@ func NewLoggerForDownload(
 	channelID string,
 	channelName string,
 	streamID string,
-	dateCreated time.Time,
 	globalCfg *config.GlobalConfig,
 	logPrefix string,
 	logColor string,
@@ -76,8 +75,7 @@ func NewLoggerForDownload(
 	command string,
 ) (*Logger, error) {
 	sanitizedName := text.SanitizeFolderName(channelName)
-	dateStr := dateCreated.UTC().Format("2006-01-02")
-	baseFilename := fmt.Sprintf("%s-%s-%s", dateStr, sanitizedName, streamID)
+	baseFilename := fmt.Sprintf("%s-%s", sanitizedName, streamID)
 
 	logger := &Logger{
 		globalCfg:   globalCfg,

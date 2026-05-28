@@ -111,7 +111,6 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		ch.ID,
 		ch.Name,
 		status.VideoID,
-		status.CreatedAt,
 		globalCfg,
 		logPrefix,
 		logColor,
