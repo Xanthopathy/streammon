@@ -1,13 +1,10 @@
-[CORE ISSUE] yt-dlp progress output loses ANSI color because it is being read through pipes instead of an interactive terminal; either force yt-dlp color explicitly or recolor parsed progress fields in streammon.
 [???] yt-dlp progress color (somehow twitch-dlp works fine but yt-dlp doesn't)
 [2026-03-17 03:21:01 UTC+00:00] [Twitch] [twitch-dlp] [Clio Aite] [download]   0.0% of ~     0.00B at     0.00B/s ETA 00:00:00 (frag 0/1164)
 0.0% light blue, 0.00B/s green, 00:00:00 darker yellow than time
 
-[CORE ISSUE] UI/config chores are separate product-maintenance items: Bubble Tea would change interaction model, while config auto-update needs an explicit migration/defaulting policy.
 [shafted] do something with bubbletea
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 
-[CORE ISSUE] Completed durability work exists, but the remaining bugs show the pause/cancel behavior is still not wired deeply enough into in-flight polling and subprocess handling.
 [DONE] don't have no such host/connection issues count towards backoff error (implemented NetworkError wrapper + global connection monitor to pause operations)
 [DONE] CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9, OpenDNS)
 [DONE] durability for when wifi is unstable or offline for a duration of time
@@ -16,7 +13,6 @@
 [DONE] ensure finished videos save to archive.txt
 [DONE] don't end downloader too quickly as it might need to clean residual files (added 1 second sleep after process.Wait)
 
-[CORE ISSUE] YouTube has only rss/live checks, so member streams and fragile YouTube responses need a third metadata source instead of making fallback do all recovery work.
 holodex or invidious api as a third option (important for member streams)
 
 [CORE ISSUE] Connection loss is detected too late and only pauses future loops; active checks/download attempts continue producing network errors until the current poll/subprocess path exits.
@@ -85,8 +81,13 @@ holodex or invidious api as a third option (important for member streams)
 [2026-04-21 08:36:09 UTC+07:00] [YT] Started download for Muu Muyu: VR chat hangout and stuff
 [2026-04-21 08:38:22 UTC+07:00] [YT] Fallback Report: 3 channels failed primary check and swapped methods: [Ashelia Rinkou (->rss) Utatane Nasa (->rss) Hakushika Iori (->rss)]
 
-[CORE ISSUE] Download log filenames derive from UTC CreatedAt, so streams crossing local midnight can split/mislabel logs; remove the date or use configured timezone.
+
+
+[CORE ISSUE] Download log filenames derive from UTC CreatedAt, so streams crossing local midnight can split/mislabel logs; remove the date so it's just username and video id
 2026-04-20-muu_muyu-RZfwVc5blM4 2026-04-21-muu_muyu-RZfwVc5blM4.log (changes at UTC+0 12am) (remove the date)
+
+
+
 
 [CORE ISSUE] YouTube fallback state is a shared map mutated by concurrent channel checks without a lock, causing fatal concurrent map writes.
 ============================================================
@@ -121,10 +122,10 @@ created by streammon/internal/monitor.(*BaseMonitor).checkAllChannels in gorouti
         D:/Proj/Personal/streammon/internal/monitor/checker.go:123 +0x265
 
 
- Detected 1 errors during poll. Staggering next poll by +1m0s (Consecutive failures: 1)
-[CORE ISSUE] Backoff has a start log but no recovery log; when errorCount returns to zero, announce that poll staggering has been cleared.
- This ^ must also have a correspond log message that announces a reversion of the stagger. The plan is to have the program running indefinitely instead of needing occassional restarts. 
 
+[CORE ISSUE] Backoff has a start log but no recovery log; when errorCount returns to zero, announce that poll staggering has been cleared.
+Detected 1 errors during poll. Staggering next poll by +1m0s (Consecutive failures: 1)
+ This ^ must also have a correspond log message that announces a reversion of the stagger. The plan is to have the program running indefinitely instead of needing occassional restarts. 
 
 
 

@@ -100,8 +100,8 @@ func NewLoggerForDownload(
 				file.Sync()
 			}
 		} else {
-			fmt.Printf("%s [%s%s%s] Warning: Failed to create log file: %v\n",
-				FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, ColorReset, err)
+			fmt.Printf("%s Warning: Failed to create log file: %v\n",
+				formatLogPrefix(globalCfg, logPrefix, logColor), err)
 		}
 	}
 
@@ -116,24 +116,52 @@ func stripANSI(s string) string {
 	return ansiPattern.ReplaceAllString(s, "")
 }
 
+// formatLogPrefix returns the shared timestamp/platform prefix for log lines.
+func formatLogPrefix(globalCfg *config.GlobalConfig, logPrefix, logColor string) string {
+	return fmt.Sprintf("%s [%s%s%s]", FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, ColorReset)
+}
+
+func (l *Logger) linePrefix() string {
+	return formatLogPrefix(l.globalCfg, l.logPrefix, l.logColor)
+}
+
+func (l *Logger) formatLine(message string) string {
+	return fmt.Sprintf("%s %s\n", l.linePrefix(), message)
+}
+
+func (l *Logger) formatTaggedLine(tagColor, tag, message string) string {
+	return fmt.Sprintf("%s [%s%s%s] %s\n", l.linePrefix(), tagColor, tag, ColorReset, message)
+}
+
+func (l *Logger) taggedPrefix(tagColor, tag string) string {
+	return fmt.Sprintf("%s [%s%s%s]", l.linePrefix(), tagColor, tag, ColorReset)
+}
+
+func (l *Logger) formatSubprocessLine(debugType, output string) string {
+	return fmt.Sprintf("%s [%s%s%s] %s\n",
+		l.taggedPrefix(ColorBlue, debugType),
+		ColorOrange, l.channelName, ColorReset,
+		output)
+}
+
+func (l *Logger) writeLine(line string, terminal bool) {
+	if terminal {
+		fmt.Print(line)
+	}
+	if l.logFile != nil {
+		cleanedLine := stripANSI(line)
+		l.logFile.WriteString(cleanedLine)
+		l.logFile.Sync()
+	}
+}
+
 // LogRegular logs a message to both terminal and log file
 // These are important events that should always be visible
 func (l *Logger) LogRegular(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, message)
-
-	// Always show important events in terminal
-	fmt.Print(line)
-
-	// Always write to log file without color codes
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
+	l.writeLine(l.formatLine(message), true)
 }
 
 // Logf is a convenience wrapper for LogRegular that uses fmt.Sprintf.
@@ -146,17 +174,7 @@ func (l *Logger) LogEvent(eventType, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	// Format: [time] [Platform] [EventType] message
-	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, eventType, ColorReset, message)
-
-	fmt.Print(line)
-	// Event logs are important and should also go to the download log file if it exists.
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
+	l.writeLine(l.formatTaggedLine(ColorBlue, eventType, message), true)
 }
 
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
@@ -168,10 +186,8 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
 	// Format: [time] [Platform] [debugType] [ChannelName] message
-	// Platform in its color, debugType in blue, ChannelName in Orange
-	line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] [%s%s%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorBlue, debugType, ColorReset, ColorOrange, l.channelName, ColorReset, output)
+	line := l.formatSubprocessLine(debugType, output)
 
 	// Check if this is a progress line (contains [download] or [wait])
 	isDownloadLine := strings.Contains(output, "[download]")
@@ -201,15 +217,8 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	}
 
 	// Show in terminal only if dlp debug is enabled and throttling allows it
-	if shouldWrite && l.dlpDebug {
-		fmt.Print(line)
-	}
-
-	// Always write to log file (with throttling applied)
-	if shouldWrite && l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
+	if shouldWrite {
+		l.writeLine(line, l.dlpDebug)
 	}
 }
 
@@ -218,18 +227,7 @@ func (l *Logger) LogError(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] %sERROR%s: %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorRed, ColorReset, message)
-
-	// Terminal output
-	fmt.Print(line)
-
-	// Log file without color codes
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
+	l.writeLine(l.formatLine(fmt.Sprintf("%sERROR%s: %s", ColorRed, ColorReset, message)), true)
 }
 
 // LogErrorf is a convenience wrapper for LogError that uses fmt.Sprintf.
@@ -266,20 +264,7 @@ func (l *Logger) Debug(debugType, message string) {
 	}
 
 	if shouldLog {
-		timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-		// Format: [time] [Platform] [DebugType] message
-		line := fmt.Sprintf("%s [%s%s%s] [%s%s%s] %s\n",
-			timestamp, l.logColor, l.logPrefix, ColorReset,
-			ColorBlue, debugType, ColorReset,
-			message)
-
-		fmt.Print(line)
-
-		if l.logFile != nil {
-			cleanedLine := stripANSI(line)
-			l.logFile.WriteString(cleanedLine)
-			l.logFile.Sync()
-		}
+		l.writeLine(l.formatTaggedLine(ColorBlue, debugType, message), true)
 	}
 }
 
@@ -288,16 +273,7 @@ func (l *Logger) Warn(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	timestamp := FormatTime(time.Now(), l.globalCfg.Timezone)
-	line := fmt.Sprintf("%s [%s%s%s] [%sWARN%s] %s\n", timestamp, l.logColor, l.logPrefix, ColorReset, ColorYellow, ColorReset, message)
-
-	fmt.Print(line)
-
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
+	l.writeLine(l.formatTaggedLine(ColorYellow, "WARN", message), true)
 }
 
 // Close flushes and closes the log file
@@ -352,5 +328,8 @@ func ReadPipeAndLog(pipe io.Reader, logger *Logger, debugType string, callback f
 				callback(text)
 			}
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		logger.LogError(fmt.Sprintf("Error reading subprocess output: %v", err))
 	}
 }
