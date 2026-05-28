@@ -2,7 +2,7 @@
 
 streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp) or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
 
-This is meant to replace the now deprecated [ytarchive](https://github.com/Kethsar/ytarchive). I plan to implement [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` is failing, and [holodex's API](https://docs.holodex.net/#section/Holodex-API-Documentation) for member stream monitoring.
+This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). I plan to implement [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` is failing, and [holodex's API](https://docs.holodex.net/#section/Holodex-API-Documentation) for member stream monitoring.
 
 ## What You Need
 
