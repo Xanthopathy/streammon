@@ -4,6 +4,7 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"streammon/internal/util/logging"
 )
@@ -12,11 +13,14 @@ import (
 type downloadProcess struct {
 	cmd               *exec.Cmd
 	videoID           string
+	downloaderName    string
+	startedAt         time.Time
 	lockPath          string
 	logger            *logging.Logger
 	isWaiting         *atomic.Bool // Signals that the process is in a waiting/retry state
 	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
 	mergerDetected    *atomic.Bool // Tracks if [Merger] or successful completion marker was detected in output
+	downloadCompleted *atomic.Bool // Tracks downloader-specific completion markers in output
 }
 
 // --- Global Download Limiter ---

@@ -42,6 +42,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Create synchronization for merger detection
 	mergerDetected := &atomic.Bool{}
 
+	// Create synchronization for downloader-specific completion markers
+	downloadCompleted := &atomic.Bool{}
+
 	// Callback to detect waiting state and completion markers from subprocess output
 	outputCallback := func(line string) {
 		if strings.Contains(line, "[retry-streams]") {
@@ -51,9 +54,16 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			isWaiting.Store(false)
 		}
 
-		// Track successful completion markers (for yt-dlp and twitch-dlp)
+		// Track successful completion markers from yt-dlp post-processing.
 		if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") {
 			mergerDetected.Store(true)
+		}
+
+		// Track completion markers commonly emitted by twitch-dlp/ffmpeg.
+		if strings.Contains(line, "[stats] Fragments") ||
+			(strings.Contains(line, "frame=") && strings.Contains(line, "Lsize=")) ||
+			(strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) {
+			downloadCompleted.Store(true)
 		}
 	}
 
@@ -164,23 +174,54 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		logger.Close()
 		return false
 	}
+	startedAt := time.Now()
 
 	logger.LogRegular(fmt.Sprintf("%sStarted download for%s %s%s%s: %s", ansi.ColorGreen, ansi.ColorReset, ansi.ColorOrange, ch.Name, ansi.ColorReset, status.Title))
 
 	// Store process info
 	proc := &downloadProcess{
-		cmd:            cmd,
-		videoID:        status.VideoID,
-		lockPath:       lockPath,
-		logger:         logger,
-		isWaiting:      isWaiting,
-		mergerDetected: mergerDetected,
+		cmd:               cmd,
+		videoID:           status.VideoID,
+		downloaderName:    debugType,
+		startedAt:         startedAt,
+		lockPath:          lockPath,
+		logger:            logger,
+		isWaiting:         isWaiting,
+		mergerDetected:    mergerDetected,
+		downloadCompleted: downloadCompleted,
 	}
 	b.activeDownloads[ch.ID] = proc
 
 	// Start a goroutine to wait for it to finish and clean up
 	go b.waitForDownload(ch, proc)
 	return true
+}
+
+func isMediaFile(name string) bool {
+	return strings.HasSuffix(name, ".mp4") || strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".webm")
+}
+
+func mediaFileMatchesDownload(name string, modTime time.Time, proc *downloadProcess) bool {
+	if !isMediaFile(name) {
+		return false
+	}
+
+	switch proc.downloaderName {
+	case "yt-dlp":
+		if strings.Contains(name, proc.videoID) {
+			return true
+		}
+		if len(proc.videoID) >= 8 && strings.Contains(name, proc.videoID[:8]) {
+			return true
+		}
+		return false
+	case "twitch-dlp":
+		// twitch-dlp's %(id)s can be a VOD-style ID (e.g. v2782168798), while
+		// streammon tracks the live GQL stream ID. Use files touched by this run.
+		return !modTime.Before(proc.startedAt.Add(-10 * time.Second))
+	default:
+		return strings.Contains(name, proc.videoID) || !modTime.Before(proc.startedAt.Add(-10*time.Second))
+	}
 }
 
 // waitForDownload blocks until a download process finishes, then cleans up.
@@ -219,10 +260,11 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		exitCode = proc.cmd.ProcessState.ExitCode()
 	}
 
-	// Determine success based on BOTH file existence AND merger detection
-	// (rather than trusting exit code, which yt-dlp can return non-zero even on success)
+	// Determine success using downloader-specific completion markers plus file existence.
+	// yt-dlp can return non-zero after a successful merge, while twitch-dlp does not emit yt-dlp merger markers.
 	outputFileExists := false
 	mergerSuccess := proc.mergerDetected.Load()
+	downloadComplete := proc.downloadCompleted.Load()
 
 	// Check if output file exists in the working directory
 	// The output file should match the pattern from the downloader command
@@ -230,11 +272,12 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		files, err := os.ReadDir(proc.cmd.Dir)
 		if err == nil {
 			for _, file := range files {
-				// Look for .mp4 or .mkv or webm files that contain the video ID
 				if !file.IsDir() {
-					name := file.Name()
-					if (strings.Contains(name, proc.videoID) || strings.Contains(name, proc.videoID[:8])) &&
-						(strings.HasSuffix(name, ".mp4") || strings.HasSuffix(name, ".mkv") || strings.HasSuffix(name, ".webm")) {
+					info, err := file.Info()
+					if err != nil {
+						continue
+					}
+					if mediaFileMatchesDownload(file.Name(), info.ModTime(), proc) {
 						outputFileExists = true
 						break
 					}
@@ -245,7 +288,14 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	// Log exit code and diagnostic info
 	if exitCode >= 0 {
-		proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, exitCode, mergerSuccess, outputFileExists))
+		switch proc.downloaderName {
+		case "yt-dlp":
+			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, mergerSuccess, outputFileExists))
+		case "twitch-dlp":
+			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, outputFileExists))
+		default:
+			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
+		}
 	}
 
 	// Determine final success status
@@ -254,15 +304,30 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		// Forced termination by monitor (stream went offline)
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true // Treat forced termination as success (meaningful data captured)
-	} else if mergerSuccess && outputFileExists {
+	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists {
 		// Both success conditions met
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		isSuccess = true
+	} else if proc.downloaderName == "twitch-dlp" && outputFileExists && (downloadComplete || exitCode == 0) {
+		// twitch-dlp does not emit yt-dlp merger markers; use its own completion markers and file output.
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true
 	} else {
 		// One or both success conditions failed
 		failureReasons := []string{}
-		if !mergerSuccess {
-			failureReasons = append(failureReasons, "no_merger_detected")
+		switch proc.downloaderName {
+		case "yt-dlp":
+			if !mergerSuccess {
+				failureReasons = append(failureReasons, "no_merger_detected")
+			}
+		case "twitch-dlp":
+			if !downloadComplete && exitCode != 0 {
+				failureReasons = append(failureReasons, "no_completion_detected")
+			}
+		default:
+			if !downloadComplete && !mergerSuccess && exitCode != 0 {
+				failureReasons = append(failureReasons, "no_completion_detected")
+			}
 		}
 		if !outputFileExists {
 			failureReasons = append(failureReasons, "output_file_not_found")
