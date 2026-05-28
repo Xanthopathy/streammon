@@ -1,159 +1,191 @@
 # streammon
 
-Monitors YouTube and Twitch channels for live streams, applies regex filters, and automatically downloads them with `yt-dlp` and `twitch-dlp`.
+streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp) or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
 
-## Features
+This is meant to replace the now deprecated [ytarchive](https://github.com/Kethsar/ytarchive). I plan to implement [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` is failing, and [holodex's API](https://docs.holodex.net/#section/Holodex-API-Documentation) for member stream monitoring.
 
-- **Multi-Platform Monitoring**: Concurrently watch channels on YouTube and Twitch.
-- **Advanced Filtering**: Use regular expressions to download only the streams you want based on their titles.
-- **Concurrent Downloads**: Download multiple streams at once, up to a global limit you define.
-- **Robust Deduplication**: A multi-layer system prevents re-downloading the same stream:
-  - **Archive File**: Remembers successfully downloaded video IDs across restarts.
-  - **Session Cache**: Remembers downloads within the current session.
-  - **Lockfiles**: Prevents multiple instances from downloading the same stream.
-- **Connection Stability**: Automatically pauses all monitoring when your internet connection drops and gracefully resumes when it's restored, preventing log spam and errors.
-- **Fallback Checking (YouTube)**: If the primary check method (e.g., RSS) fails or reports a channel as offline, it automatically tries a secondary method (e.g., scraping the `/live` page) to ensure streams aren't missed.
+## What You Need
 
-## Requirements
+- `yt-dlp` in your `PATH`
+- FFmpeg in your `PATH`
+- Node.js, because Twitch downloads run through `npx twitch-dlp`
+- Go 1.21+ only if you build from source
 
-- **yt-dlp**: Must be in `PATH`
-- **twitch-dlp**: Installed via npm (npx)
-- **FFmpeg**: Required by yt-dlp
-- **Node.js**: Required for twitch-dlp and yt-dlp's JavaScript runtime
-- **Go 1.21+**: Only if building from source
+Quick checks:
 
-## Setup
-
-### Step 1: Get the Files
-
-**Option A: GitHub Release**
-
-- Download the `.zip` of your respective platform from the [release page](https://github.com/Xanthopathy/streammon/releases)
-- Extract it
-- Run the binary for your OS:
-  - **Windows**: `streammon.exe`
-  - **Linux**: `./streammon`
-  - **macOS (Intel)**: `./streammon-macos`
-  - **macOS (Apple Silicon)**: `./streammon-macos-arm64`
-
-**Option B: Build from Source**
-
-- Clone/download the full project
-
-### Step 2: Configure
-
-Edit the `configs/` folder:
-
-- `streammon_config.toml` - Global settings (timezone, concurrent downloads, debug flags)
-- `streammon_config_yt.toml` - YouTube channels and filters
-- `streammon_config_twitch.toml` - Twitch channels and filters
-
-#### Add a Channel
-
-```toml
-[[channel]]
-id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
-name = "Saya Sairroxs"
-filters = ["(?i).*karaoke.*"]
+```powershell
+yt-dlp --version
+ffmpeg -version
+node --version
+npx -y twitch-dlp --help
 ```
 
-For YouTube: `id` is the channel ID (from https://www.youtube.com/channel/UC...)  
-For Twitch: `id` is the channel login name (from https://www.twitch.tv/...)  
-`filters` is optional; leave empty or omit to download all streams
+## Get It Running
 
-### Step 3: Run
+### 1. Download or build
 
-**From Release:**
+From a release, download the archive for your OS from:
 
-- **Windows**: Double-click `streammon.exe` or run in terminal: `streammon.exe`
-- **Linux**: Run in terminal: `./streammon`
-- **macOS (Intel)**: Run in terminal: `./streammon-macos`
-- **macOS (Apple Silicon)**: Run in terminal: `./streammon-macos-arm64`
+https://github.com/Xanthopathy/streammon/releases
 
-**From Source (Windows):**
+Extract it, keep the config files next to the executable, then run:
 
-```
-.\build.ps1
+```powershell
+.\streammon.exe
 ```
 
-or
+On Linux or macOS:
 
+```sh
+./streammon
 ```
+
+From source:
+
+```powershell
+.\scripts\build.ps1
+```
+
+or:
+
+```powershell
 go run .\cmd\streammon\main.go
 ```
 
-**From Source (Linux/Mac):**
+### 2. Edit the configs
 
+The app looks for these files beside the executable first, then in the current folder, then in `configs/`:
+
+- `streammon_config.toml`
+- `streammon_config_yt.toml`
+- `streammon_config_twitch.toml`
+
+The release zip includes example configs. Start by changing the channel lists.
+
+YouTube channel example:
+
+```toml
+[[channel]]
+id = "UCxxxxxxxxxxxxxxxxxxxxxx"
+name = "Channel Name"
+filters = ["(?i).*karaoke.*", "(?i).*3d live.*"]
 ```
-./build.ps1
+
+Twitch channel example:
+
+```toml
+[[channel]]
+id = "channel_login"
+name = "Channel Name"
+filters = ["(?i).*english.*"]
 ```
 
-or
+Leave `filters` empty or omit it to download every live stream for that channel.
 
+Useful filter examples:
+
+```toml
+filters = ["(?i).*karaoke.*"]              # title contains karaoke
+filters = ["(?i).*watchalong.*"]           # title contains watchalong
+filters = ["(?i).*(live|birthday).*"]      # title contains live or birthday
+filters = ["(?i)^.*(concert|3d).*"]        # title contains concert or 3d
 ```
-go run ./cmd/streammon/main.go
+
+`(?i)` makes the match case-insensitive.
+
+### 3. Run it in a terminal
+
+Running from a terminal is easier than double-clicking because you can see warnings and status messages.
+
+```powershell
+.\streammon.exe
 ```
 
-### Output
+By default, downloads are written to:
 
-- Downloads go to `download_yt/` and `download_twitch/` by default
-- Logs saved to `{channel_name}/{date}-{title}-{id}.log` if enabled in config
-- Check terminal output for status
+- `download_yt/`
+- `download_twitch/`
 
-## Configuration Reference
+Each channel gets its own folder. If download logs are enabled, each download also gets a `.log` file with the downloader command and subprocess output.
 
-### config.toml
+## Settings You Will Probably Touch
 
-| Setting                        | Default | Description                                                                                 |
-| ------------------------------ | ------- | ------------------------------------------------------------------------------------------- |
-| `timezone`                     | `UTC`   | Timezone for logs. Use IANA names (`Asia/Tokyo`) or offsets (`UTC-1`, `UTC+1`).             |
-| `max_concurrent_downloads`     | `10`    | Max simultaneous downloads across all platforms.                                            |
-| `enable_youtube`               | `true`  | Enable the YouTube monitor.                                                                 |
-| `enable_twitch`                | `true`  | Enable the Twitch monitor.                                                                  |
-| `save_download_logs`           | `true`  | Save detailed logs from `yt-dlp`/`twitch-dlp` to files in the channel's download directory. |
-| `subprocess_progress_interval` | `30`    | Throttle `[download]` progress lines in logs (seconds). Set to `0` to log every update.     |
-| `subprocess_wait_interval`     | `600`   | Throttle `[wait]` retry lines in logs (seconds).                                            |
-| `youtube_archive_downloads`    | `true`  | Save downloaded YouTube video IDs to `archive.txt` to prevent re-downloads across restarts. |
-| `twitch_archive_downloads`     | `true`  | Save downloaded Twitch video IDs to `archive.txt`.                                          |
-| `clear_all_lockfiles`          | `true`  | Automatically delete any leftover `.lock` files on startup to prevent issues after a crash. |
-| `youtube_verbose_debug`        | `true`  | General toggle for showing non-essential YouTube monitor logs in the terminal.              |
-| `twitch_verbose_debug`         | `true`  | General toggle for showing non-essential Twitch monitor logs in the terminal.               |
-| `youtube_api_verbose_debug`    | `true`  | Show detailed YouTube API (RSS, /live page) request/response logs.                          |
-| `twitch_api_verbose_debug`     | `false` | Show detailed Twitch GQL API request/response logs.                                         |
-| `youtube_dlp_verbose_debug`    | `true`  | Show raw `yt-dlp` subprocess output in the terminal.                                        |
-| `twitch_dlp_verbose_debug`     | `true`  | Show raw `twitch-dlp` subprocess output in the terminal.                                    |
+In `streammon_config.toml`:
 
-### config_yt.toml
+| Setting                                                  | What it does                                                                        |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `timezone`                                               | Timestamp timezone for logs, like `"UTC"`, `"Asia/Tokyo"`, or `"UTC+7"`.            |
+| `max_concurrent_downloads`                               | Total active downloads allowed across YouTube and Twitch.                           |
+| `enable_youtube` / `enable_twitch`                       | Turn each platform on or off.                                                       |
+| `save_download_logs`                                     | Save per-download `.log` files.                                                     |
+| `clear_all_lockfiles`                                    | Remove old `.lock-*` files on startup. Helpful after crashes.                       |
+| `youtube_archive_downloads` / `twitch_archive_downloads` | Write completed stream IDs to `archive.txt` so they are not downloaded again later. |
+| `youtube_dlp_verbose_debug` / `twitch_dlp_verbose_debug` | Show raw downloader output in the terminal.                                         |
+| `youtube_api_verbose_debug` / `twitch_api_verbose_debug` | Show detailed API/RSS checks. Usually leave off unless debugging.                   |
 
-| Setting                   | Description                                                                                                                                                  |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `working_directory`       | Where to save YouTube downloads.                                                                                                                             |
-| **`[scraper]` section**   |                                                                                                                                                              |
-| `check_method`            | Default method to check for streams. Options: `"rss"` (low-bandwidth, can be delayed) or `"live"` (more accurate, heavier). The other is used as a fallback. |
-| `ignore_older_than`       | Prevents downloading old videos that reappear in the RSS feed.                                                                                               |
-| `poll_interval`           | How often to check for new streams (e.g., `60s`). This is a "freshness target" for the whole channel list.                                                   |
-| `fallback_duration`       | How long to stay on the fallback method after a failure (e.g., `15m`) before retrying the primary method.                                                    |
-| `max_requests_per_second` | Hard rate limit for API calls (default: `2`). This acts as a safety to prevent being flagged as a bot.                                                       |
-| `args`                    | Arguments passed to `yt-dlp`.                                                                                                                                |
+In `streammon_config_yt.toml`:
 
-### config_twitch.toml
+| Setting                   | What it does                                                       |
+| ------------------------- | ------------------------------------------------------------------ |
+| `working_directory`       | Where YouTube files go.                                            |
+| `args`                    | Arguments passed to `yt-dlp`.                                      |
+| `poll_interval`           | Delay between full channel-list checks.                            |
+| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.         |
+| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.     |
+| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams. |
+| `max_requests_per_second` | Safety limit for channel checks.                                   |
 
-| Setting                   | Description                                       |
-| ------------------------- | ------------------------------------------------- |
-| `working_directory`       | Where to save Twitch downloads.                   |
-| **`[scraper]` section**   |                                                   |
-| `poll_interval`           | How often to check for new streams (e.g., `30s`). |
-| `max_requests_per_second` | Hard rate limit for API calls (default: `2`).     |
-| `args`                    | Arguments passed to `twitch-dlp`.                 |
+In `streammon_config_twitch.toml`:
 
-## How It Works
+| Setting                   | What it does                            |
+| ------------------------- | --------------------------------------- |
+| `working_directory`       | Where Twitch files go.                  |
+| `args`                    | Arguments passed to `twitch-dlp`.       |
+| `poll_interval`           | Delay between full channel-list checks. |
+| `max_requests_per_second` | Safety limit for GraphQL checks.        |
 
-### Core Loop
+## What The Logs Mean
 
-6. **Polls Channels**: Each monitor (YouTube, Twitch) runs a continuous loop, checking all its configured channels every `poll_interval`.
-7. **Spreads Requests**: To avoid being detected as a bot, requests are not sent in a single burst. They are spaced out based on your `poll_interval` and `max_requests_per_second` settings.
-8. **Checks Status**: For each channel, it uses the configured method (`rss` or `live` for YouTube, GQL for Twitch) to see if a stream is live. If the primary method fails, it tries a fallback.
-9. **Applies Filters**: If a stream is live, its title is checked against your list of regex `filters`. If it doesn't match, it's ignored.
-10. **Queues for Download**: If a stream is live and passes the filters, it's queued for download.
-11. **Manages Downloads**: A separate manager process constantly checks the queue and starts new downloads as soon as a slot is free, up to the `max_concurrent_downloads` limit.
-12. **Logs Everything**: The application provides detailed logs for status changes, download progress, and errors, both in the terminal and in log files (if enabled).
+- `is now LIVE`: the stream passed your filters and is eligible for download.
+- `has gone offline`: the platform says the stream ended.
+- `skipped: found in archive`: the stream ID is already in `archive.txt`.
+- `already queued/downloading`: a `.lock-*` file exists for that stream.
+- `Connection lost (confirmed)`: checks pause until the connection is stable again.
+- `Config:` warnings: a config key is missing, invalid, or unknown. streammon tells you what default it used.
+- `[Diagnostic]`: downloader exit details used to decide whether the file completed successfully.
+
+## Duplicate Protection
+
+streammon uses three layers:
+
+- `archive.txt` remembers successful downloads across restarts.
+- An in-memory session cache prevents re-queueing a stream during the current run.
+- `.lock-*` files prevent multiple app instances from starting the same stream.
+
+If the app says a stream is already queued after a crash, either leave `clear_all_lockfiles = true` and restart, or remove the named `.lock-*` file from the working directory.
+
+## Practical Troubleshooting
+
+If nothing downloads:
+
+1. Run from a terminal and check for `Config:` warnings.
+2. Confirm the platform is enabled in `streammon_config.toml`.
+3. Temporarily remove `filters` from one channel to prove detection works.
+4. Check that `yt-dlp`, `ffmpeg`, `node`, and `npx -y twitch-dlp --help` work.
+5. Turn on the relevant API debug flag only while testing.
+
+If YouTube misses streams:
+
+- Try `check_method = "live"` for more direct live-page checks.
+- Keep `fallback_duration` enabled so a working fallback stays active for a while.
+- Make sure `ignore_older_than` is not too short for your use case.
+
+If Twitch files finish but report oddly:
+
+- Check the per-download `.log` file and the `[Diagnostic]` line.
+- streammon considers Twitch successful when a media file exists and twitch-dlp either exits cleanly or emits a completion marker.
+
+If your logs are too noisy:
+
+- Set `youtube_dlp_verbose_debug = false` and `twitch_dlp_verbose_debug = false`.
+- Increase `subprocess_progress_interval` and `subprocess_wait_interval`.
