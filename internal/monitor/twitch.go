@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"net/http"
 	"os/exec"
 	"time"
@@ -67,8 +68,8 @@ func (m *TwitchMonitor) GetLogPrefix() string {
 	return "Twitch"
 }
 
-func (m *TwitchMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
-	return twitch.CheckLiveGQL(httpClient, ch.ID, m.base.logger)
+func (m *TwitchMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
+	return twitch.CheckLiveGQL(ctx, httpClient, ch.ID, m.base.logger)
 }
 
 func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {

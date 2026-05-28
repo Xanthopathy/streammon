@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"os"
@@ -38,11 +39,68 @@ func IsNetworkError(err error) bool {
 	return ok
 }
 
+func sleepWithContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+func isConnectivityError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	networkErrPatterns := []string{
+		// DNS resolution failures
+		"no such host", "lookup", "temporary failure in name resolution",
+		// Connection establishment failures
+		"dial tcp", "connection refused", "connection reset",
+		// Active connection failures (e.g., socket reads/writes during existing connection)
+		"read tcp", "write tcp", "wsarecv", "wsasend",
+		// Timeouts and unreachable network states
+		"context canceled", "context deadline exceeded", "client.timeout exceeded", "i/o timeout", "timeout",
+		"network is unreachable", "network is down", "host is down",
+	}
+	for _, pattern := range networkErrPatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
 // checkAllChannels concurrently checks all configured channels with request pacing.
 // Uses bounded concurrency (4 requests) plus request spacing to avoid API rate limits.
 // Balances freshness target (poll_interval) with safety limit (max_requests_per_second).
 func (b *BaseMonitor) checkAllChannels() int {
 	channels := b.controller.GetChannels()
+	connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if !connMonitor.IsConnected() {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
 
 	var wg sync.WaitGroup
 	var errorCount atomic.Int32
@@ -100,7 +158,10 @@ func (b *BaseMonitor) checkAllChannels() int {
 	jitterPercent := 0.25
 
 	for _, ch := range channels {
-		wg.Add(1)
+		if ctx.Err() != nil || !connMonitor.IsConnected() {
+			cancel()
+			break
+		}
 
 		// Apply randomized jitter to spacing if configured
 		if requestSpacing > 0 {
@@ -114,16 +175,28 @@ func (b *BaseMonitor) checkAllChannels() int {
 			if actualSleep < 100*time.Millisecond {
 				actualSleep = 100 * time.Millisecond // Minimum safety floor
 			}
-			time.Sleep(actualSleep)
+			if !sleepWithContext(ctx, actualSleep) {
+				break
+			}
 		}
 
 		// Acquire semaphore slot (blocking if full)
-		sem <- struct{}{}
+		acquiredSlot := false
+		select {
+		case sem <- struct{}{}:
+			acquiredSlot = true
+		case <-ctx.Done():
+		}
 
+		if !acquiredSlot {
+			break
+		}
+
+		wg.Add(1)
 		go func(c config.Channel) {
 			// Ensure we release the slot when this goroutine finishes
 			defer func() { <-sem }()
-			if err := b.checkChannel(c, &wg); err != nil {
+			if err := b.checkChannel(ctx, cancel, c, &wg); err != nil {
 				// Only count non-network errors toward backoff timers.
 				// NetworkErrors indicate connection issues, which are handled by the
 				// global connection monitor (it will pause operations anyway).
@@ -138,45 +211,36 @@ func (b *BaseMonitor) checkAllChannels() int {
 }
 
 // checkChannel is the core logic for checking a single channel's status.
-func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error {
+func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFunc, ch config.Channel, wg *sync.WaitGroup) error {
 	defer wg.Done()
 
 	logPrefix := b.controller.GetLogPrefix()
 
-	newStatus, err := b.controller.CheckChannelStatus(ch, b.httpClient)
+	if ctx.Err() != nil {
+		return &NetworkError{Err: ctx.Err()}
+	}
+
+	newStatus, err := b.controller.CheckChannelStatus(ctx, ch, b.httpClient)
 	if err != nil {
-		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
-
-		// Check for network errors to trigger immediate stability check
-		// Network errors include: DNS failures, connection timeouts, socket errors, etc.
-		errStr := err.Error()
-		isNetworkErr := false
-		networkErrPatterns := []string{
-			// DNS resolution failures
-			"no such host", "lookup", "temporary failure in name resolution",
-			// Connection establishment failures
-			"dial tcp", "connection refused", "connection reset",
-			// Active connection failures (e.g., socket reads/writes during existing connection)
-			"read tcp", "write tcp", "wsarecv", "wsasend",
-			// Generic network issues
-			"network is unreachable", "network is down", "host is down",
-		}
-		for _, pattern := range networkErrPatterns {
-			if strings.Contains(errStr, pattern) {
-				isNetworkErr = true
-				break
-			}
+		if ctx.Err() != nil {
+			return &NetworkError{Err: err}
 		}
 
-		if isNetworkErr {
+		if isConnectivityError(err) {
 			// Trigger immediate connection check via the global connection monitor
 			connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
 			connMonitor.TriggerImmediateCheck()
+			cancel()
+
+			if connMonitor.IsConnected() {
+				b.logger.Warn(fmt.Sprintf("Network issue while checking %s: %v", ch.Name, err))
+			}
 
 			// Wrap in NetworkError so it won't count toward backoff timers
 			return &NetworkError{Err: err}
 		}
 
+		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
 		return err
 	}
 

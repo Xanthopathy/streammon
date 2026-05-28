@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -32,11 +33,11 @@ type YouTubeRSSEntry struct {
 // Unlike strict "live" detection, this approach is simpler and more reliable:
 // - Just checks if video's updated timestamp is recent (within ignore_older_than)
 // - Lets yt-dlp determine if it's actually a live stream
-func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName string, logger *logging.Logger, ignoreOlderThan time.Duration) (models.LiveInfo, error) {
+func CheckYouTubeViaRSS(ctx context.Context, httpClient *http.Client, channelID string, channelName string, logger *logging.Logger, ignoreOlderThan time.Duration) (models.LiveInfo, error) {
 	rssURL := fmt.Sprintf("https://www.youtube.com/feeds/videos.xml?channel_id=%s", channelID)
 	logger.Debug("YouTubeAPI", fmt.Sprintf("Fetching RSS feed for %s%s%s (%s): %s", ansi.ColorOrange, channelName, ansi.ColorReset, channelID, rssURL))
 
-	req, err := http.NewRequest("GET", rssURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", rssURL, nil)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to create request for %s%s%s: %v", ansi.ColorOrange, channelName, ansi.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
@@ -124,7 +125,7 @@ func CheckYouTubeViaRSS(httpClient *http.Client, channelID string, channelName s
 // 2. Check if the latest video's Updated timestamp is recent (within ignore_older_than)
 // 3. Return the video details - let yt-dlp determine if it's actually a live stream
 // This avoids issues with strict live-detection methods and rate limiting.
-func CheckLiveYouTube(httpClient *http.Client, channelID string, channelName string, logger *logging.Logger, ignoreOlderThan time.Duration) (models.LiveInfo, error) {
+func CheckLiveYouTube(ctx context.Context, httpClient *http.Client, channelID string, channelName string, logger *logging.Logger, ignoreOlderThan time.Duration) (models.LiveInfo, error) {
 	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking channel %s%s%s (%s) for recent videos", ansi.ColorOrange, channelName, ansi.ColorReset, channelID))
-	return CheckYouTubeViaRSS(httpClient, channelID, channelName, logger, ignoreOlderThan)
+	return CheckYouTubeViaRSS(ctx, httpClient, channelID, channelName, logger, ignoreOlderThan)
 }

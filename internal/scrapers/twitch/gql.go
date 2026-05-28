@@ -2,6 +2,7 @@ package twitch
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,12 +61,16 @@ type streamMetadataGQLResponse []struct {
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
 // Includes retry logic with exponential backoff to handle temporary timeouts.
-func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
+func CheckLiveGQL(ctx context.Context, httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
 	const maxRetries = 2
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		result, err := checkLiveGQLOnce(httpClient, channelLogin, logger)
+		if ctx.Err() != nil {
+			return models.LiveInfo{}, ctx.Err()
+		}
+
+		result, err := checkLiveGQLOnce(ctx, httpClient, channelLogin, logger)
 		if err == nil {
 			return result, nil
 		}
@@ -81,7 +86,13 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *logging.
 		if attempt < maxRetries {
 			backoffDuration := time.Duration((attempt+1)*1000) * time.Millisecond // 1s, 2s
 			logger.Debug("TwitchAPI", fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
-			time.Sleep(backoffDuration)
+			timer := time.NewTimer(backoffDuration)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return models.LiveInfo{}, ctx.Err()
+			case <-timer.C:
+			}
 		}
 	}
 
@@ -89,7 +100,7 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *logging.
 }
 
 // checkLiveGQLOnce performs a single GQL request without retries.
-func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
+func checkLiveGQLOnce(ctx context.Context, httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := streamMetadataGQLRequest{
 		OperationName: "StreamMetadata",
@@ -110,7 +121,7 @@ func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *logg
 	logger.Debug("TwitchAPI", fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
 
 	// Create and send the HTTP request
-	req, err := http.NewRequest("POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
 	if err != nil {
 		return models.LiveInfo{}, fmt.Errorf("failed to create GQL request: %w", err)
 	}

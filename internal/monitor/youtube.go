@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -83,7 +84,7 @@ func (m *YTMonitor) GetLogPrefix() string {
 
 // CheckChannelStatus for YouTube uses RSS parsing to confirm a stream is live.
 // Only launches yt-dlp if both checks confirm the stream exists.
-func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
+func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
 	// Parse the ignore_older_than duration from config
 	ignoreOlderThan, err := time.ParseDuration(m.cfg.Scraper.IgnoreOlderThan)
 	if err != nil {
@@ -124,14 +125,18 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 	var lastErr error
 
 	for i, method := range methods {
+		if ctx.Err() != nil {
+			return models.LiveInfo{}, ctx.Err()
+		}
+
 		var info models.LiveInfo
 		var err error
 
 		switch method {
 		case "rss":
-			info, err = youtube.CheckYouTubeViaRSS(httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
+			info, err = youtube.CheckYouTubeViaRSS(ctx, httpClient, ch.ID, ch.Name, m.base.logger, ignoreOlderThan)
 		case "live":
-			info, err = youtube.CheckYouTubeViaLivePage(httpClient, ch.ID, ch.Name, m.base.logger)
+			info, err = youtube.CheckYouTubeViaLivePage(ctx, httpClient, ch.ID, ch.Name, m.base.logger)
 		default:
 			continue
 		}
@@ -150,6 +155,10 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 			}
 
 			return info, nil
+		}
+
+		if isConnectivityError(err) {
+			return models.LiveInfo{}, err
 		}
 
 		// Identify fallback method if one exists

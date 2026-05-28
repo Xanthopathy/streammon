@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -33,7 +34,7 @@ func main() {
 	fmt.Println("---------------------------------------------------")
 
 	// 3. Call the function directly
-	info, err := youtube.CheckYouTubeViaLivePage(client, testChannelID, testChannelName, logger)
+	info, err := youtube.CheckYouTubeViaLivePage(context.Background(), client, testChannelID, testChannelName, logger)
 
 	fmt.Println("---------------------------------------------------")
 	if err != nil {

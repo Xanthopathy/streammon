@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"net/http"
 	"os/exec"
 	"time"
@@ -21,6 +22,6 @@ type MonitorController interface {
 	GetLogPrefix() string
 
 	// Core platform-specific logic
-	CheckChannelStatus(ch config.Channel, httpClient *http.Client) (models.LiveInfo, error)
+	CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error)
 	BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd
 }

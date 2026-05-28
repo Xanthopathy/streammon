@@ -1,6 +1,7 @@
 package youtube
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,11 +18,11 @@ import (
 // CheckYouTubeViaLivePage performs a check by navigating to the channel's /live endpoint.
 // YouTube redirects this URL to the active livestream if one exists.
 // We inspect the resulting page for "isLive":true markers to distinguish actual streams from VOD redirects.
-func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelName string, logger *logging.Logger) (models.LiveInfo, error) {
+func CheckYouTubeViaLivePage(ctx context.Context, httpClient *http.Client, channelID string, channelName string, logger *logging.Logger) (models.LiveInfo, error) {
 	liveURL := fmt.Sprintf("https://www.youtube.com/channel/%s/live", channelID)
 	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking /live endpoint for %s%s%s (%s): %s", ansi.ColorOrange, channelName, ansi.ColorReset, channelID, liveURL))
 
-	req, err := http.NewRequest("GET", liveURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", liveURL, nil)
 	if err != nil {
 		errorMsg := fmt.Sprintf("Failed to create /live request for %s%s%s: %v", ansi.ColorOrange, channelName, ansi.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
