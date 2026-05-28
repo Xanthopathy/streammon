@@ -39,7 +39,7 @@ func (b *BaseMonitor) Run() {
 		}
 
 		idealSpacing := pollInterval / time.Duration(channelCount)
-		rpsSpacing := time.Second / time.Duration(int(maxRPS))
+		rpsSpacing := time.Duration(float64(time.Second) / maxRPS)
 		effectiveSpacing := idealSpacing
 		if rpsSpacing > idealSpacing {
 			effectiveSpacing = rpsSpacing
@@ -127,6 +127,9 @@ func (b *BaseMonitor) Run() {
 			b.logger.Logf("Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)", errorCount, backoff, consecutiveErrors)
 			sleepDuration += backoff
 		} else {
+			if consecutiveErrors > 0 {
+				b.logger.Logf("Poll errors cleared. Returning to normal poll interval: %v", pollInterval)
+			}
 			consecutiveErrors = 0
 		}
 
