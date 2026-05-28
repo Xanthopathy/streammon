@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"sync"
 	"time"
 
 	"streammon/internal/config"
@@ -20,6 +21,7 @@ type YTMonitor struct {
 	base           *BaseMonitor
 	cfg            *config.YTConfig
 	globalCfg      *config.GlobalConfig
+	fallbackMu     sync.RWMutex
 	fallbackStates map[string]fallbackState
 
 	stats logging.FallbackStats
@@ -39,6 +41,28 @@ func NewYTMonitor(cfg *config.YTConfig, globalCfg *config.GlobalConfig) *YTMonit
 	}
 	m.base = NewBaseMonitor(m)
 	return m
+}
+
+func (m *YTMonitor) getFallbackState(channelID string) (fallbackState, bool) {
+	m.fallbackMu.RLock()
+	defer m.fallbackMu.RUnlock()
+
+	state, ok := m.fallbackStates[channelID]
+	return state, ok
+}
+
+func (m *YTMonitor) setFallbackState(channelID string, state fallbackState) {
+	m.fallbackMu.Lock()
+	defer m.fallbackMu.Unlock()
+
+	m.fallbackStates[channelID] = state
+}
+
+func (m *YTMonitor) clearFallbackState(channelID string) {
+	m.fallbackMu.Lock()
+	defer m.fallbackMu.Unlock()
+
+	delete(m.fallbackStates, channelID)
 }
 
 // Run starts the monitoring loops by delegating to the BaseMonitor.
@@ -105,7 +129,7 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 	defaultMethod := m.cfg.Scraper.CheckMethod
 
 	// Check if channel is in fallback mode
-	currentState, hasState := m.fallbackStates[ch.ID]
+	currentState, hasState := m.getFallbackState(ch.ID)
 	now := time.Now()
 	if hasState && now.Before(currentState.expiresAt) {
 		// Use the fallback method as primary
@@ -145,13 +169,13 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 			// If we succeeded using a method that isn't the configured default, set/refresh fallback state
 			// This makes the fallback "sticky" for a duration (fallbackDuration)
 			if method != defaultMethod {
-				m.fallbackStates[ch.ID] = fallbackState{
+				m.setFallbackState(ch.ID, fallbackState{
 					method:    method,
 					expiresAt: now.Add(fallbackDuration),
-				}
+				})
 			} else {
 				// We succeeded with the default method. Clear any fallback state to revert to normal behavior.
-				delete(m.fallbackStates, ch.ID)
+				m.clearFallbackState(ch.ID)
 			}
 
 			return info, nil
