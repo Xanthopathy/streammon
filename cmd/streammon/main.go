@@ -35,11 +35,11 @@ func main() {
 	// 1. Load Configuration
 	sysLogger.LogRegular("Loading configurations...")
 
-	globalCfg, err := config.LoadGlobalConfig(filepath.Join(exeDir, "streammon_config.toml"))
+	globalCfg, globalWarnings, err := config.LoadGlobalConfigWithWarnings(filepath.Join(exeDir, "streammon_config.toml"))
 	if err != nil {
-		globalCfg, err = config.LoadGlobalConfig("streammon_config.toml")
+		globalCfg, globalWarnings, err = config.LoadGlobalConfigWithWarnings("streammon_config.toml")
 		if err != nil {
-			globalCfg, err = config.LoadGlobalConfig("configs/streammon_config.toml")
+			globalCfg, globalWarnings, err = config.LoadGlobalConfigWithWarnings("configs/streammon_config.toml")
 		}
 	}
 	if err != nil {
@@ -49,6 +49,7 @@ func main() {
 
 	// Update logger with loaded config (for correct timezone)
 	sysLogger = logging.NewLogger(globalCfg, "System", ansi.ColorCyan)
+	logConfigWarnings(sysLogger, globalWarnings)
 
 	// Start update check in the background
 	go func() {
@@ -63,32 +64,38 @@ func main() {
 	var ytCfg *config.YTConfig
 	if globalCfg.EnableYoutube {
 		var err error
-		ytCfg, err = config.LoadYTConfig(filepath.Join(exeDir, "streammon_config_yt.toml"))
+		var warnings []config.ConfigWarning
+		ytCfg, warnings, err = config.LoadYTConfigWithWarnings(filepath.Join(exeDir, "streammon_config_yt.toml"))
 		if err != nil {
-			ytCfg, err = config.LoadYTConfig("streammon_config_yt.toml")
+			ytCfg, warnings, err = config.LoadYTConfigWithWarnings("streammon_config_yt.toml")
 			if err != nil {
-				ytCfg, err = config.LoadYTConfig("configs/streammon_config_yt.toml")
+				ytCfg, warnings, err = config.LoadYTConfigWithWarnings("configs/streammon_config_yt.toml")
 			}
 		}
 		if err != nil {
 			sysLogger.Warn(fmt.Sprintf("YouTube is enabled, but could not load streammon_config_yt.toml: %v. YouTube monitor will not run.", err))
 			ytCfg = nil // Ensure it's nil
+		} else {
+			logConfigWarnings(sysLogger, warnings)
 		}
 	}
 
 	var twitchCfg *config.TwitchConfig
 	if globalCfg.EnableTwitch {
 		var err error
-		twitchCfg, err = config.LoadTwitchConfig(filepath.Join(exeDir, "streammon_config_twitch.toml"))
+		var warnings []config.ConfigWarning
+		twitchCfg, warnings, err = config.LoadTwitchConfigWithWarnings(filepath.Join(exeDir, "streammon_config_twitch.toml"))
 		if err != nil {
-			twitchCfg, err = config.LoadTwitchConfig("streammon_config_twitch.toml")
+			twitchCfg, warnings, err = config.LoadTwitchConfigWithWarnings("streammon_config_twitch.toml")
 			if err != nil {
-				twitchCfg, err = config.LoadTwitchConfig("configs/streammon_config_twitch.toml")
+				twitchCfg, warnings, err = config.LoadTwitchConfigWithWarnings("configs/streammon_config_twitch.toml")
 			}
 		}
 		if err != nil {
 			sysLogger.Warn(fmt.Sprintf("Twitch is enabled, but could not load streammon_config_twitch.toml: %v. Twitch monitor will not run.", err))
 			twitchCfg = nil // Ensure it's nil
+		} else {
+			logConfigWarnings(sysLogger, warnings)
 		}
 	}
 
@@ -139,4 +146,10 @@ func main() {
 	// Keep main thread alive until all goroutines are done
 	wg.Wait()
 	sysLogger.LogRegular("All monitors have finished.")
+}
+
+func logConfigWarnings(logger *logging.Logger, warnings []config.ConfigWarning) {
+	for _, warning := range warnings {
+		logger.Warn("Config: " + warning.String())
+	}
 }
