@@ -7,7 +7,8 @@ import (
 
 	"streammon/internal/config"
 	"streammon/internal/scrapers/youtube"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/logging"
 )
 
 func main() {
@@ -20,7 +21,7 @@ func main() {
 	// Force enable API debug to see the logs generated inside CheckYouTubeViaLivePage
 	globalCfg.YoutubeAPIVerboseDebug = true
 
-	logger := util.NewLogger(globalCfg, "Test", util.ColorBlue)
+	logger := logging.NewLogger(globalCfg, "Test", ansi.ColorBlue)
 
 	// 2. Define a channel to test
 	// Replace this ID with a channel you know is currently LIVE to verify it works.

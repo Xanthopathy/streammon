@@ -8,14 +8,18 @@ import (
 
 	"streammon/internal/config"
 	"streammon/internal/monitor"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/lockfile"
+	"streammon/internal/util/logging"
+	"streammon/internal/util/terminal"
+	"streammon/internal/util/updatecheck"
 )
 
 var currentVersion = "dev" // git tag v1.x.x then run build
 
 func main() {
-	util.SetTerminalTitle("streammon")
-	util.PrintBanner()
+	terminal.SetTerminalTitle("streammon")
+	terminal.PrintBanner()
 
 	// Get executable directory for config loading
 	exePath, _ := os.Executable()
@@ -24,7 +28,7 @@ func main() {
 	// Bootstrap logger with default settings for startup messages
 	// We use a dummy config initially, defaulting to UTC
 	defaultCfg := config.GetDefaultGlobalConfig()
-	sysLogger := util.NewLogger(defaultCfg, "System", util.ColorCyan)
+	sysLogger := logging.NewLogger(defaultCfg, "System", ansi.ColorCyan)
 
 	sysLogger.Logf("streammon version %s", currentVersion)
 
@@ -44,11 +48,11 @@ func main() {
 	}
 
 	// Update logger with loaded config (for correct timezone)
-	sysLogger = util.NewLogger(globalCfg, "System", util.ColorCyan)
+	sysLogger = logging.NewLogger(globalCfg, "System", ansi.ColorCyan)
 
 	// Start update check in the background
 	go func() {
-		updateMsg, err := util.CheckForUpdates(currentVersion)
+		updateMsg, err := updatecheck.CheckForUpdates(currentVersion)
 		if err != nil {
 			sysLogger.Debug("UpdateCheck", fmt.Sprintf("Failed to check for updates: %v", err))
 		} else if updateMsg != "" {
@@ -97,7 +101,7 @@ func main() {
 	if globalCfg.ClearAllLockfiles {
 		sysLogger.LogRegular("Cleaning up old lockfiles...")
 		if ytCfg != nil {
-			count, err := util.ClearLockfiles(ytCfg.StreamMon.WorkingDirectory)
+			count, err := lockfile.ClearLockfiles(ytCfg.StreamMon.WorkingDirectory)
 			if err != nil && !os.IsNotExist(err) {
 				// Ignore directory not exist error if we haven't started monitoring yet
 				// But here we rely on os.ReadDir which returns error if dir doesn't exist
@@ -106,7 +110,7 @@ func main() {
 			}
 		}
 		if twitchCfg != nil {
-			count, _ := util.ClearLockfiles(twitchCfg.StreamMon.WorkingDirectory)
+			count, _ := lockfile.ClearLockfiles(twitchCfg.StreamMon.WorkingDirectory)
 			if count > 0 {
 				sysLogger.Logf("Removed %d old lockfiles from %s", count, twitchCfg.StreamMon.WorkingDirectory)
 			}

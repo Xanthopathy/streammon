@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"streammon/internal/util"
+	"streammon/internal/util/logging"
 )
 
 // downloadProcess holds information about a running download process.
@@ -13,7 +13,7 @@ type downloadProcess struct {
 	cmd               *exec.Cmd
 	videoID           string
 	lockPath          string
-	logger            *util.Logger
+	logger            *logging.Logger
 	isWaiting         *atomic.Bool // Signals that the process is in a waiting/retry state
 	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
 	mergerDetected    *atomic.Bool // Tracks if [Merger] or successful completion marker was detected in output

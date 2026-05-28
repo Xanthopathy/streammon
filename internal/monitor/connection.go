@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"streammon/internal/config"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/logging"
+	"streammon/internal/util/netcheck"
 )
 
 // GlobalConnectionMonitor is a singleton that manages connection state for all monitors.
@@ -23,7 +25,7 @@ type ConnectionMonitor struct {
 	lastLogged         bool                 // Track last logged state to prevent duplicate logs
 	subscribers        map[*sync.Cond]bool  // Map of condition variables to notify
 	globalCfg          *config.GlobalConfig // Needed for logging
-	sysLogger          *util.Logger
+	sysLogger          *logging.Logger
 	stateChangedAt     time.Time
 	consecutiveSuccess int
 	consecutiveFailure int
@@ -40,7 +42,7 @@ func GetGlobalConnectionMonitor(globalCfg *config.GlobalConfig) *ConnectionMonit
 			lastLogged:     true,
 			subscribers:    make(map[*sync.Cond]bool),
 			globalCfg:      globalCfg,
-			sysLogger:      util.NewLogger(globalCfg, "System", util.ColorCyan),
+			sysLogger:      logging.NewLogger(globalCfg, "System", ansi.ColorCyan),
 			stateChangedAt: time.Now(),
 			checkTrigger:   make(chan struct{}, 1),
 		}
@@ -87,12 +89,12 @@ func (cm *ConnectionMonitor) broadcastStateChange() {
 	// Log state transitions
 	if cm.isConnected && !cm.lastLogged {
 		// Connection just restored
-		cm.sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", util.ColorGreen, util.ColorReset)
+		cm.sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", ansi.ColorGreen, ansi.ColorReset)
 		cm.lastLogged = true
 		cm.stateChangedAt = time.Now()
 	} else if !cm.isConnected && cm.lastLogged {
 		// Connection just lost
-		cm.sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", util.ColorRed, util.ColorReset)
+		cm.sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", ansi.ColorRed, ansi.ColorReset)
 		cm.lastLogged = false
 		cm.stateChangedAt = time.Now()
 	}
@@ -138,7 +140,7 @@ func (cm *ConnectionMonitor) run() {
 			// Periodic check
 		}
 
-		connected := util.CheckInternetConnection()
+		connected := netcheck.CheckInternetConnection()
 
 		shouldBroadcast := false
 

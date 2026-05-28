@@ -6,14 +6,16 @@ import (
 
 	"streammon/internal/config"
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/lockfile"
+	"streammon/internal/util/terminal"
 )
 
 // manageDownloads is a loop that periodically checks for live channels that need downloading.
 func (b *BaseMonitor) manageDownloads() {
 	managerInterval := 5 * time.Second
 	connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
-	
+
 	for {
 		time.Sleep(managerInterval)
 
@@ -25,7 +27,7 @@ func (b *BaseMonitor) manageDownloads() {
 		b.pauseCond.L.Unlock()
 
 		// Periodically reset terminal title to prevent subprocesses from changing it
-		util.SetTerminalTitle("streammon")
+		terminal.SetTerminalTitle("streammon")
 
 		b.statusMutex.RLock()
 		// Create a copy of live channels to avoid holding the lock for too long
@@ -99,7 +101,7 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 			if isArchived {
 				reason = "found in archive"
 			}
-			b.logger.Logf("%s%s%s (%s) skipped: %s", util.ColorOrange, ch.Name, util.ColorReset, status.VideoID, reason)
+			b.logger.Logf("%s%s%s (%s) skipped: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, status.VideoID, reason)
 		}
 		b.downloadedVidsLoggedMutex.Unlock()
 		return // Defer will release slot.
@@ -107,14 +109,14 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 
 	// Check for a lock file.
 	streamMonCfg := b.controller.GetStreamMonConfig()
-	lockPath := util.GetLockfilePath(streamMonCfg.WorkingDirectory, ch.Name, status.VideoID)
-	if util.HasLock(lockPath) {
+	lockPath := lockfile.GetLockfilePath(streamMonCfg.WorkingDirectory, ch.Name, status.VideoID)
+	if lockfile.HasLock(lockPath) {
 		// Only log this message once per video to avoid spam
 		b.queuedVideosLoggedMutex.Lock()
 		if !b.queuedVideosLogged[status.VideoID] {
 			b.queuedVideosLogged[status.VideoID] = true
 			lockFileName := filepath.Base(lockPath)
-			b.logger.Logf("%s%s%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", util.ColorOrange, ch.Name, util.ColorReset, status.VideoID, lockFileName)
+			b.logger.Logf("%s%s%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, status.VideoID, lockFileName)
 		}
 		b.queuedVideosLoggedMutex.Unlock()
 		return // Defer will release slot.

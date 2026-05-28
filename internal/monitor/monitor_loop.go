@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"streammon/internal/util"
+	"streammon/internal/util/fileio"
 )
 
 // Run starts the main monitoring loop.
@@ -68,7 +68,7 @@ func (b *BaseMonitor) Run() {
 
 	if shouldArchive {
 		archivePath := filepath.Join(streamMonCfg.WorkingDirectory, "archive.txt")
-		if lines, err := util.ReadLinesToSet(archivePath); err == nil {
+		if lines, err := fileio.ReadLinesToSet(archivePath); err == nil {
 			b.archivedVideos = lines
 			b.logger.Logf("Loaded %d archived video IDs.", len(b.archivedVideos))
 		}

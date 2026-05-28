@@ -1,4 +1,4 @@
-package util
+package logging
 
 import (
 	"bufio"
@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"streammon/internal/config"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/text"
+	"streammon/internal/util/timefmt"
 )
 
 // LogLevel defines the logging severity level
@@ -72,7 +75,7 @@ func NewLoggerForDownload(
 	dlpDebug bool,
 	command string,
 ) (*Logger, error) {
-	sanitizedName := SanitizeFolderName(channelName)
+	sanitizedName := text.SanitizeFolderName(channelName)
 	dateStr := dateCreated.UTC().Format("2006-01-02")
 	baseFilename := fmt.Sprintf("%s-%s-%s", dateStr, sanitizedName, streamID)
 
@@ -118,7 +121,7 @@ func stripANSI(s string) string {
 
 // formatLogPrefix returns the shared timestamp/platform prefix for log lines.
 func formatLogPrefix(globalCfg *config.GlobalConfig, logPrefix, logColor string) string {
-	return fmt.Sprintf("%s [%s%s%s]", FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, ColorReset)
+	return fmt.Sprintf("%s [%s%s%s]", timefmt.FormatTime(time.Now(), globalCfg.Timezone), logColor, logPrefix, ansi.ColorReset)
 }
 
 func (l *Logger) linePrefix() string {
@@ -130,17 +133,17 @@ func (l *Logger) formatLine(message string) string {
 }
 
 func (l *Logger) formatTaggedLine(tagColor, tag, message string) string {
-	return fmt.Sprintf("%s [%s%s%s] %s\n", l.linePrefix(), tagColor, tag, ColorReset, message)
+	return fmt.Sprintf("%s [%s%s%s] %s\n", l.linePrefix(), tagColor, tag, ansi.ColorReset, message)
 }
 
 func (l *Logger) taggedPrefix(tagColor, tag string) string {
-	return fmt.Sprintf("%s [%s%s%s]", l.linePrefix(), tagColor, tag, ColorReset)
+	return fmt.Sprintf("%s [%s%s%s]", l.linePrefix(), tagColor, tag, ansi.ColorReset)
 }
 
 func (l *Logger) formatSubprocessLine(debugType, output string) string {
 	return fmt.Sprintf("%s [%s%s%s] %s\n",
-		l.taggedPrefix(ColorBlue, debugType),
-		ColorOrange, l.channelName, ColorReset,
+		l.taggedPrefix(ansi.ColorBlue, debugType),
+		ansi.ColorOrange, l.channelName, ansi.ColorReset,
 		output)
 }
 
@@ -174,7 +177,7 @@ func (l *Logger) LogEvent(eventType, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.writeLine(l.formatTaggedLine(ColorBlue, eventType, message), true)
+	l.writeLine(l.formatTaggedLine(ansi.ColorBlue, eventType, message), true)
 }
 
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
@@ -227,7 +230,7 @@ func (l *Logger) LogError(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.writeLine(l.formatLine(fmt.Sprintf("%sERROR%s: %s", ColorRed, ColorReset, message)), true)
+	l.writeLine(l.formatLine(fmt.Sprintf("%sERROR%s: %s", ansi.ColorRed, ansi.ColorReset, message)), true)
 }
 
 // LogErrorf is a convenience wrapper for LogError that uses fmt.Sprintf.
@@ -264,7 +267,7 @@ func (l *Logger) Debug(debugType, message string) {
 	}
 
 	if shouldLog {
-		l.writeLine(l.formatTaggedLine(ColorBlue, debugType, message), true)
+		l.writeLine(l.formatTaggedLine(ansi.ColorBlue, debugType, message), true)
 	}
 }
 
@@ -273,7 +276,7 @@ func (l *Logger) Warn(message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.writeLine(l.formatTaggedLine(ColorYellow, "WARN", message), true)
+	l.writeLine(l.formatTaggedLine(ansi.ColorYellow, "WARN", message), true)
 }
 
 // Close flushes and closes the log file

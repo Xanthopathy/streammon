@@ -10,19 +10,20 @@ import (
 	"time"
 
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/logging"
 )
 
 // CheckYouTubeViaLivePage performs a check by navigating to the channel's /live endpoint.
 // YouTube redirects this URL to the active livestream if one exists.
 // We inspect the resulting page for "isLive":true markers to distinguish actual streams from VOD redirects.
-func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelName string, logger *util.Logger) (models.LiveInfo, error) {
+func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelName string, logger *logging.Logger) (models.LiveInfo, error) {
 	liveURL := fmt.Sprintf("https://www.youtube.com/channel/%s/live", channelID)
-	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking /live endpoint for %s%s%s (%s): %s", util.ColorOrange, channelName, util.ColorReset, channelID, liveURL))
+	logger.Debug("YouTubeAPI", fmt.Sprintf("Checking /live endpoint for %s%s%s (%s): %s", ansi.ColorOrange, channelName, ansi.ColorReset, channelID, liveURL))
 
 	req, err := http.NewRequest("GET", liveURL, nil)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to create /live request for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
+		errorMsg := fmt.Sprintf("Failed to create /live request for %s%s%s: %v", ansi.ColorOrange, channelName, ansi.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return models.LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -41,14 +42,14 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to fetch /live for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
+		errorMsg := fmt.Sprintf("Failed to fetch /live for %s%s%s: %v", ansi.ColorOrange, channelName, ansi.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return models.LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		errorMsg := fmt.Sprintf("/live request for %s%s%s returned non-200 status: %s", util.ColorOrange, channelName, util.ColorReset, resp.Status)
+		errorMsg := fmt.Sprintf("/live request for %s%s%s returned non-200 status: %s", ansi.ColorOrange, channelName, ansi.ColorReset, resp.Status)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return models.LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -56,7 +57,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	// Read body (limit to 1MB to capture the scripts containing ytInitialPlayerResponse)
 	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
 	if err != nil {
-		errorMsg := fmt.Sprintf("Failed to read /live body for %s%s%s: %v", util.ColorOrange, channelName, util.ColorReset, err)
+		errorMsg := fmt.Sprintf("Failed to read /live body for %s%s%s: %v", ansi.ColorOrange, channelName, ansi.ColorReset, err)
 		logger.Debug("YouTubeAPI", errorMsg)
 		return models.LiveInfo{}, fmt.Errorf("%s", errorMsg)
 	}
@@ -83,7 +84,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 
 	if isScheduled {
 		timeUntil := time.Until(scheduledTime)
-		logger.Debug("YouTubeAPI", fmt.Sprintf("/live redirect for %s%s%s is a scheduled event. Starts: %s (in %v)", util.ColorOrange, channelName, util.ColorReset, scheduledTime, timeUntil))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("/live redirect for %s%s%s is a scheduled event. Starts: %s (in %v)", ansi.ColorOrange, channelName, ansi.ColorReset, scheduledTime, timeUntil))
 
 		// If it's scheduled but not explicitly LIVE yet, treat it as offline.
 		// This filters out "glorified chatrooms" (streams scheduled far in the future).
@@ -97,7 +98,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	isLiveLoose := strings.Contains(body, `"isLive":true`)
 
 	if !isStatusLive && !isLiveLoose {
-		logger.Debug("YouTubeAPI", fmt.Sprintf("%s%s%s /live page did not contain live indicators (likely redirect to VOD or channel home).", util.ColorOrange, channelName, util.ColorReset))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("%s%s%s /live page did not contain live indicators (likely redirect to VOD or channel home).", ansi.ColorOrange, channelName, ansi.ColorReset))
 		return models.LiveInfo{IsLive: false}, nil
 	}
 
@@ -105,7 +106,7 @@ func CheckYouTubeViaLivePage(httpClient *http.Client, channelID string, channelN
 	videoIDRegex := regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
 	videoIDMatch := videoIDRegex.FindStringSubmatch(body)
 	if len(videoIDMatch) < 2 {
-		logger.Debug("YouTubeAPI", fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", util.ColorOrange, channelName, util.ColorReset))
+		logger.Debug("YouTubeAPI", fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", ansi.ColorOrange, channelName, ansi.ColorReset))
 		return models.LiveInfo{IsLive: false}, nil
 	}
 	videoID := videoIDMatch[1]

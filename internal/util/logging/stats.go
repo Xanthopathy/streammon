@@ -1,8 +1,10 @@
-package util
+package logging
 
 import (
 	"fmt"
 	"sync"
+
+	"streammon/internal/util/ansi"
 )
 
 // FallbackStats tracks channels that required a fallback method.
@@ -26,7 +28,7 @@ func (s *FallbackStats) LogAndReset(logger *Logger) {
 
 	if len(s.failedChannels) > 0 {
 		logger.LogRegular(fmt.Sprintf("%sFallback Report:%s %d channels failed primary check and swapped methods: %v",
-			ColorYellow, ColorReset, len(s.failedChannels), s.failedChannels))
+			ansi.ColorYellow, ansi.ColorReset, len(s.failedChannels), s.failedChannels))
 
 		// Reset stats for next loop
 		s.failedChannels = nil

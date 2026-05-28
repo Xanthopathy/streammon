@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/logging"
 )
 
 // TwitchClientID is a public, hardcoded client ID for the Twitch GQL API.
@@ -60,7 +60,7 @@ type streamMetadataGQLResponse []struct {
 
 // CheckLiveGQL performs a lightweight check to see if a Twitch channel is live using the StreamMetadata query.
 // Includes retry logic with exponential backoff to handle temporary timeouts.
-func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Logger) (models.LiveInfo, error) {
+func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
 	const maxRetries = 2
 	var lastErr error
 
@@ -89,7 +89,7 @@ func CheckLiveGQL(httpClient *http.Client, channelLogin string, logger *util.Log
 }
 
 // checkLiveGQLOnce performs a single GQL request without retries.
-func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *util.Logger) (models.LiveInfo, error) {
+func checkLiveGQLOnce(httpClient *http.Client, channelLogin string, logger *logging.Logger) (models.LiveInfo, error) {
 	// Construct the GQL request payload
 	payload := streamMetadataGQLRequest{
 		OperationName: "StreamMetadata",

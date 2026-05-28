@@ -10,7 +10,12 @@ import (
 
 	"streammon/internal/config"
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/fileio"
+	"streammon/internal/util/lockfile"
+	"streammon/internal/util/logging"
+	"streammon/internal/util/terminal"
+	"streammon/internal/util/text"
 )
 
 // launchDownloader creates a lockfile and starts the downloader subprocess.
@@ -28,7 +33,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		// Note: len(downloadSlots) shows the number of *active* slots.
 		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
 		b.logger.Logf("Acquired download slot for %s%s%s. Slots used: %d/%d.",
-			util.ColorOrange, ch.Name, util.ColorReset, len(downloadSlots), cap(downloadSlots))
+			ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Create synchronization for waiting state detection
@@ -53,8 +58,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	}
 
 	// Create lockfile
-	if err := util.CreateLock(lockPath); err != nil {
-		b.logger.LogErrorf("Error creating lockfile for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
+	if err := lockfile.CreateLock(lockPath); err != nil {
+		b.logger.LogErrorf("Error creating lockfile for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err)
 		return false
 	}
 	b.logger.LogEvent("LOCK", fmt.Sprintf("Created: %s", lockPath))
@@ -65,14 +70,14 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Build command string for logging
 	commandStr := cmd.Path
 	if len(cmd.Args) > 1 {
-		commandStr += " " + util.JoinCommandArgs(cmd.Args[1:])
+		commandStr += " " + text.JoinCommandArgs(cmd.Args[1:])
 	}
 
 	// Create channel specific directory
-	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, util.SanitizeFolderName(ch.Name))
+	channelDir := filepath.Join(streamMonCfg.WorkingDirectory, text.SanitizeFolderName(ch.Name))
 	if err := os.MkdirAll(channelDir, 0755); err != nil {
-		b.logger.LogErrorf("Error creating directory for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
-		util.DeleteLock(lockPath)
+		b.logger.LogErrorf("Error creating directory for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err)
+		lockfile.DeleteLock(lockPath)
 		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
 	}
@@ -91,7 +96,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
 
-	logger, err := util.NewLoggerForDownload(
+	logger, err := logging.NewLoggerForDownload(
 		channelDir,
 		ch.ID,
 		ch.Name,
@@ -105,8 +110,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		commandStr,
 	)
 	if err != nil {
-		b.logger.LogErrorf("Error creating logger for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err)
-		util.DeleteLock(lockPath)
+		b.logger.LogErrorf("Error creating logger for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err)
+		lockfile.DeleteLock(lockPath)
 		b.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		return false
 	}
@@ -139,10 +144,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		stderrPipe, errErr := cmd.StderrPipe()
 
 		if errOut == nil && stdoutPipe != nil {
-			go util.ReadPipeAndLog(stdoutPipe, logger, debugType, outputCallback)
+			go logging.ReadPipeAndLog(stdoutPipe, logger, debugType, outputCallback)
 		}
 		if errErr == nil && stderrPipe != nil {
-			go util.ReadPipeAndLog(stderrPipe, logger, debugType, outputCallback)
+			go logging.ReadPipeAndLog(stderrPipe, logger, debugType, outputCallback)
 		}
 	}
 
@@ -153,14 +158,14 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Start command
 	if err := cmd.Start(); err != nil {
-		logger.LogError(fmt.Sprintf("Error starting download for %s%s%s: %v", util.ColorOrange, ch.Name, util.ColorReset, err))
-		util.DeleteLock(lockPath) // Clean up lock on failure
+		logger.LogError(fmt.Sprintf("Error starting download for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
+		lockfile.DeleteLock(lockPath) // Clean up lock on failure
 		logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", lockPath))
 		logger.Close()
 		return false
 	}
 
-	logger.LogRegular(fmt.Sprintf("%sStarted download for%s %s%s%s: %s", util.ColorGreen, util.ColorReset, util.ColorOrange, ch.Name, util.ColorReset, status.Title))
+	logger.LogRegular(fmt.Sprintf("%sStarted download for%s %s%s%s: %s", ansi.ColorGreen, ansi.ColorReset, ansi.ColorOrange, ch.Name, ansi.ColorReset, status.Title))
 
 	// Store process info
 	proc := &downloadProcess{
@@ -187,7 +192,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	time.Sleep(time.Second * 5)
 
 	// Reset terminal title once subprocess completes
-	util.SetTerminalTitle("streammon")
+	terminal.SetTerminalTitle("streammon")
 
 	// IMPORTANT: Release the download slot first thing after the process exits.
 	<-downloadSlots
@@ -199,13 +204,13 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
-	util.DeleteLock(proc.lockPath)
+	lockfile.DeleteLock(proc.lockPath)
 	proc.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", proc.lockPath))
 
 	// Log slot release with correct styling (fixes double tag issue and enables for YT)
 	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
-		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", util.ColorOrange, ch.Name, util.ColorReset, len(downloadSlots), cap(downloadSlots))
+		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Extract exit code from the process
@@ -240,18 +245,18 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	// Log exit code and diagnostic info
 	if exitCode >= 0 {
-		proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", util.ColorBlue, util.ColorReset, exitCode, mergerSuccess, outputFileExists))
+		proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] yt-dlp exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, exitCode, mergerSuccess, outputFileExists))
 	}
 
 	// Determine final success status
 	isSuccess := false
 	if proc.forcedTermination.Load() {
 		// Forced termination by monitor (stream went offline)
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", util.ColorOrange, ch.Name, util.ColorReset))
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true // Treat forced termination as success (meaningful data captured)
 	} else if mergerSuccess && outputFileExists {
 		// Both success conditions met
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", util.ColorOrange, ch.Name, util.ColorReset))
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true
 	} else {
 		// One or both success conditions failed
@@ -263,7 +268,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 			failureReasons = append(failureReasons, "output_file_not_found")
 		}
 		proc.logger.LogError(fmt.Sprintf("Download for %s%s%s finished with error: %v (exit_code=%d, reasons=%v)",
-			util.ColorOrange, ch.Name, util.ColorReset, err, exitCode, failureReasons))
+			ansi.ColorOrange, ch.Name, ansi.ColorReset, err, exitCode, failureReasons))
 		isSuccess = false
 	}
 
@@ -287,7 +292,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 		if shouldArchive {
 			archivePath := filepath.Join(b.controller.GetStreamMonConfig().WorkingDirectory, "archive.txt")
-			if err := util.AppendLineToFile(archivePath, proc.videoID); err != nil {
+			if err := fileio.AppendLineToFile(archivePath, proc.videoID); err != nil {
 				proc.logger.LogError(fmt.Sprintf("Failed to archive video ID: %v", err))
 			} else {
 				b.archivedVidMu.Lock()

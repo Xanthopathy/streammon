@@ -12,7 +12,7 @@ import (
 
 	"streammon/internal/config"
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
 )
 
 // NetworkError represents an error caused by internet connectivity issues.
@@ -172,7 +172,7 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 			// Trigger immediate connection check via the global connection monitor
 			connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
 			connMonitor.TriggerImmediateCheck()
-			
+
 			// Wrap in NetworkError so it won't count toward backoff timers
 			return &NetworkError{Err: err}
 		}
@@ -193,14 +193,14 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
 			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
 			if proc.isWaiting != nil && proc.isWaiting.Load() {
-				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline and downloader is waiting. Terminating downloader.", util.ColorOrange, ch.Name, util.ColorReset))
+				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline and downloader is waiting. Terminating downloader.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 				proc.forcedTermination.Store(true)
 				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
 					proc.cmd.Process.Kill()
 				}
 				// Fall through to update status to offline; waitForDownload will handle cleanup
 			} else {
-				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline, but download is active for same stream ID (%s). Ignoring.", util.ColorOrange, ch.Name, util.ColorReset, proc.videoID))
+				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline, but download is active for same stream ID (%s). Ignoring.", ansi.ColorOrange, ch.Name, ansi.ColorReset, proc.videoID))
 				return nil // Ignore this offline signal.
 			}
 		}
@@ -229,20 +229,20 @@ func (b *BaseMonitor) checkChannel(ch config.Channel, wg *sync.WaitGroup) error 
 
 		if !matchesFilter {
 			if wasTracked && previousStatus.IsLive {
-				b.logger.Logf("%s%s%s is live but filtered out: %s", util.ColorOrange, ch.Name, util.ColorReset, newStatus.Title)
+				b.logger.Logf("%s%s%s is live but filtered out: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, newStatus.Title)
 				b.liveStatus[ch.ID] = models.LiveInfo{IsLive: false}
 			}
 			return nil
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
-			b.logger.Logf("%s%s%s %sis now LIVE%s: %s", util.ColorOrange, ch.Name, util.ColorReset, util.ColorGreen, util.ColorReset, newStatus.Title)
+			b.logger.Logf("%s%s%s %sis now LIVE%s: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorGreen, ansi.ColorReset, newStatus.Title)
 		}
 		b.liveStatus[ch.ID] = newStatus
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			b.logger.Logf("%s%s%s %shas gone offline%s.", util.ColorOrange, ch.Name, util.ColorReset, util.ColorRed, util.ColorReset)
+			b.logger.Logf("%s%s%s %shas gone offline%s.", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorRed, ansi.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

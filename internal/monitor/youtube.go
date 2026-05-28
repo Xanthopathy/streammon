@@ -9,7 +9,8 @@ import (
 	"streammon/internal/config"
 	"streammon/internal/models"
 	"streammon/internal/scrapers/youtube"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
+	"streammon/internal/util/logging"
 )
 
 // YTMonitor holds the state and logic for monitoring YouTube.
@@ -20,7 +21,7 @@ type YTMonitor struct {
 	globalCfg      *config.GlobalConfig
 	fallbackStates map[string]fallbackState
 
-	stats util.FallbackStats
+	stats logging.FallbackStats
 }
 
 type fallbackState struct {
@@ -73,7 +74,7 @@ func (m *YTMonitor) GetMaxRequestsPerSecond() float64 {
 }
 
 func (m *YTMonitor) GetLogColor() string {
-	return util.ColorRed
+	return ansi.ColorRed
 }
 
 func (m *YTMonitor) GetLogPrefix() string {
@@ -88,7 +89,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 	if err != nil {
 		// Default to 24 hours if parse fails
 		ignoreOlderThan = 24 * time.Hour
-		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s%s%s: %v, using default 24h", util.ColorOrange, ch.Name, util.ColorReset, err))
+		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s%s%s: %v, using default 24h", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
 	}
 
 	fallbackDuration, err := time.ParseDuration(m.cfg.Scraper.FallbackDuration)
@@ -160,7 +161,7 @@ func (m *YTMonitor) CheckChannelStatus(ch config.Channel, httpClient *http.Clien
 
 		// Log failure only if API verbose is on (to reduce spam)
 		// Use "YouTubeAPI" debug type which triggers on youtube_api_verbose_debug
-		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s%s%s: %v. Trying fallback to '%s'...", method, util.ColorOrange, ch.Name, util.ColorReset, err, fallbackName))
+		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s%s%s: %v. Trying fallback to '%s'...", method, ansi.ColorOrange, ch.Name, ansi.ColorReset, err, fallbackName))
 		lastErr = err
 	}
 

@@ -8,7 +8,7 @@ import (
 	"streammon/internal/config"
 	"streammon/internal/models"
 	"streammon/internal/scrapers/twitch"
-	"streammon/internal/util"
+	"streammon/internal/util/ansi"
 )
 
 // TwitchMonitor holds the state and logic for monitoring Twitch.
@@ -60,7 +60,7 @@ func (m *TwitchMonitor) GetMaxRequestsPerSecond() float64 {
 }
 
 func (m *TwitchMonitor) GetLogColor() string {
-	return util.ColorPurple
+	return ansi.ColorPurple
 }
 
 func (m *TwitchMonitor) GetLogPrefix() string {

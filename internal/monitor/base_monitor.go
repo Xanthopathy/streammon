@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"streammon/internal/models"
-	"streammon/internal/util"
+	"streammon/internal/util/logging"
 )
 
 // BaseMonitor provides the generic, shared functionality for monitoring any platform.
 type BaseMonitor struct {
-	logger                    *util.Logger
+	logger                    *logging.Logger
 	controller                MonitorController
 	httpClient                *http.Client
 	statusMutex               sync.RWMutex
@@ -35,7 +35,7 @@ type BaseMonitor struct {
 // NewBaseMonitor creates a new generic monitor.
 func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 	return &BaseMonitor{
-		logger:               util.NewLogger(controller.GetGlobalConfig(), controller.GetLogPrefix(), controller.GetLogColor()),
+		logger:               logging.NewLogger(controller.GetGlobalConfig(), controller.GetLogPrefix(), controller.GetLogColor()),
 		controller:           controller,
 		httpClient:           &http.Client{Timeout: 30 * time.Second},
 		liveStatus:           make(map[string]models.LiveInfo),
