@@ -113,7 +113,7 @@ func main() {
 				// Ignore directory not exist error if we haven't started monitoring yet
 				// But here we rely on os.ReadDir which returns error if dir doesn't exist
 			} else if count > 0 {
-				sysLogger.Logf("Removed %d old lockfiles from %s", count, ytCfg.StreamMon.WorkingDirectory)
+				sysLogger.Logf("Removed %d old lockfile(s) from %s", count, ytCfg.StreamMon.WorkingDirectory)
 			}
 		}
 		if twitchCfg != nil {
