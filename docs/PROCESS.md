@@ -2,6 +2,11 @@
 
 StreamMon is an automated orchestration tool that monitors YouTube and Twitch channels, detects live streams, applies configurable filters, and automatically archives them using specialized downloaders. This document outlines the complete process flow for both platforms.
 
+## Version Context
+
+- **v1.0.8**: Widened network-error detection, fixed a connection-monitor broadcast deadlock during longer outages, and made `[Diagnostic]` log tags blue.
+- **v1.0.9**: Added config validation warnings, startup lockfile cleanup, safer YouTube fallback-state locking, fixed request-spacing math for fractional RPS values, logged return to normal poll intervals after errors clear, separated Twitch success diagnostics from YouTube merger checks, improved downloader wait/offline handling, and refactored utility packages without changing the external workflow.
+
 ---
 
 ## Application Startup
@@ -14,20 +19,24 @@ When the application starts (`main.go`):
    - Set terminal title to "streammon" (lowercase)
    - Clear console and print ASCII banner
 
-2. **Load Global Configuration** (`configs/config.toml`)
+2. **Load Global Configuration** (`streammon_config.toml`)
+   - Search order: executable directory, current working directory, then `configs/streammon_config.toml`
    - Timezone setting: `timezone`
    - `max_concurrent_downloads`: Maximum simultaneous download threads
    - `subprocess_progress_interval`: Throttle [download] progress lines (seconds)
    - `subprocess_wait_interval`: Throttle [wait] progress lines (seconds)
    - Platform enable flags: `enable_youtube`, `enable_twitch`
-   - Debug flags: `youtube_verbose_debug`, `twitch_verbose_debug`
-   - Logging: `save_download_logs`
-   - If loading fails, use sensible defaults: UTC timezone, 10 concurrent downloads, both platforms enabled, 10s download throttle, 60s wait throttle, logging enabled
+   - Debug flags: platform-level flags plus API/DLP-specific flags
+   - Logging/archive/cleanup: `save_download_logs`, `youtube_archive_downloads`, `twitch_archive_downloads`, `clear_all_lockfiles`
+   - If loading fails, use defaults
+   - If individual keys are missing, invalid, or unknown, log `Config:` warnings and use defaults for invalid/missing values
 
 3. **Load Platform-Specific Configurations**
-   - **YouTube**: Load `configs/config_yt.toml` if `enable_youtube` is true
-   - **Twitch**: Load `configs/config_twitch.toml` if `enable_twitch` is true
+   - **YouTube**: Load `streammon_config_yt.toml` if `enable_youtube` is true
+   - **Twitch**: Load `streammon_config_twitch.toml` if `enable_twitch` is true
+   - Search order: executable directory, current working directory, then matching file in `configs/`
    - If a config file is missing/invalid, that platform is disabled with a warning
+   - Missing/invalid/unknown keys produce `Config:` warnings; invalid durations, empty working directories, empty args, invalid YouTube check methods, and invalid RPS values are replaced with defaults
 
 4. **Validation**
    - Ensure at least one platform is enabled and configured
@@ -35,28 +44,34 @@ When the application starts (`main.go`):
 
 ### 2. Initialization
 
-1. **Create Working Directory**
+1. **Optional Lockfile Cleanup**
+   - If `clear_all_lockfiles: true`, startup removes old `.lock-*` files from enabled platform working directories
+   - This prevents stale crash leftovers from blocking new downloads
+
+2. **Create Working Directory**
    - Each monitor creates its configured `working_directory` if it doesn't exist
    - Example: `download_yt/` and `download_twitch/`
 
-2. **Load Archive.txt** (Platform-Specific, if enabled)
+3. **Load Archive.txt** (Platform-Specific, if enabled)
    - If `youtube_archive_downloads: true`: Load `download_yt/archive.txt` into memory (`archivedVideos` map)
    - If `twitch_archive_downloads: true`: Load `download_twitch/archive.txt` into memory (`archivedVideos` map)
    - Archive contains successfully downloaded video IDs; persists across application restarts
    - Log message shows count of archived video IDs loaded
    - Safety mechanism: Previous downloads won't be re-attempted even if app restarts
 
-3. **Initialize Download Semaphore**
+4. **Initialize Download Semaphore**
    - A global semaphore (buffered channel) is created with capacity = `max_concurrent_downloads`
    - Shared across both YouTube and Twitch monitors (limits overall concurrency)
+   - Invalid values are warned about during config loading and replaced with defaults
 
-4. **Start Global Connection Monitor** (Singleton)
+5. **Start Global Connection Monitor** (Singleton)
    - `GetGlobalConnectionMonitor(globalCfg)` creates a single shared instance
-   - Runs in a background goroutine (checks every 10 seconds, or 5 seconds in recovery mode)
+   - Runs in a background goroutine and checks every 10 seconds
+   - Network errors can trigger an immediate extra check without waiting for the timer
    - All monitors subscribe to this instance to receive connection state changes
    - Prevents duplicate logging by centralizing connection state management
 
-5. **Start Monitors**
+6. **Start Monitors**
    - If YouTube is enabled, spawn `MonitorYouTube()` in a goroutine
    - If Twitch is enabled, spawn `MonitorTwitch()` in a goroutine
    - Each monitor's `Run()` method starts:
@@ -74,14 +89,14 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 
 1. Creates a `YTMonitor` instance wrapping a `BaseMonitor`
 2. Retrieves YouTube-specific configuration:
-   - RSS poll interval from `config_yt.toml`
+   - Poll interval from `streammon_config_yt.toml`
    - List of channels to monitor
    - yt-dlp arguments and working directory
 3. Prints startup log with channel count and working directory
 
 ### 2. Continuous Polling Loop
 
-**Frequency**: Every `poll_interval` (e.g., 60 seconds) in `config_yt.toml`, with jitter and intelligent backoff
+**Frequency**: Every `poll_interval` (e.g., 60 seconds) in `streammon_config_yt.toml`, with jitter and intelligent backoff
 
 1. **Connection Check Gate**
    - Before any work, acquire `pauseCond` lock and wait if `!connMonitor.IsConnected()`
@@ -92,6 +107,7 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
    - Calculates dynamic request spacing from two constraints:
      - **Freshness target**: `poll_interval / channelCount` (spread across polling cycle)
      - **Safety limit**: `1.0 / max_requests_per_second` (respect API rate limits)
+   - Uses float math for RPS spacing, so fractional values such as `1.5` are handled consistently
    - Uses more conservative (larger) spacing from these two
    - Example: 10 channels @ 60s poll interval → ideal spacing 6s
    - Example: max_requests_per_second=0.5 (1 req every 2s) → force 2s spacing
@@ -100,7 +116,7 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 
 3. **Error Backoff**
    - Track `consecutiveErrors` counter (only counts non-network errors)
-   - **Network Error Filtering**: Errors like "no such host", "dial tcp", or DNS failures are wrapped in `NetworkError` type
+   - **Network Error Filtering**: DNS failures, TCP dial errors, read/write socket errors, timeouts, canceled/deadline contexts, and unreachable/down host or network errors are wrapped in `NetworkError` type
      - These are NOT counted toward backoff timers (they don't increment errorCount)
      - Why? Connection monitor already pauses operations when offline anyway
      - Network errors still trigger immediate connection checks via `TriggerImmediateCheck()`
@@ -108,7 +124,7 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
      - Add backoff: `1 minute × consecutiveErrors` (capped at 10 minutes max)
      - Log: "Detected {errorCount} errors during poll. Staggering next poll by +{backoff}"
      - Example: First error round → +1m backoff; Second → +2m; etc.
-     - Reset counter to 0 on successful poll with no errors
+     - Reset counter to 0 on successful poll with no errors and log that polling returned to the normal interval
    - Purpose: 
      - Prevent hammer-like polling during actual API outages (non-network errors)
      - Allow graceful pause during connectivity loss without artificial backoff penalty
@@ -121,13 +137,13 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 For each configured YouTube channel:
 
 1. **Fetch Live Status**
-   - Calls `CheckChannelStatus()` for YouTube → `CheckLiveYouTube()`
-   - Constructs RSS feed URL: `https://www.youtube.com/feeds/videos.xml?channel_id={ID}`
-   - Parses XML for latest `<entry>` element
-   - Extracts video ID from `<id>` and upload timestamp from `<updated>`
-   - Checks if video's `<updated>` timestamp is within `ignore_older_than` duration
-   - If yes, marks as live and returns video metadata
-   - If no, returns offline status
+   - Calls `CheckChannelStatus()` for YouTube
+   - Uses the configured `check_method` first: `rss` or `live`
+   - RSS mode constructs `https://www.youtube.com/feeds/videos.xml?channel_id={ID}`, parses the latest entry, extracts video ID/title/timestamp, and ignores entries older than `ignore_older_than`
+   - Live-page mode checks the channel live page directly
+   - If the first method fails with a non-network error, the other method is tried as fallback
+   - If fallback succeeds, that fallback method is kept for the channel until `fallback_duration` expires
+   - Fallback state is mutex-protected so concurrent channel checks cannot race the fallback map
 
 2. **Handle Status Response**
    - **Error**: Log error, skip channel, continue
@@ -172,6 +188,7 @@ For each configured YouTube channel:
    - Attempt to acquire a slot from the download semaphore (`downloadSlots`)
    - If all slots are in use, skip this channel (retry next manager cycle in 5 seconds)
    - If acquired and verbose debug enabled, log: "Acquired download slot. Slots used: X/Y"
+   - The slot is acquired before pre-flight checks and is released by a deferred cleanup path unless launch succeeds
 
    d. **Local Download Check**
    - Check if a download for this channel is already running (in `activeDownloads` map)
@@ -194,11 +211,11 @@ For each configured YouTube channel:
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create single log file: `{channel_dir}/{date_created}-{channel_name}-{videoID}.log`
+   - Create single log file: `{channel_dir}/{sanitized_channel_name}-{videoID}.log`
    - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
-     - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
-     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (60s default)
+     - `[download]` progress lines throttled by `subprocess_progress_interval` (30s default)
+     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (600s default)
      - All other lines logged immediately
    - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
    - Initialize logger instance with metadata (channel ID, name, video ID, creation timestamp, command being executed)
@@ -207,6 +224,8 @@ For each configured YouTube channel:
    - Register callback function to detect subprocess state:
      - If line contains `[retry-streams]`: Set `isWaiting = true` (stream not yet available for download)
      - If line contains `frame=` or `[download]`: Set `isWaiting = false` (active downloading in progress)
+     - If line contains `[Merger]` or `Merging formats`: Set YouTube merger detection
+     - If line contains Twitch/ffmpeg completion markers such as `[stats] Fragments`, final `frame=...Lsize=`, or muxing overhead: Set generic download completion detection
    - Purpose: Detect when process is just waiting for live stream vs actively downloading
    - Used for intelligent progress reporting and timeout handling
 
@@ -242,6 +261,7 @@ For each configured YouTube channel:
    - Reset title to "streammon" when process completes (prevents subprocesses from changing it)
 
 3. **Release Resources** (immediately upon exit)
+   - Wait 5 seconds after `cmd.Wait()` so downloader/ffmpeg cleanup and file flushes can settle
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
    - Delete lockfile: "LOCK: Deleted: {lockPath}"
@@ -262,7 +282,7 @@ For each configured YouTube channel:
    - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
 5. **Log Completion**
-   - **Diagnostic info** (always logged): `[diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool}`
+   - **Diagnostic info** (always logged): `[Diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool}`
      - Provides visibility for debugging without affecting success logic
    - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
    - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
@@ -285,8 +305,9 @@ For each configured YouTube channel:
 **After API reports stream as offline:**
 
 - If a download is **actively running** for the same stream ID, **ignore** the offline signal
-- This prevents premature abortion of downloads due to API lag or false negatives
-- Safety check is bypassed only if download already in progress
+- If the subprocess is only waiting/retrying (`[retry-streams]`), mark it as forced termination and interrupt the process
+- Forced termination is treated as successful capture because meaningful data may already be on disk
+- This prevents premature abortion during API lag while still breaking out of endless retry/wait states after a stream really ends
 
 ---
 
@@ -298,14 +319,14 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
 
 1. Creates a `TwitchMonitor` instance wrapping a `BaseMonitor`
 2. Retrieves Twitch-specific configuration:
-   - Poll interval from `config_twitch.toml`
+   - Poll interval from `streammon_config_twitch.toml`
    - List of channels to monitor
    - twitch-dlp arguments and working directory
 3. Prints startup log with channel count and working directory
 
 ### 2. Continuous Polling Loop
 
-**Frequency**: Every `poll_interval` (e.g., 30 seconds) in `config_twitch.toml`, with jitter and intelligent backoff
+**Frequency**: Every `poll_interval` (e.g., 30 seconds) in `streammon_config_twitch.toml`, with jitter and intelligent backoff
 
 1. **Connection Check Gate**
    - Before any work, acquire `pauseCond` lock and wait if `!connMonitor.IsConnected()`
@@ -316,20 +337,21 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
    - Calculates dynamic request spacing from two constraints:
      - **Freshness target**: `poll_interval / channelCount` (spread across polling cycle)
      - **Safety limit**: `1.0 / max_requests_per_second` (respect GraphQL rate limits)
+   - Uses float math for RPS spacing, so fractional values such as `1.5` are handled consistently
    - Uses more conservative (larger) spacing from these two
    - Applies **jittered delays** (±25% variance) to prevent bot-like perfect timing patterns
    - If safety limit is more conservative, logs warning
 
 3. **Error Backoff**
    - Track `consecutiveErrors` counter (only counts non-network errors)
-   - **Network Error Filtering**: Errors like "no such host", "dial tcp", or DNS failures are wrapped in `NetworkError` type
+   - **Network Error Filtering**: DNS failures, TCP dial errors, read/write socket errors, timeouts, canceled/deadline contexts, and unreachable/down host or network errors are wrapped in `NetworkError` type
      - These are NOT counted toward backoff timers (they don't increment errorCount)
      - Why? Connection monitor already pauses operations when offline anyway
      - Network errors still trigger immediate connection checks via `TriggerImmediateCheck()`
    - If non-network errors occur on a poll:
-     - Add backoff: `1 minutes × consecutiveErrors` (capped at 10 minutes max)
+     - Add backoff: `1 minute × consecutiveErrors` (capped at 10 minutes max)
      - Example: First error round → +1m backoff; Second → +2m; etc.
-     - Reset counter to 0 on successful poll with no errors
+     - Reset counter to 0 on successful poll with no errors and log that polling returned to the normal interval
    - Purpose: 
      - Prevent hammer-like polling during actual API outages (non-network errors)
      - Allow graceful pause during connectivity loss without artificial backoff penalty
@@ -413,11 +435,11 @@ For each configured Twitch channel:
    - Download will execute in this directory
 
    c. **Setup Logging** (if `save_download_logs: true`)
-   - Create single log file: `{channel_dir}/{date_created}-{channel_name}-{broadcastID}.log`
+   - Create single log file: `{channel_dir}/{sanitized_channel_name}-{broadcastID}.log`
    - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
-     - `[download]` progress lines throttled by `subprocess_progress_interval` (10s default)
-     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (60s default)
+     - `[download]` progress lines throttled by `subprocess_progress_interval` (30s default)
+     - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (600s default)
      - All other lines logged immediately
    - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
    - Initialize logger instance with metadata
@@ -461,14 +483,21 @@ For each configured Twitch channel:
    - Reset title to "streammon" when process completes
 
 3. **Release Resources** (immediately upon exit)
+   - Wait 5 seconds after `cmd.Wait()` so downloader/ffmpeg cleanup and file flushes can settle
    - Release download semaphore slot: `<-downloadSlots`
    - Remove from active download tracking
    - Delete lockfile: "LOCK: Deleted: {lockPath}"
    - Close log file if exists
 
-4. **Log Completion**
-   - If error: Log "[Twitch] Download for {channel} finished with error: {error}"
-   - If success (exit code 0): Log "[Twitch] Download for {channel} finished successfully."
+4. **Determine Success and Log Completion**
+   - Extract exit code from subprocess
+   - Detect Twitch/ffmpeg completion markers such as `[stats] Fragments`, final `frame=...Lsize=`, or muxing overhead
+   - Verify an output media file exists in the channel directory:
+     - For Twitch, file matching is based on files touched by this run because twitch-dlp output IDs may differ from the live GQL stream ID
+   - Success condition: `outputFileExists && (downloadCompleted || exitCode == 0)`
+   - Forced termination by the monitor is treated as success
+   - Diagnostic info is logged as `[Diagnostic] twitch-dlp exit code: {code} | completion_detected: {bool} | file_exists: {bool}`
+   - Failure reasons include `no_completion_detected` and/or `output_file_not_found`
 
 5. **Persist to Archive** (if `twitch_archive_downloads: true` and download succeeded)
    - Append broadcast ID to `archive.txt` file in working directory
@@ -485,8 +514,9 @@ For each configured Twitch channel:
 **After API reports stream as offline:**
 
 - If a download is **actively running** for the same broadcast ID, **ignore** the offline signal
-- This prevents premature abortion of downloads due to API lag
-- Safety check is bypassed only if download already in progress
+- If the subprocess is only waiting/retrying (`[retry-streams]`), mark it as forced termination and interrupt the process
+- Forced termination is treated as successful capture because meaningful data may already be on disk
+- This prevents premature abortion during API lag while still breaking out of endless retry/wait states after a stream really ends
 
 ---
 
@@ -508,7 +538,7 @@ Runs once as a singleton instance in a background goroutine, independent of poll
 ```
 Global Connection Status Flow:
 ├─ Start: isConnected = true, lastLogged = true
-├─ Loop: Every 10 seconds (normal) or 5 seconds (recovery mode)
+├─ Loop: Every 10 seconds, or immediately when a network error triggers a check
 │
 ├─ Attempt connection check: CheckInternetConnection()
 │  └─ Rotates through 4 reliable hosts with fallback:
@@ -519,14 +549,14 @@ Global Connection Status Flow:
 │     └─ Returns true if ANY host responds within 3-second timeout
 │
 ├─ Success:
-│  ├─ Increment successCounter++
+│  ├─ If already connected: reset failureCounter
+│  ├─ If disconnected: increment successCounter and log "Connection check passed (N/3)..."
 │  ├─ If successCounter >= 3:
 │  │  ├─ Set isConnected = true
 │  │  ├─ Reset failureCounter = 0
 │  │  ├─ Check if lastLogged is false (prevents duplicate logs)
 │  │  ├─ If yes: Set lastLogged = true, broadcast to all subscribers
 │  │  ├─ Log: "Connection restored (stable). Resuming operations..."
-│  │  └─ Switch to normal 10s interval
 │  └─ Else: No action (still verifying)
 │
 └─ Failure:
@@ -539,15 +569,14 @@ Global Connection Status Flow:
    │  ├─ Check if lastLogged is true (prevents duplicate logs)
    │  ├─ If yes: Set lastLogged = false, broadcast to all subscribers
    │  ├─ Log: "Connection lost (confirmed). Pausing monitors..."
-   │  └─ Switch to recovery 5s interval (faster reconnect detection)
    └─ Else: No action (still verifying)
 ```
 
 **Parameters:**
 
-- `normalInterval`: 10 seconds (during normal operation)
-- `recoveryInterval`: 5 seconds (when connection is down, checking more frequently)
+- `normalInterval`: 10 seconds
 - `threshold`: 3 consecutive successes OR failures needed to change state (prevents flapping)
+- `checkTrigger`: buffered channel used to request an immediate check when a live API/RSS call detects a network error
 
 **Connection Check Method (`CheckInternetConnection()`):**
 
@@ -592,9 +621,9 @@ Global Connection Status Flow:
 The system intelligently distinguishes between network errors and actual API errors:
 
 1. **Network Error Detection** (in `checkChannel()`)
-   - When errors like "no such host", "dial tcp", or "temporary failure in name resolution" occur
+   - Covers DNS failures, TCP dial errors, socket read/write errors, timeouts, canceled/deadline contexts, and unreachable/down host or network errors
    - These are wrapped in `NetworkError` type to mark them as connectivity issues
-   - Still log the error for visibility
+   - If the connection monitor still thinks the app is online, log a warning for visibility
    - Trigger immediate connection check: `connMonitor.TriggerImmediateCheck()`
 
 2. **Error Counting** (in `checkAllChannels()`)
@@ -625,7 +654,7 @@ The system intelligently distinguishes between network errors and actual API err
 **Result:**
 
 - When internet is down: No errors in logs, no API requests, graceful pause across all monitors
-- When internet returns: Automatic resume within 5-15 seconds (3 consecutive successes × 5s interval)
+- When internet returns: Automatic resume after 3 consecutive successful checks; network errors can trigger immediate checks between the regular 10-second ticks
 - Prevents "flapping" (rapid on/off toggling) with hysteresis counters
 - No artificial backoff penalty when connection is lost
 - No duplicate log messages regardless of monitor count
@@ -736,7 +765,8 @@ LAUNCH DOWNLOAD ✓
 
 - Each download runs in a separate subprocess (via `cmd.Start()`)
 - Crash of one downloader doesn't crash monitor
-- Crashes release their semaphore slots and lockfiles automatically (in `waitForDownload()`)
+- Downloader process exits release their semaphore slots and delete lockfiles in `waitForDownload()`
+- Full app crashes can leave lockfiles behind; `clear_all_lockfiles` can remove those at the next startup
 - Each subprocess gets its own logger instance for isolated output capture
 
 ### 6. Logging
@@ -745,13 +775,13 @@ LAUNCH DOWNLOAD ✓
 
 **Single `.log` file per download** (if `save_download_logs: true`):
 
-- Location: `{channel_dir}/{date_created}-{channel_name}-{videoID}.log`
+- Location: `{channel_dir}/{sanitized_channel_name}-{videoID}.log`
 - Contains subprocess command executed (logged on startup)
 - All subprocess output from twitch-dlp/yt-dlp (every line captured)
-- Each line tagged with source: `[dlp]` for yt-dlp or `[twitch-dlp]`
+- Each line tagged with source: `[yt-dlp]` or `[twitch-dlp]`
 - Throttling applied per line type (separate throttling counters):
-  - `[download]` progress lines: Throttled by `subprocess_progress_interval` (10s default)
-  - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (60s default)
+  - `[download]` progress lines: Throttled by `subprocess_progress_interval` (30s default)
+  - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (600s default)
   - All other lines: Logged immediately
 - Log file always receives all output (independent of debug flags)
 - Created via `NewLoggerForDownload()` with full metadata
@@ -781,8 +811,8 @@ LAUNCH DOWNLOAD ✓
 
 - **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), System (cyan), Info (blue)
 - **Timestamps**: All terminal output includes timestamp with configurable timezone (IANA timezone names like "Asia/Tokyo" or UTC offsets like "UTC+7")
-- **Subprocess lines** tagged with `[SUBPROCESS]` and subject to throttling
-- **Debug lines** colored cyan with `[DEBUG]` prefix
+- **Subprocess lines** tagged with `[yt-dlp]` or `[twitch-dlp]` and subject to throttling
+- **Debug/event lines** use colored tags such as `[YouTubeAPI]`, `[TwitchAPI]`, `[LOCK]`, `[WARN]`, and `[Diagnostic]`
 
 #### Output Callback System
 
@@ -795,11 +825,19 @@ outputCallback := func(line string) {
     } else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
         isWaiting.Store(false) // Active downloading
     }
+    if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") {
+        mergerDetected.Store(true)
+    }
+    if strings.Contains(line, "[stats] Fragments") ||
+        (strings.Contains(line, "frame=") && strings.Contains(line, "Lsize=")) ||
+        (strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) {
+        downloadCompleted.Store(true)
+    }
 }
 ```
 
 - Purpose: Detect if subprocess is waiting vs actively downloading
-- Used for intelligent timeout and state tracking
+- Used for intelligent timeout, forced termination, and downloader-specific completion checks
 - Runs in real-time as output is piped from subprocess
 
 ---
@@ -814,11 +852,14 @@ max_concurrent_downloads = 10
 enable_youtube = true
 enable_twitch = true
 save_download_logs = true
-subprocess_progress_interval = 10     # Throttle [download] lines (seconds)
-subprocess_wait_interval = 60         # Throttle [wait] lines (seconds)
+subprocess_progress_interval = 30     # Throttle [download] lines (seconds)
+subprocess_wait_interval = 600        # Throttle [wait] lines (seconds)
+youtube_archive_downloads = true
+twitch_archive_downloads = true
+clear_all_lockfiles = true
 youtube_verbose_debug = true
 twitch_verbose_debug = true
-youtube_api_verbose_debug = false
+youtube_api_verbose_debug = true
 twitch_api_verbose_debug = false
 youtube_dlp_verbose_debug = true
 twitch_dlp_verbose_debug = true
@@ -834,6 +875,9 @@ args = ["--wait-for-video", "60", "--live-from-start", ...]
 [scraper]
 poll_interval = "120s"
 ignore_older_than = "24h"
+check_method = "rss"
+fallback_duration = "15m"
+max_requests_per_second = 2
 
 [[channel]]
 id = "UC..."
@@ -850,6 +894,7 @@ args = ["--live-from-start", "--retry-streams", "60", ...]
 
 [scraper]
 poll_interval = "120s"
+max_requests_per_second = 2
 
 [[channel]]
 id = "channel_login"
@@ -872,10 +917,13 @@ filters = ["(?i).*english.*"]
 
 ### Configuration Errors
 
-- Missing config files: Use defaults, skip that platform with warning
-- Invalid poll intervals: Default to 60 seconds, log warning
+- Missing global config: Use defaults with a warning
+- Missing platform config: Disable that platform with a warning
+- Missing keys: Log `Config:` warning and use the default value already loaded into the config struct
+- Unknown keys: Log `Config:` warning and ignore the value
+- Invalid poll intervals/durations: Log `Config:` warning and use defaults
 - Invalid lockfile paths: Log error, skip download, release slot
-- Invalid timezone: Fall back to UTC with warning
+- Invalid timezone: Log `Config:` warning and fall back to UTC
 
 ### API Errors (YouTube RSS / Twitch GraphQL)
 
@@ -895,7 +943,7 @@ filters = ["(?i).*english.*"]
 
 - Command start failure: Log error, delete lockfile, release slot, close logger
 - Process crash during download: Automatically cleaned up via `waitForDownload()` goroutine
-- Process exit with non-zero code: Log error, but still release resources and persist archive
+- Process exit with non-zero code: Still release resources; archive only if downloader-specific success checks pass or the monitor forced termination
 - Log file creation failure: Log warning, continue download without log output
 
 ### Resource Cleanup on Errors
@@ -908,14 +956,15 @@ All errors in `launchDownloader()` or `waitForDownload()` are guaranteed to:
 4. Update active download tracking
 5. Log the error for visibility
 
-This prevents resource leaks and ensures no stale lockfiles or semaphore slots remain after errors.
+This prevents resource leaks while the app remains running. If the whole app is killed, startup lockfile cleanup can remove stale `.lock-*` files on the next run.
 
 ### Backoff & Retry Logic
 
-- **Poll Errors**: Add 3-minute backoff per consecutive error (capped at 15 minutes)
+- **Poll Errors**: Add 1-minute backoff per consecutive error (capped at 10 minutes)
 - **RPS Throttling**: Warn once if poll_interval is too short for channel count and max RPS
 - **Request Spacing**: Automatically increased if RPS safety limit is more conservative than freshness target
-- **Connection Recovery**: Resume automatically after 3 consecutive successful connection checks
+- **Recovery Logging**: When errors clear, log that polling is returning to the normal poll interval
+- **Connection Recovery**: Resume automatically after 3 consecutive successful connection checks; immediate checks may be triggered by detected network errors
 
 ---
 
@@ -938,8 +987,9 @@ This prevents resource leaks and ensures no stale lockfiles or semaphore slots r
 
 2. Initialize Systems
    ├─ Create download semaphore (global buffered channel)
+   ├─ Clean old lockfiles if clear_all_lockfiles is enabled
    ├─ Spawn Global Connection Monitor (singleton - background)
-   │  └─ Continuously check connectivity every 10s (normal) or 5s (recovery)
+   │  └─ Check connectivity every 10s, with immediate checks triggered by network errors
    └─ Spawn system goroutine for update checks
 
 3. Spawn Monitors (YouTube + Twitch in parallel)
@@ -978,7 +1028,7 @@ This prevents resource leaks and ensures no stale lockfiles or semaphore slots r
    ├─ Apply hysteresis (3-threshold) to prevent flapping
    ├─ Broadcast state changes to all subscribed monitors via pauseCond.Broadcast()
    ├─ Track lastLogged to prevent duplicate logs
-   └─ Use faster interval during recovery (5s instead of 10s)
+   └─ Use immediate trigger channel for faster checks after network errors
 
 5. Main thread waits for all monitors to complete
 
