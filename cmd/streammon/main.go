@@ -54,7 +54,7 @@ func main() {
 	go func() {
 		updateMsg, err := updatecheck.CheckForUpdates(currentVersion)
 		if err != nil {
-			sysLogger.Debug("UpdateCheck", fmt.Sprintf("Failed to check for updates: %v", err))
+			sysLogger.Warn(fmt.Sprintf("Failed to check for updates: %v", err))
 		} else if updateMsg != "" {
 			sysLogger.LogRegular(updateMsg)
 		}

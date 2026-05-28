@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -164,7 +163,7 @@ func (cm *ConnectionMonitor) run() {
 			// Currently disconnected
 			if connected {
 				cm.consecutiveSuccess++
-				cm.sysLogger.Debug("System", fmt.Sprintf("Connection check passed (%d/%d)...", cm.consecutiveSuccess, threshold))
+				cm.sysLogger.Logf("Connection check passed (%d/%d)...", cm.consecutiveSuccess, threshold)
 				if cm.consecutiveSuccess >= threshold {
 					cm.isConnected = true
 					cm.consecutiveFailure = 0
