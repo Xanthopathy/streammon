@@ -223,6 +223,47 @@ func mediaFileMatchesDownload(name string, modTime time.Time, proc *downloadProc
 	}
 }
 
+func isYTDLPREsidueFile(name string, proc *downloadProcess) bool {
+	if proc.downloaderName != "yt-dlp" {
+		return false
+	}
+	if !strings.Contains(name, proc.videoID) {
+		return false
+	}
+
+	return strings.Contains(name, ".part-Frag") || strings.HasSuffix(name, ".part") || strings.HasSuffix(name, ".ytdl") || strings.HasSuffix(name, ".temp")
+}
+
+func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logger) {
+	if dir == "" || proc.downloaderName != "yt-dlp" {
+		return
+	}
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		logger.Warn(fmt.Sprintf("Could not scan for yt-dlp residue files: %v", err))
+		return
+	}
+
+	removed := 0
+	for _, file := range files {
+		if file.IsDir() || !isYTDLPREsidueFile(file.Name(), proc) {
+			continue
+		}
+
+		path := filepath.Join(dir, file.Name())
+		if err := os.Remove(path); err != nil {
+			logger.Warn(fmt.Sprintf("Could not remove yt-dlp residue file %s: %v", file.Name(), err))
+			continue
+		}
+		removed++
+	}
+
+	if removed > 0 {
+		logger.Logf("Cleaned up %d yt-dlp residue files(s).", removed)
+	}
+}
+
 // waitForDownload blocks until a download process finishes, then cleans up.
 func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
 	err := proc.cmd.Wait() // This blocks until the process exits
@@ -306,6 +347,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists {
 		// Both success conditions met
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		cleanupYTDLPResidue(proc.cmd.Dir, proc, proc.logger)
 		isSuccess = true
 	} else if proc.downloaderName == "twitch-dlp" && outputFileExists && (downloadComplete || exitCode == 0) {
 		// twitch-dlp does not emit yt-dlp merger markers; use its own completion markers and file output.
