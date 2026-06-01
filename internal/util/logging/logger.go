@@ -144,15 +144,22 @@ func (l *Logger) formatSubprocessLine(debugType, output string) string {
 		output)
 }
 
+func (l *Logger) writeFileLine(line string) {
+	if l.logFile == nil {
+		return
+	}
+
+	cleanedLine := stripANSI(line)
+	l.logFile.WriteString(cleanedLine)
+	l.logFile.Sync()
+	// Sync() after every subprocess line is durable but potentially expensive now that logs are complete. If disk activity becomes noisy during long streams, optimize buffering or sync frequency.
+}
+
 func (l *Logger) writeLine(line string, terminal bool) {
 	if terminal {
 		fmt.Print(line)
 	}
-	if l.logFile != nil {
-		cleanedLine := stripANSI(line)
-		l.logFile.WriteString(cleanedLine)
-		l.logFile.Sync()
-	}
+	l.writeFileLine(line)
 }
 
 // LogRegular logs a message to both terminal and log file
@@ -178,9 +185,8 @@ func (l *Logger) LogEvent(eventType, message string) {
 }
 
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
-// Terminal visibility controlled by dlpDebug flag
-// Progress lines are throttled based on subprocess_progress_interval config
-// Log file always receives subprocess output (with throttling for progress lines)
+// Log files receive every subprocess line.
+// Terminal visibility is controlled by dlpDebug and progress throttling.
 // debugType: the specific subprocess type (e.g., "yt-dlp", "twitch-dlp")
 func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	l.mu.Lock()
@@ -216,9 +222,12 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 		}
 	}
 
-	// Show in terminal only if dlp debug is enabled and throttling allows it
-	if shouldWrite {
-		l.writeLine(line, l.dlpDebug)
+	// Preserve every subprocess line in the download log
+	l.writeFileLine(line)
+
+	// Throttle terminal output independently from file logging
+	if shouldWrite && l.dlpDebug {
+		fmt.Print(line)
 	}
 }
 
