@@ -23,7 +23,7 @@ args = [
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
-    # "--cookies", "youtube_cookies.txt",
+    # Manual alternative to cookies_file/use_cookies_for_downloads:
     # "--cookies-from-browser", "firefox",
 ]
 
