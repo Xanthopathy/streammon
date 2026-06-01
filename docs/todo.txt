@@ -15,5 +15,31 @@
 
 [shafted] do something with bubbletea
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
+[shafted] holodex or invidious api as a third option (important for member streams)
 
-[TODO] holodex or invidious api as a third option (important for member streams)
+
+
+[20260525] [iaMNoyp7VGM] [Flat & Furious： Phase Drift [Forza Horizon 6] + Handcam] [Shiina Ch. 天ノ川 しいな 【Phase Connect】].f140.mp4.part-Frag17112.part
+[20260525] [iaMNoyp7VGM] [Flat & Furious： Phase Drift [Forza Horizon 6] + Handcam] [Shiina Ch. 天ノ川 しいな 【Phase Connect】].f299.mp4.part-Frag17112.part
+Residue files still linger around a successful merger (insert amanogawa_shiina-iaMNoyp7VGM.log to add context and also fix the weird [K[download])
+
+if diagnostics says successful but stream is still detected to be live 1 full loop check after dlp process ends, launch a download instance again
+
+have the dlp process log everything in the .log file regardless of subprocess_progress_interval if possible
+
+dockerize?
+// One Docker-specific adjustment may be worthwhile: netcheck.go (line 8) probes public DNS servers over TCP port 53. Some container hosts or networks block that while HTTPS still works. Consider making probe targets configurable or adding an HTTPS fallback.
+
+copy holodownloader's member checking method with cookies (even holodex's API is unreliable for this so we have to copy holodownloader)
+
+add https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies for persistent cookie instruction
+
+add livestream_dl as fallback if yt-dlp standard livestream checks fail (https://github.com/CanOfSocks/livestream_dl). We want livestream_dl specific args in streammon_config_yt.example.toml like yt-dlp (example: livestream_dl --resolution best --threads 4 --segment-retries 10 --cookies ".\cookies.txt" --output "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s" --write-thumbnail --embed-thumbnail --wait-for-video "60" --ytdlp-command-line-options="--js-runtime node" J4niY0v3Ef4)
+
+Rethink folder structure?
+Current: 
+root (streammon/) has streammon_config_twitch.toml, streammon_config_yt.toml, streammon_config.toml, streammon.exe
+Running streammon.exe creates child folders download_yt/ and download_twitch/, each having their archive.txt
+Possible new:
+Root now contains twitch_archive.txt, youtube_archive.txt, and a new youtube_cookies.txt (which in our project serves as a template files that includes the yt-dlp persistent cookie guide in comments for users to fill out themselves) (./config/youtube_cookies.template.txt)
+Add backward compatibility logic to move old archive.txt files up 1 layer
