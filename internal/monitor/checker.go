@@ -245,13 +245,7 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 		return err
 	}
 
-	if pending, ok := b.takePendingYTSuccess(ch.ID, pollID); ok {
-		if newStatus.IsLive && newStatus.VideoID == pending.videoID {
-			b.logger.Logf("%s%s%s (%s) is still live after downloader completion. Allowing another download attempt.", ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID)
-		} else {
-			b.finalizeSuccessfulDownload(ch.ID, pending.videoID, b.logger)
-		}
-	}
+	b.resolvePendingYTSuccess(ch, newStatus, pollID)
 
 	// --- SAFETY NET LOGIC (pre-lock check) ---
 	if !newStatus.IsLive {

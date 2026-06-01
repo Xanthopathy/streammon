@@ -10,11 +10,6 @@ import (
 	"streammon/internal/util/logging"
 )
 
-type pendingYTSuccess struct {
-	videoID       string
-	completedPoll uint64
-}
-
 // BaseMonitor provides the generic, shared functionality for monitoring any platform.
 type BaseMonitor struct {
 	logger                    *logging.Logger
