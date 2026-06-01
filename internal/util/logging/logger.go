@@ -109,11 +109,10 @@ func NewLoggerForDownload(
 	return logger, nil
 }
 
-// stripANSI removes ANSI color codes from a string
-// Used to remove color codes before writing to log files
+// stripANSI removes ANSI/CSI terminal control sequences before writing log files.
 func stripANSI(s string) string {
 	// Regex pattern to match ANSI escape sequences
-	ansiPattern := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	ansiPattern := regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
 	return ansiPattern.ReplaceAllString(s, "")
 }
 
