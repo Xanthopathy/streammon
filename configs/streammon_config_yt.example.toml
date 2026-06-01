@@ -23,19 +23,8 @@ args = [
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
-    # "--cookies", "cookies.txt",
+    # "--cookies", "youtube_cookies.txt",
     # "--cookies-from-browser", "firefox",
-]
-
-# member_check_enabled: Also check YouTube's members-only playlist.
-# Requires cookies for an account that legitimately has access.
-member_check_enabled = false
-member_cookies_file = "youtube_cookies.txt"
-member_check_args = [
-    "--flat-playlist",
-    "--playlist-items", "1:3",
-    "--dump-single-json",
-    "--no-warnings",
 ]
 
 [scraper]
@@ -71,6 +60,31 @@ check_method = "rss"
 # Default: "15m"
 fallback_duration = "15m"
 
+# cookies_file: Netscape-format YouTube cookies file.
+# Used only when one of the cookie-backed settings below enables it.
+cookies_file = "youtube_cookies.txt"
+
+# use_cookies_for_downloads: Adds "--cookies cookies_file" to yt-dlp downloads.
+# Useful for account-required, age-gated, members-only, or random YouTube behavior.
+# Leave false if you manually put --cookies or --cookies-from-browser in [streammon].args.
+# Set this globally for every channel, or set use_cookies_for_downloads=true on only
+# the channels that need cookies.
+use_cookies_for_downloads = false
+
+# member_check_all: Check YouTube members-only playlists for every configured channel.
+# Requires cookies for an account that legitimately has membership access.
+# Usually keep this false and set member_check=true only on channels you are membered to.
+member_check_all = false
+
+# member_check_args: Advanced yt-dlp arguments used for members-only playlist checks.
+# These should emit playlist JSON while limiting how many recent entries are inspected.
+member_check_args = [
+    "--flat-playlist",
+    "--playlist-items", "1:3",
+    "--dump-single-json",
+    "--no-warnings",
+]
+
 # ========================== Channels ========================== #
 # Common filter presets (Copy-paste these into channel filters)
 # All: [".*"]
@@ -81,3 +95,8 @@ fallback_duration = "15m"
 # id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
 # name = "Saya Sairroxs"
 # filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+# member_check: Check this channel's members-only playlist using cookies_file.
+# Useful when you are membered to this channel but not every tracked channel.
+# member_check = false
+# use_cookies_for_downloads: Use cookies for this channel's downloads only.
+# use_cookies_for_downloads = false

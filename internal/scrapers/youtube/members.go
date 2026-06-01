@@ -38,6 +38,11 @@ func CheckYouTubeViaMembersPlaylist(
 	channelName string,
 	logger *logging.Logger,
 ) (models.LiveInfo, error) {
+	cookiesFile = strings.TrimSpace(cookiesFile)
+	if cookiesFile == "" {
+		return models.LiveInfo{}, fmt.Errorf("members playlist check requires cookies_file")
+	}
+
 	playlistID, ok := MembersPlaylistID(channelID)
 	if !ok {
 		return models.LiveInfo{IsLive: false}, nil
@@ -55,17 +60,14 @@ func CheckYouTubeViaMembersPlaylist(
 		),
 	)
 
-	args := []string{}
-	if strings.TrimSpace(cookiesFile) != "" {
-		args = append(args, "--cookies", cookiesFile)
-	}
+	args := []string{"--cookies", cookiesFile}
 	args = append(args, memberCheckArgs...)
 	args = append(args, playlistURL)
 
 	cmd := exec.CommandContext(ctx, "yt-dlp", args...)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return models.LiveInfo{}, fmt.Errorf("yt-dlp member playlist check failed: %w", err)
+		return models.LiveInfo{}, fmt.Errorf("yt-dlp member playlist check failed: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
 	var playlist memberPlaylistInfo
@@ -93,6 +95,18 @@ func CheckYouTubeViaMembersPlaylist(
 			)
 			continue
 		}
+
+		logger.Debug(
+			"YouTubeAPI",
+			fmt.Sprintf(
+				"Found live members-only stream for %s%s%s: %s (%s)",
+				ansi.ColorOrange,
+				channelName,
+				ansi.ColorReset,
+				entry.Title,
+				entry.ID,
+			),
+		)
 
 		return models.LiveInfo{
 			IsLive:    true,

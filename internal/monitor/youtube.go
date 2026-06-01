@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,6 +107,48 @@ func (m *YTMonitor) GetLogPrefix() string {
 	return "YT"
 }
 
+func (m *YTMonitor) cookiesFile() string {
+	return strings.TrimSpace(m.cfg.Scraper.CookiesFile)
+}
+
+func (m *YTMonitor) shouldUseCookiesForDownload(ch config.Channel) bool {
+	return m.cfg.Scraper.UseCookiesForDownloads || ch.UseCookiesForDownloads
+}
+
+func (m *YTMonitor) shouldCheckMembers(ch config.Channel) bool {
+	return m.cfg.Scraper.MemberCheckAll || ch.MemberCheck
+}
+
+func (m *YTMonitor) checkMembersIfEnabled(ctx context.Context, ch config.Channel) (models.LiveInfo, error) {
+	if !m.shouldCheckMembers(ch) {
+		return models.LiveInfo{IsLive: false}, nil
+	}
+
+	memberInfo, memberErr := youtube.CheckYouTubeViaMembersPlaylist(
+		ctx,
+		m.cookiesFile(),
+		m.cfg.Scraper.MemberCheckArgs,
+		ch.ID,
+		ch.Name,
+		m.base.logger,
+	)
+	if memberErr != nil {
+		m.base.logger.Debug(
+			"YouTubeAPI",
+			fmt.Sprintf(
+				"Member check failed for %s%s%s: %v",
+				ansi.ColorOrange,
+				ch.Name,
+				ansi.ColorReset,
+				memberErr,
+			),
+		)
+		return models.LiveInfo{IsLive: false}, memberErr
+	}
+
+	return memberInfo, nil
+}
+
 // CheckChannelStatus for YouTube uses RSS parsing to confirm a stream is live.
 // Only launches yt-dlp if both checks confirm the stream exists.
 func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {
@@ -178,27 +221,9 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 				m.clearFallbackState(ch.ID)
 			}
 
-			if !info.IsLive && m.cfg.Scraper.MemberCheckEnabled {
-				memberInfo, memberErr := youtube.CheckYouTubeViaMembersPlaylist(
-					ctx,
-					m.cfg.Scraper.MemberCookiesFile,
-					m.cfg.Scraper.MemberCheckArgs,
-					ch.ID,
-					ch.Name,
-					m.base.logger,
-				)
-				if memberErr != nil {
-					m.base.logger.Debug(
-						"YouTubeAPI",
-						fmt.Sprintf(
-							"Member check failed for %s%s%s: %v",
-							ansi.ColorOrange,
-							ch.Name,
-							ansi.ColorReset,
-							memberErr,
-						),
-					)
-				} else if memberInfo.IsLive {
+			if !info.IsLive {
+				memberInfo, memberErr := m.checkMembersIfEnabled(ctx, ch)
+				if memberErr == nil && memberInfo.IsLive {
 					return memberInfo, nil
 				}
 			}
@@ -223,6 +248,11 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 		lastErr = err
 	}
 
+	memberInfo, memberErr := m.checkMembersIfEnabled(ctx, ch)
+	if memberErr == nil && memberInfo.IsLive {
+		return memberInfo, nil
+	}
+
 	return models.LiveInfo{}, fmt.Errorf("all check methods failed (last error: %w)", lastErr)
 }
 
@@ -235,16 +265,18 @@ func hasArg(args []string, target string) bool {
 	return false
 }
 
+func hasCookieArg(args []string) bool {
+	return hasArg(args, "--cookies") || hasArg(args, "--cookies-from-browser")
+}
+
 // BuildDownloaderCmd constructs the command to run yt-dlp.
 func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.youtube.com/watch?v=" + status.VideoID
 
 	args := append([]string{}, m.cfg.StreamMon.Args...)
 
-	if m.cfg.Scraper.MemberCheckEnabled &&
-		m.cfg.Scraper.MemberCookiesFile != "" &&
-		!hasArg(args, "--cookies") {
-		args = append(args, "--cookies", m.cfg.Scraper.MemberCookiesFile)
+	if m.shouldUseCookiesForDownload(ch) && m.cookiesFile() != "" && !hasCookieArg(args) {
+		args = append(args, "--cookies", m.cookiesFile())
 	}
 
 	args = append(args, url)
