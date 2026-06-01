@@ -3,11 +3,17 @@ package monitor
 import (
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"streammon/internal/models"
 	"streammon/internal/util/logging"
 )
+
+type pendingYTSuccess struct {
+	videoID       string
+	completedPoll uint64
+}
 
 // BaseMonitor provides the generic, shared functionality for monitoring any platform.
 type BaseMonitor struct {
@@ -30,6 +36,9 @@ type BaseMonitor struct {
 	isConnected               bool                        // Tracks current internet connection status
 	pauseCond                 *sync.Cond                  // Condition variable to freeze/thaw monitoring loops
 	connCheckTrigger          chan struct{}               // Channel to trigger immediate connection checks
+	pollGeneration            atomic.Uint64               // Atomic counter to track poll generations for pending YouTube success handling
+	pendingYTSuccessMu        sync.Mutex                  // Mutex to protect pendingYTSuccess
+	pendingYTSuccesses        map[string]pendingYTSuccess // Tracks pending YouTube success info across polls
 }
 
 // NewBaseMonitor creates a new generic monitor.
@@ -48,6 +57,7 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		isConnected:          true,
 		pauseCond:            sync.NewCond(&sync.Mutex{}),
 		connCheckTrigger:     make(chan struct{}, 1),
+		pendingYTSuccesses:   make(map[string]pendingYTSuccess),
 	}
 }
 

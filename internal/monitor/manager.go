@@ -79,6 +79,10 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 		return // Defer will release slot.
 	}
 
+	if b.hasPendingYTSuccess(ch.ID, status.VideoID) {
+		return
+	}
+
 	// Check if already downloaded in this session (in-memory cache).
 	var alreadyDownloaded bool
 	b.downloadedVidMu.RLock()

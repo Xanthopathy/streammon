@@ -80,6 +80,7 @@ func isConnectivityError(err error) bool {
 // Uses bounded concurrency (4 requests) plus request spacing to avoid API rate limits.
 // Balances freshness target (poll_interval) with safety limit (max_requests_per_second).
 func (b *BaseMonitor) checkAllChannels() int {
+	pollID := b.pollGeneration.Add(1)
 	channels := b.controller.GetChannels()
 	connMonitor := GetGlobalConnectionMonitor(b.controller.GetGlobalConfig())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -196,7 +197,7 @@ func (b *BaseMonitor) checkAllChannels() int {
 		go func(c config.Channel) {
 			// Ensure we release the slot when this goroutine finishes
 			defer func() { <-sem }()
-			if err := b.checkChannel(ctx, cancel, c, &wg); err != nil {
+			if err := b.checkChannel(ctx, cancel, c, &wg, pollID); err != nil {
 				// Only count non-network errors toward backoff timers.
 				// NetworkErrors indicate connection issues, which are handled by the
 				// global connection monitor (it will pause operations anyway).
@@ -211,7 +212,7 @@ func (b *BaseMonitor) checkAllChannels() int {
 }
 
 // checkChannel is the core logic for checking a single channel's status.
-func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFunc, ch config.Channel, wg *sync.WaitGroup) error {
+func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFunc, ch config.Channel, wg *sync.WaitGroup, pollID uint64) error {
 	defer wg.Done()
 
 	logPrefix := b.controller.GetLogPrefix()
@@ -242,6 +243,14 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 
 		b.logger.LogErrorf("Error checking %s: %v", ch.Name, err)
 		return err
+	}
+
+	if pending, ok := b.takePendingYTSuccess(ch.ID, pollID); ok {
+		if newStatus.IsLive && newStatus.VideoID == pending.videoID {
+			b.logger.Logf("%s%s%s (%s) is still live after downloader completion. Allowing another download attempt.", ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID)
+		} else {
+			b.finalizeSuccessfulDownload(ch.ID, pending.videoID, b.logger)
+		}
 	}
 
 	// --- SAFETY NET LOGIC (pre-lock check) ---

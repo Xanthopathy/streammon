@@ -223,7 +223,7 @@ func mediaFileMatchesDownload(name string, modTime time.Time, proc *downloadProc
 	}
 }
 
-func isYTDLPREsidueFile(name string, proc *downloadProcess) bool {
+func isYTDLPResidueFile(name string, proc *downloadProcess) bool {
 	if proc.downloaderName != "yt-dlp" {
 		return false
 	}
@@ -247,7 +247,7 @@ func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logg
 
 	removed := 0
 	for _, file := range files {
-		if file.IsDir() || !isYTDLPREsidueFile(file.Name(), proc) {
+		if file.IsDir() || !isYTDLPResidueFile(file.Name(), proc) {
 			continue
 		}
 
@@ -260,8 +260,68 @@ func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logg
 	}
 
 	if removed > 0 {
-		logger.Logf("Cleaned up %d yt-dlp residue files(s).", removed)
+		logger.Logf("Cleaned up %d yt-dlp residue file(s).", removed)
 	}
+}
+
+func (b *BaseMonitor) setPendingYTSuccess(channelID, videoID string) {
+	b.pendingYTSuccessMu.Lock()
+	defer b.pendingYTSuccessMu.Unlock()
+
+	b.pendingYTSuccesses[channelID] = pendingYTSuccess{
+		videoID:       videoID,
+		completedPoll: b.pollGeneration.Load(),
+	}
+}
+
+func (b *BaseMonitor) hasPendingYTSuccess(channelID, videoID string) bool {
+	b.pendingYTSuccessMu.Lock()
+	defer b.pendingYTSuccessMu.Unlock()
+
+	pending, ok := b.pendingYTSuccesses[channelID]
+	return ok && pending.videoID == videoID
+}
+
+func (b *BaseMonitor) takePendingYTSuccess(channelID string, pollID uint64) (pendingYTSuccess, bool) {
+	b.pendingYTSuccessMu.Lock()
+	defer b.pendingYTSuccessMu.Unlock()
+
+	pending, ok := b.pendingYTSuccesses[channelID]
+	if !ok || pollID <= pending.completedPoll {
+		return pendingYTSuccess{}, false
+	}
+
+	delete(b.pendingYTSuccesses, channelID)
+	return pending, true
+}
+
+func (b *BaseMonitor) finalizeSuccessfulDownload(channelID string, videoID string, logger *logging.Logger) {
+	b.downloadedVidMu.Lock()
+	if _, ok := b.downloadedVideos[channelID]; !ok {
+		b.downloadedVideos[channelID] = make(map[string]bool)
+	}
+	b.downloadedVideos[channelID][videoID] = true
+	b.downloadedVidMu.Unlock()
+
+	globalCfg := b.controller.GetGlobalConfig()
+	logPrefix := b.controller.GetLogPrefix()
+
+	shouldArchive := (logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads) || (logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads)
+
+	if !shouldArchive {
+		return
+	}
+
+	archivePath := filepath.Join(b.controller.GetStreamMonConfig().WorkingDirectory, "archive.txt")
+
+	if err := fileio.AppendLineToFile(archivePath, videoID); err != nil {
+		logger.LogError(fmt.Sprintf("Failed to archive video ID: %v", err))
+		return
+	}
+
+	b.archivedVidMu.Lock()
+	b.archivedVideos[videoID] = true
+	b.archivedVidMu.Unlock()
 }
 
 // waitForDownload blocks until a download process finishes, then cleans up.
@@ -277,11 +337,6 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	// IMPORTANT: Release the download slot first thing after the process exits.
 	<-downloadSlots
-
-	// Now clean up other resources.
-	b.downloadMutex.Lock()
-	delete(b.activeDownloads, ch.ID)
-	b.downloadMutex.Unlock()
 
 	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
@@ -378,35 +433,20 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		isSuccess = false
 	}
 
-	// Archive if success OR forced termination (assuming meaningful data was captured)
+	// Finalize success or set pending state for YouTube
 	if isSuccess {
-		// Mark this video as downloaded in the session cache
-		b.downloadedVidMu.Lock()
-		if _, ok := b.downloadedVideos[ch.ID]; !ok {
-			b.downloadedVideos[ch.ID] = make(map[string]bool)
-		}
-		b.downloadedVideos[ch.ID][proc.videoID] = true
-		b.downloadedVidMu.Unlock()
-
-		// Archive the downloaded video ID if enabled
-		shouldArchive := false
-		if logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads {
-			shouldArchive = true
-		} else if logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads {
-			shouldArchive = true
-		}
-
-		if shouldArchive {
-			archivePath := filepath.Join(b.controller.GetStreamMonConfig().WorkingDirectory, "archive.txt")
-			if err := fileio.AppendLineToFile(archivePath, proc.videoID); err != nil {
-				proc.logger.LogError(fmt.Sprintf("Failed to archive video ID: %v", err))
-			} else {
-				b.archivedVidMu.Lock()
-				b.archivedVideos[proc.videoID] = true
-				b.archivedVidMu.Unlock()
-			}
+		if proc.downloaderName == "yt-dlp" && !proc.forcedTermination.Load() {
+			b.setPendingYTSuccess(ch.ID, proc.videoID)
+			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
+		} else {
+			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
 		}
 	}
+
+	// Clean up active download entry
+	b.downloadMutex.Lock()
+	delete(b.activeDownloads, ch.ID)
+	b.downloadMutex.Unlock()
 
 	proc.logger.Close()
 }
