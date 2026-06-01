@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -111,6 +112,18 @@ func (m *YTMonitor) cookiesFile() string {
 	return strings.TrimSpace(m.cfg.Scraper.CookiesFile)
 }
 
+func (m *YTMonitor) cookiesFileAbs() string {
+	cookiesFile := m.cookiesFile()
+	if cookiesFile == "" {
+		return ""
+	}
+	absPath, err := filepath.Abs(cookiesFile)
+	if err != nil {
+		return cookiesFile
+	}
+	return absPath
+}
+
 func (m *YTMonitor) shouldUseCookiesForDownload(ch config.Channel) bool {
 	return m.cfg.Scraper.UseCookiesForDownloads || ch.UseCookiesForDownloads
 }
@@ -126,7 +139,7 @@ func (m *YTMonitor) checkMembersIfEnabled(ctx context.Context, ch config.Channel
 
 	memberInfo, memberErr := youtube.CheckYouTubeViaMembersPlaylist(
 		ctx,
-		m.cookiesFile(),
+		m.cookiesFileAbs(),
 		m.cfg.Scraper.MemberCheckArgs,
 		ch.ID,
 		ch.Name,
@@ -275,8 +288,9 @@ func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo
 
 	args := append([]string{}, m.cfg.StreamMon.Args...)
 
-	if m.shouldUseCookiesForDownload(ch) && m.cookiesFile() != "" && !hasCookieArg(args) {
-		args = append(args, "--cookies", m.cookiesFile())
+	cookiesFile := m.cookiesFileAbs()
+	if m.shouldUseCookiesForDownload(ch) && cookiesFile != "" && !hasCookieArg(args) {
+		args = append(args, "--cookies", cookiesFile)
 	}
 
 	args = append(args, url)
