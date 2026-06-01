@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"fmt"
-	"path/filepath"
 	"streammon/internal/util/fileio"
 	"streammon/internal/util/logging"
 	"strings"
@@ -53,7 +52,7 @@ func (b *BaseMonitor) finalizeSuccessfulDownload(channelID string, videoID strin
 		return
 	}
 
-	archivePath := filepath.Join(b.controller.GetStreamMonConfig().WorkingDirectory, "archive.txt")
+	archivePath := b.archivePath()
 
 	if err := fileio.AppendLineToFile(archivePath, videoID); err != nil {
 		logger.LogError(fmt.Sprintf("Failed to archive video ID: %v", err))

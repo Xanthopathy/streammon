@@ -23,7 +23,7 @@ twitch_dlp_verbose_debug = true     # Show raw twitch-dlp subprocess output
 youtube_api_verbose_debug = true   # Show YouTube RSS API calls and responses
 youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
 
-# Archive downloaded video IDs to 'archive.txt' in the working directory to prevent redundant redownloads
+# Archive downloaded video IDs to root-level youtube_archive.txt and twitch_archive.txt to prevent redundant redownloads.
 youtube_archive_downloads = true
 twitch_archive_downloads = true
 

@@ -112,16 +112,16 @@ Each channel gets its own folder. If download logs are enabled, each download al
 
 In `streammon_config.toml`:
 
-| Setting                                                  | What it does                                                                        |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `timezone`                                               | Timestamp timezone for logs, like `"UTC"`, `"Asia/Tokyo"`, or `"UTC+7"`.            |
-| `max_concurrent_downloads`                               | Total active downloads allowed across YouTube and Twitch.                           |
-| `enable_youtube` / `enable_twitch`                       | Turn each platform on or off.                                                       |
-| `save_download_logs`                                     | Save per-download `.log` files.                                                     |
-| `clear_all_lockfiles`                                    | Remove old `.lock-*` files on startup. Helpful after crashes.                       |
-| `youtube_archive_downloads` / `twitch_archive_downloads` | Write completed stream IDs to `archive.txt` so they are not downloaded again later. |
-| `youtube_dlp_verbose_debug` / `twitch_dlp_verbose_debug` | Show raw downloader output in the terminal.                                         |
-| `youtube_api_verbose_debug` / `twitch_api_verbose_debug` | Show detailed API/RSS checks. Usually leave off unless debugging.                   |
+| Setting                                                  | What it does                                                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `timezone`                                               | Timestamp timezone for logs, like `"UTC"`, `"Asia/Tokyo"`, or `"UTC+7"`.                                           |
+| `max_concurrent_downloads`                               | Total active downloads allowed across YouTube and Twitch.                                                          |
+| `enable_youtube` / `enable_twitch`                       | Turn each platform on or off.                                                                                      |
+| `save_download_logs`                                     | Save per-download `.log` files.                                                                                    |
+| `clear_all_lockfiles`                                    | Remove old `.lock-*` files on startup. Helpful after crashes.                                                      |
+| `youtube_archive_downloads` / `twitch_archive_downloads` | Write completed stream IDs to `youtube_archive.txt` / `twitch_archive.txt` so they are not downloaded again later. |
+| `youtube_dlp_verbose_debug` / `twitch_dlp_verbose_debug` | Show raw downloader output in the terminal.                                                                        |
+| `youtube_api_verbose_debug` / `twitch_api_verbose_debug` | Show detailed API/RSS checks. Usually leave off unless debugging.                                                  |
 
 In `streammon_config_yt.toml`:
 

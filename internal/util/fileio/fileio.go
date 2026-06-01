@@ -37,3 +37,18 @@ func ReadLinesToSet(path string) (map[string]bool, error) {
 	}
 	return lines, scanner.Err()
 }
+
+func WriteLines(path string, lines []string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, line := range lines {
+		if _, err := f.WriteString(line + "\n"); err != nil {
+			return err
+		}
+	}
+	return nil
+}

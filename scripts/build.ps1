@@ -29,9 +29,10 @@ $Targets = @(
 # Config mapping: Source Filename (in configs/) -> Output Filename (in build/)
 # It is best practice to keep "clean" examples in git (e.g., *.example.toml) and rename them on build.
 $ConfigFiles = @{
-    "streammon_config.example.toml"        = "streammon_config.toml"
-    "streammon_config_yt.example.toml"     = "streammon_config_yt.toml"
+    "streammon_config.example.toml" = "streammon_config.toml"
+    "streammon_config_yt.example.toml" = "streammon_config_yt.toml"
     "streammon_config_twitch.example.toml" = "streammon_config_twitch.toml"
+    "youtube_cookies.example.txt" = "youtube_cookies.txt"
 }
 
 Write-Host "Building StreamMon for multiple platforms..." -ForegroundColor Cyan

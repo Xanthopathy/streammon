@@ -3,7 +3,6 @@ package monitor
 import (
 	"math/rand"
 	"os"
-	"path/filepath"
 	"time"
 
 	"streammon/internal/util/fileio"
@@ -67,10 +66,11 @@ func (b *BaseMonitor) Run() {
 	}
 
 	if shouldArchive {
-		archivePath := filepath.Join(streamMonCfg.WorkingDirectory, "archive.txt")
+		b.migrateLegacyArchive(b.logger) // Handle legacy archive migration if needed
+		archivePath := b.archivePath()
 		if lines, err := fileio.ReadLinesToSet(archivePath); err == nil {
 			b.archivedVideos = lines
-			b.logger.Logf("Loaded %d archived video IDs.", len(b.archivedVideos))
+			b.logger.Logf("Loaded %d archived video IDs from %s.", len(b.archivedVideos), archivePath)
 		}
 	}
 
