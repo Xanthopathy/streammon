@@ -27,6 +27,17 @@ args = [
     # "--cookies-from-browser", "firefox",
 ]
 
+# member_check_enabled: Also check YouTube's members-only playlist.
+# Requires cookies for an account that legitimately has access.
+member_check_enabled = false
+member_cookies_file = "youtube_cookies.txt"
+member_check_args = [
+    "--flat-playlist",
+    "--playlist-items", "1:3",
+    "--dump-single-json",
+    "--no-warnings",
+]
+
 [scraper]
 # ignore_older_than: Ignores videos whose rss entries has a longer [updated] field's time to now than the configured limit 
 # 24h default means it only downloads videos with an [updated] time within 24h of the time the app started

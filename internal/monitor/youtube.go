@@ -178,6 +178,31 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 				m.clearFallbackState(ch.ID)
 			}
 
+			if !info.IsLive && m.cfg.Scraper.MemberCheckEnabled {
+				memberInfo, memberErr := youtube.CheckYouTubeViaMembersPlaylist(
+					ctx,
+					m.cfg.Scraper.MemberCookiesFile,
+					m.cfg.Scraper.MemberCheckArgs,
+					ch.ID,
+					ch.Name,
+					m.base.logger,
+				)
+				if memberErr != nil {
+					m.base.logger.Debug(
+						"YouTubeAPI",
+						fmt.Sprintf(
+							"Member check failed for %s%s%s: %v",
+							ansi.ColorOrange,
+							ch.Name,
+							ansi.ColorReset,
+							memberErr,
+						),
+					)
+				} else if memberInfo.IsLive {
+					return memberInfo, nil
+				}
+			}
+
 			return info, nil
 		}
 
@@ -201,11 +226,28 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 	return models.LiveInfo{}, fmt.Errorf("all check methods failed (last error: %w)", lastErr)
 }
 
+func hasArg(args []string, target string) bool {
+	for _, arg := range args {
+		if arg == target {
+			return true
+		}
+	}
+	return false
+}
+
 // BuildDownloaderCmd constructs the command to run yt-dlp.
 func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.youtube.com/watch?v=" + status.VideoID
-	// Note: yt-dlp args might need special handling for things like --paths
-	args := append(m.cfg.StreamMon.Args, url)
+
+	args := append([]string{}, m.cfg.StreamMon.Args...)
+
+	if m.cfg.Scraper.MemberCheckEnabled &&
+		m.cfg.Scraper.MemberCookiesFile != "" &&
+		!hasArg(args, "--cookies") {
+		args = append(args, "--cookies", m.cfg.Scraper.MemberCookiesFile)
+	}
+
+	args = append(args, url)
 	cmd := exec.Command("yt-dlp", args...)
 	return cmd
 }

@@ -46,11 +46,14 @@ type Channel struct {
 type YTConfig struct {
 	StreamMon StreamMonConfig `toml:"streammon"`
 	Scraper   struct {
-		PollInterval         string  `toml:"poll_interval"`
-		IgnoreOlderThan      string  `toml:"ignore_older_than"`
-		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
-		CheckMethod          string  `toml:"check_method"`
-		FallbackDuration     string  `toml:"fallback_duration"`
+		PollInterval         string   `toml:"poll_interval"`
+		IgnoreOlderThan      string   `toml:"ignore_older_than"`
+		MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
+		CheckMethod          string   `toml:"check_method"`
+		FallbackDuration     string   `toml:"fallback_duration"`
+		MemberCheckEnabled   bool     `toml:"member_check_enabled"`
+		MemberCookiesFile    string   `toml:"member_cookies_file"`
+		MemberCheckArgs      []string `toml:"member_check_args"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }
@@ -180,7 +183,9 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "max_requests_per_second"}, defaults.Scraper.MaxRequestsPerSecond)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "check_method"}, defaults.Scraper.CheckMethod)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "fallback_duration"}, defaults.Scraper.FallbackDuration)
-
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_enabled"}, defaults.Scraper.MemberCheckEnabled)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_cookies_file"}, defaults.Scraper.MemberCookiesFile)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_args"}, defaults.Scraper.MemberCheckArgs)
 	if strings.TrimSpace(cfg.StreamMon.WorkingDirectory) == "" {
 		addInvalidWarning(&warnings, path, "streammon.working_directory", cfg.StreamMon.WorkingDirectory, defaults.StreamMon.WorkingDirectory, "must not be empty")
 		cfg.StreamMon.WorkingDirectory = defaults.StreamMon.WorkingDirectory

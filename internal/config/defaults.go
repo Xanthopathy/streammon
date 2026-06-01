@@ -40,17 +40,28 @@ func GetDefaultYTConfig() *YTConfig {
 			},
 		},
 		Scraper: struct {
-			PollInterval         string  `toml:"poll_interval"`
-			IgnoreOlderThan      string  `toml:"ignore_older_than"`
-			MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
-			CheckMethod          string  `toml:"check_method"`
-			FallbackDuration     string  `toml:"fallback_duration"`
+			PollInterval         string   `toml:"poll_interval"`
+			IgnoreOlderThan      string   `toml:"ignore_older_than"`
+			MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
+			CheckMethod          string   `toml:"check_method"`
+			FallbackDuration     string   `toml:"fallback_duration"`
+			MemberCheckEnabled   bool     `toml:"member_check_enabled"`
+			MemberCookiesFile    string   `toml:"member_cookies_file"`
+			MemberCheckArgs      []string `toml:"member_check_args"`
 		}{
 			PollInterval:         "60s",
 			IgnoreOlderThan:      "24h",
 			MaxRequestsPerSecond: 2,
 			CheckMethod:          "rss",
 			FallbackDuration:     "15m",
+			MemberCheckEnabled:   false,
+			MemberCookiesFile:    "youtube_cookies.txt",
+			MemberCheckArgs: []string{
+				"--flat-playlist",
+				"--playlist-items", "1:3",
+				"--dump-single-json",
+				"--no-warnings",
+			},
 		},
 	}
 }
