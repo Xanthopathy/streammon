@@ -2,6 +2,7 @@ package netcheck
 
 import (
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,25 +15,17 @@ var reliableHosts = []string{
 	"208.67.222.222:53", // OpenDNS
 }
 
-var hostIndex = 0
+var hostIndex atomic.Uint64
 
 // CheckInternetConnection attempts to connect to reliable public DNS servers to verify internet access.
 // It rotates through multiple hosts for robustness and uses a short timeout to fail fast.
 // Returns true only if at least one host can be reached.
 func CheckInternetConnection() bool {
-	// Try the next host in rotation
-	host := reliableHosts[hostIndex%len(reliableHosts)]
-	hostIndex++
+	start := hostIndex.Add(1) - 1
+	hostCount := uint64(len(reliableHosts))
 
-	conn, err := net.DialTimeout("tcp", host, 3*time.Second)
-	if err == nil {
-		conn.Close()
-		return true
-	}
-
-	// If primary check fails, try the next host as fallback
-	for i := 1; i < len(reliableHosts); i++ {
-		host = reliableHosts[(hostIndex+i)%len(reliableHosts)]
+	for i := uint64(0); i < hostCount; i++ {
+		host := reliableHosts[(start+i)%hostCount]
 		conn, err := net.DialTimeout("tcp", host, 3*time.Second)
 		if err == nil {
 			conn.Close()

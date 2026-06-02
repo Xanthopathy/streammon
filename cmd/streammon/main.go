@@ -108,19 +108,10 @@ func main() {
 	if globalCfg.ClearAllLockfiles {
 		sysLogger.LogRegular("Cleaning up old lockfiles...")
 		if ytCfg != nil {
-			count, err := lockfile.ClearLockfiles(ytCfg.StreamMon.WorkingDirectory)
-			if err != nil && !os.IsNotExist(err) {
-				// Ignore directory not exist error if we haven't started monitoring yet
-				// But here we rely on os.ReadDir which returns error if dir doesn't exist
-			} else if count > 0 {
-				sysLogger.Logf("Removed %d old lockfile(s) from %s", count, ytCfg.StreamMon.WorkingDirectory)
-			}
+			clearLockfiles(sysLogger, "YouTube", ytCfg.StreamMon.WorkingDirectory)
 		}
 		if twitchCfg != nil {
-			count, _ := lockfile.ClearLockfiles(twitchCfg.StreamMon.WorkingDirectory)
-			if count > 0 {
-				sysLogger.Logf("Removed %d old lockfiles from %s", count, twitchCfg.StreamMon.WorkingDirectory)
-			}
+			clearLockfiles(sysLogger, "Twitch", twitchCfg.StreamMon.WorkingDirectory)
 		}
 	}
 
@@ -151,5 +142,19 @@ func main() {
 func logConfigWarnings(logger *logging.Logger, warnings []config.ConfigWarning) {
 	for _, warning := range warnings {
 		logger.Warn("Config: " + warning.String())
+	}
+}
+
+func clearLockfiles(logger *logging.Logger, platformName, workingDirectory string) {
+	count, err := lockfile.ClearLockfiles(workingDirectory)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warn(fmt.Sprintf("Could not clear %s lockfiles from %s: %v", platformName, workingDirectory, err))
+		}
+		return
+	}
+
+	if count > 0 {
+		logger.Logf("Removed %d old %s lockfile(s) from %s", count, platformName, workingDirectory)
 	}
 }

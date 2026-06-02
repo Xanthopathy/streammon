@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"fmt"
 	"math/rand"
 	"os"
 	"time"
@@ -68,6 +69,8 @@ func (b *BaseMonitor) Run() {
 		if lines, err := fileio.ReadLinesToSet(archivePath); err == nil {
 			b.archivedVideos = lines
 			b.logger.Logf("Loaded %d archived video IDs from %s.", len(b.archivedVideos), archivePath)
+		} else if !os.IsNotExist(err) {
+			b.logger.Warn(fmt.Sprintf("Could not load archive %s: %v", archivePath, err))
 		}
 	}
 

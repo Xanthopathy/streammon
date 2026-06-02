@@ -77,6 +77,17 @@ func (b *BaseMonitor) migrateLegacyArchive(logger *logging.Logger) {
 		oldPath,
 		newPath,
 	)
+
+	if err := os.Remove(oldPath); err != nil {
+		logger.Warn(fmt.Sprintf(
+			"Could not remove merged legacy archive %s: %v",
+			oldPath,
+			err,
+		))
+		return
+	}
+
+	logger.Logf("Removed merged legacy archive %s.", oldPath)
 }
 
 func mergeArchiveFiles(dstPath, srcPath string) (int, error) {
