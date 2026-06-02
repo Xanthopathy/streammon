@@ -26,3 +26,6 @@
 
 dockerize?
 // netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.
+
+make the cookie shenanigan more comprehensible (mainly by removing use_cookies_for_downloads and expect the user to put in the --cookies arg themselves, the cookie configs should now be exclusively for membies)
+make the config toml files a little more readable?

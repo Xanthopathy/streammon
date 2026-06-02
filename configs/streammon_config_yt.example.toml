@@ -76,7 +76,7 @@ max_requests_per_second = 2
 #   - "rss": Low bandwidth, relies on YouTube's RSS feed updating (can be delayed).
 #   - "live": Checks the channel's /live page. More accurate/real-time but heavier.
 # If the default method fails, the other method is tried automatically as a fallback.
-check_method = "rss"
+check_method = "live"
 
 # fallback_duration: How long to stick to the fallback method after a failure.
 # If the primary method (e.g., RSS) fails, the system switches to the fallback (e.g., Live Page)
