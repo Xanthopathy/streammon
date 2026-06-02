@@ -22,12 +22,12 @@ Use this checklist as the commit tracker for the eight items from `docs/todo.txt
   - Copy the effective member-checking approach from holodownloader rather than relying on Holodex.
   - Use user-provided cookies for streams that require account access.
 
-- [ ] 6. Add persistent YouTube cookie instructions
+- [x] 6. Add persistent YouTube cookie instructions
   - Document yt-dlp's persistent-cookie guidance:
     `https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies`
   - Put the user-facing template/instructions in the YouTube cookies example/template file.
 
-- [ ] 7. Add optional `livestream_dl` fallback
+- [x] 7. Add optional `livestream_dl` fallback (<https://github.com/CanOfSocks/livestream_dl>)
   - Add `livestream_dl` as a fallback when standard yt-dlp livestream checks/downloads fail.
   - Add `livestream_dl`-specific args to `configs/streammon_config_yt.example.toml`.
   - Example shape:

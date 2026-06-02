@@ -1,1 +1,16 @@
-# https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies instructions here
+# YouTube cookies for streammon
+#
+# yt-dlp's persistent-cookie instructions:
+# https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies
+#
+# Export cookies in Netscape format, then replace the contents of this
+# youtube_cookies.txt file with the exported cookie data.
+#
+# Use a private browsing/incognito window for the export flow described by
+# yt-dlp. After exporting, close that window so YouTube does not rotate the
+# exported session cookies.
+#
+# Keep youtube_cookies.txt private. It grants access to your signed-in YouTube
+# account and must not be committed, uploaded, or shared.
+#
+# Netscape HTTP Cookie File

@@ -2,13 +2,14 @@
 
 streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp) or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
 
-This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). I plan to implement [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` is failing.
+This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). It can optionally use [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` download fails.
 
 ## What You Need
 
 - `yt-dlp` in your `PATH`
 - FFmpeg in your `PATH`
 - Node.js, because Twitch downloads run through `npx twitch-dlp`
+- Optional: [`livestream_dl`](https://github.com/CanOfSocks/livestream_dl) in your `PATH` for YouTube fallback downloads
 - Go 1.21+ only if you build from source
 
 Quick checks:
@@ -26,7 +27,7 @@ npx -y twitch-dlp --help
 
 From a release, download the archive for your OS from:
 
-https://github.com/Xanthopathy/streammon/releases
+<https://github.com/Xanthopathy/streammon/releases>
 
 Extract it, keep the config files next to the executable, then run:
 
@@ -134,6 +135,14 @@ In `streammon_config_yt.toml`:
 | `fallback_duration`       | How long YouTube sticks to the fallback method after it works.     |
 | `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams. |
 | `max_requests_per_second` | Safety limit for channel checks.                                   |
+
+The optional `[livestream_dl]` block enables one `livestream_dl` retry after a
+failed YouTube `yt-dlp` download. Leave it disabled unless `livestream_dl` is
+installed and available in your `PATH`.
+
+For account-required or members-only YouTube streams, follow
+[yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),
+fill in `youtube_cookies.txt`, and keep that file private.
 
 In `streammon_config_twitch.toml`:
 
