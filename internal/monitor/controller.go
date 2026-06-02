@@ -25,3 +25,9 @@ type MonitorController interface {
 	CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error)
 	BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd
 }
+
+// FallbackDownloaderController is implemented by platforms that can retry a
+// failed primary download with a different downloader.
+type FallbackDownloaderController interface {
+	BuildFallbackDownloaderCmd(ch config.Channel, status models.LiveInfo) (*exec.Cmd, string, bool)
+}

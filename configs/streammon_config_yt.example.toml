@@ -27,6 +27,30 @@ args = [
     # "--cookies-from-browser", "firefox",
 ]
 
+[livestream_dl]
+# Optional fallback used once when a yt-dlp download fails.
+# Install from https://github.com/CanOfSocks/livestream_dl and make sure the
+# livestream_dl executable is available in PATH before enabling this.
+enabled = false
+
+# Add "--cookies cookies_file" to fallback downloads. This is independent from
+# scraper.use_cookies_for_downloads so the fallback can be configured separately.
+use_cookies = false
+
+# Arguments passed to livestream_dl. streammon appends the YouTube video ID.
+# With use_cookies=true, it also appends "--cookies cookies_file" unless these
+# args already include --cookies or --cookies-from-browser.
+args = [
+    "--resolution", "best",
+    "--threads", "4",
+    "--segment-retries", "10",
+    "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
+    "--write-thumbnail",
+    "--embed-thumbnail",
+    "--wait-for-video", "60",
+    "--ytdlp-command-line-options=--js-runtime node",
+]
+
 [scraper]
 # ignore_older_than: Ignores videos whose rss entries has a longer [updated] field's time to now than the configured limit 
 # 24h default means it only downloads videos with an [updated] time within 24h of the time the app started

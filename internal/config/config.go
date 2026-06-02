@@ -46,8 +46,13 @@ type Channel struct {
 // --- YouTube Specific ---
 
 type YTConfig struct {
-	StreamMon StreamMonConfig `toml:"streammon"`
-	Scraper   struct {
+	StreamMon    StreamMonConfig `toml:"streammon"`
+	LivestreamDL struct {
+		Enabled    bool     `toml:"enabled"`
+		UseCookies bool     `toml:"use_cookies"`
+		Args       []string `toml:"args"`
+	} `toml:"livestream_dl"`
+	Scraper struct {
 		PollInterval           string   `toml:"poll_interval"`
 		IgnoreOlderThan        string   `toml:"ignore_older_than"`
 		MaxRequestsPerSecond   float64  `toml:"max_requests_per_second"`
@@ -181,6 +186,9 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "working_directory"}, defaults.StreamMon.WorkingDirectory)
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "args"}, defaults.StreamMon.Args)
+	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "enabled"}, defaults.LivestreamDL.Enabled)
+	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "use_cookies"}, defaults.LivestreamDL.UseCookies)
+	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "args"}, defaults.LivestreamDL.Args)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "poll_interval"}, defaults.Scraper.PollInterval)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "ignore_older_than"}, defaults.Scraper.IgnoreOlderThan)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "max_requests_per_second"}, defaults.Scraper.MaxRequestsPerSecond)
@@ -198,6 +206,10 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	if len(cfg.StreamMon.Args) == 0 {
 		addInvalidWarning(&warnings, path, "streammon.args", cfg.StreamMon.Args, defaults.StreamMon.Args, "must include downloader arguments")
 		cfg.StreamMon.Args = defaults.StreamMon.Args
+	}
+	if cfg.LivestreamDL.Enabled && len(cfg.LivestreamDL.Args) == 0 {
+		addInvalidWarning(&warnings, path, "livestream_dl.args", cfg.LivestreamDL.Args, defaults.LivestreamDL.Args, "must include downloader arguments when livestream_dl fallback is enabled")
+		cfg.LivestreamDL.Args = defaults.LivestreamDL.Args
 	}
 	validateDuration(&warnings, path, "scraper.poll_interval", &cfg.Scraper.PollInterval, defaults.Scraper.PollInterval)
 	validateDuration(&warnings, path, "scraper.ignore_older_than", &cfg.Scraper.IgnoreOlderThan, defaults.Scraper.IgnoreOlderThan)

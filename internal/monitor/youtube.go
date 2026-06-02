@@ -298,6 +298,21 @@ func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo
 	return cmd
 }
 
+// BuildFallbackDownloaderCmd constructs the optional livestream_dl fallback.
+func (m *YTMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status models.LiveInfo) (*exec.Cmd, string, bool) {
+	if !m.cfg.LivestreamDL.Enabled {
+		return nil, "", false
+	}
+
+	args := append([]string{}, m.cfg.LivestreamDL.Args...)
+	cookiesFile := m.cookiesFileAbs()
+	if m.cfg.LivestreamDL.UseCookies && cookiesFile != "" && !hasCookieArg(args) {
+		args = append(args, "--cookies", cookiesFile)
+	}
+	args = append(args, status.VideoID)
+	return exec.Command("livestream_dl", args...), "livestream_dl", true
+}
+
 // LogStats prints a summary of any failures/swaps that occurred during the check loop.
 // It should be called by the main loop after checkAllChannels completes.
 func (m *YTMonitor) LogStats() {

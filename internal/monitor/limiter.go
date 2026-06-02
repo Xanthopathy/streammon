@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"streammon/internal/models"
 	"streammon/internal/util/logging"
 )
 
@@ -21,6 +22,9 @@ type downloadProcess struct {
 	forcedTermination atomic.Bool  // Signals that the monitor intentionally stopped the process
 	mergerDetected    *atomic.Bool // Tracks if [Merger] or successful completion marker was detected in output
 	downloadCompleted *atomic.Bool // Tracks downloader-specific completion markers in output
+	status            models.LiveInfo
+	outputCallback    func(string)
+	fallbackAttempted bool
 }
 
 // --- Global Download Limiter ---

@@ -25,7 +25,7 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 
 // GetDefaultYTConfig returns the default configuration for the YouTube monitor.
 func GetDefaultYTConfig() *YTConfig {
-	return &YTConfig{
+	cfg := &YTConfig{
 		StreamMon: StreamMonConfig{
 			WorkingDirectory: "download_yt",
 			Args: []string{
@@ -66,6 +66,19 @@ func GetDefaultYTConfig() *YTConfig {
 			},
 		},
 	}
+	cfg.LivestreamDL.Enabled = false
+	cfg.LivestreamDL.UseCookies = false
+	cfg.LivestreamDL.Args = []string{
+		"--resolution", "best",
+		"--threads", "4",
+		"--segment-retries", "10",
+		"--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
+		"--write-thumbnail",
+		"--embed-thumbnail",
+		"--wait-for-video", "60",
+		"--ytdlp-command-line-options=--js-runtime node",
+	}
+	return cfg
 }
 
 // GetDefaultTwitchConfig returns the default configuration for the Twitch monitor.
