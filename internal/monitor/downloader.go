@@ -88,28 +88,23 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	}
 	cmd.Dir = channelDir
 
-	// Determine which debug flags to enable based on platform and config
-	apiDebug := false
+	// Determine which subprocess debug flag to enable based on platform and config.
 	dlpDebug := false
 
 	switch logPrefix {
 	case logPrefixTwitch:
-		apiDebug = globalCfg.TwitchAPIVerboseDebug
 		dlpDebug = globalCfg.TwitchDlpVerboseDebug
 	case logPrefixYouTube:
-		apiDebug = globalCfg.YoutubeAPIVerboseDebug
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
 
 	logger, err := logging.NewLoggerForDownload(
 		channelDir,
-		ch.ID,
 		ch.Name,
 		status.VideoID,
 		globalCfg,
 		logPrefix,
 		logColor,
-		apiDebug,
 		dlpDebug,
 		commandStr,
 	)

@@ -23,13 +23,10 @@ type Logger struct {
 	globalCfg             *config.GlobalConfig
 	logPrefix             string
 	logColor              string
-	channelID             string
 	channelName           string
-	streamID              string
 	lastDownloadWriteTime time.Time
 	lastWaitWriteTime     time.Time
 	// Debug flags for what to show in terminal
-	apiDebug bool // For TwitchAPI/YouTube API calls
 	dlpDebug bool // For twitch-dlp/yt-dlp subprocess output
 }
 
@@ -47,19 +44,16 @@ func NewLogger(globalCfg *config.GlobalConfig, logPrefix, logColor string) *Logg
 // It can write to a dedicated log file in addition to the terminal.
 // logPrefix: "YT" or "Twitch"
 // logColor: use ColorRed, ColorPurple, etc.
-// apiDebug: show API calls in terminal
 // dlpDebug: show subprocess output in terminal
 // command: the subprocess command string to write at the top of the log file
 // logFile will be created only if save_download_logs is true in globalCfg
 func NewLoggerForDownload(
 	channelDir string,
-	channelID string,
 	channelName string,
 	streamID string,
 	globalCfg *config.GlobalConfig,
 	logPrefix string,
 	logColor string,
-	apiDebug bool,
 	dlpDebug bool,
 	command string,
 ) (*Logger, error) {
@@ -70,10 +64,7 @@ func NewLoggerForDownload(
 		globalCfg:   globalCfg,
 		logPrefix:   logPrefix,
 		logColor:    logColor,
-		channelID:   channelID,
 		channelName: channelName,
-		streamID:    streamID,
-		apiDebug:    apiDebug,
 		dlpDebug:    dlpDebug,
 	}
 
@@ -98,11 +89,11 @@ func NewLoggerForDownload(
 	return logger, nil
 }
 
+var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
+
 // stripANSI removes ANSI/CSI terminal control sequences before writing log files.
 func stripANSI(s string) string {
-	// Regex pattern to match ANSI escape sequences
-	ansiPattern := regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`)
-	return ansiPattern.ReplaceAllString(s, "")
+	return ansiEscapePattern.ReplaceAllString(s, "")
 }
 
 // formatLogPrefix returns the shared timestamp/platform prefix for log lines.

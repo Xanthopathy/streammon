@@ -21,15 +21,11 @@ var (
 type ConnectionMonitor struct {
 	mu                 sync.RWMutex
 	isConnected        bool
-	lastLogged         bool                 // Track last logged state to prevent duplicate logs
-	subscribers        map[*sync.Cond]bool  // Map of condition variables to notify
-	globalCfg          *config.GlobalConfig // Needed for logging
+	lastLogged         bool                // Track last logged state to prevent duplicate logs
+	subscribers        map[*sync.Cond]bool // Map of condition variables to notify
 	sysLogger          *logging.Logger
-	stateChangedAt     time.Time
 	consecutiveSuccess int
 	consecutiveFailure int
-	lastFailureLogTime time.Time
-	lastSuccessLogTime time.Time
 	checkTrigger       chan struct{} // Channel to trigger immediate connection checks
 }
 
@@ -37,13 +33,11 @@ type ConnectionMonitor struct {
 func GetGlobalConnectionMonitor(globalCfg *config.GlobalConfig) *ConnectionMonitor {
 	connMonitorOnce.Do(func() {
 		globalConnMonitor = &ConnectionMonitor{
-			isConnected:    true,
-			lastLogged:     true,
-			subscribers:    make(map[*sync.Cond]bool),
-			globalCfg:      globalCfg,
-			sysLogger:      logging.NewLogger(globalCfg, "System", ansi.ColorCyan),
-			stateChangedAt: time.Now(),
-			checkTrigger:   make(chan struct{}, 1),
+			isConnected:  true,
+			lastLogged:   true,
+			subscribers:  make(map[*sync.Cond]bool),
+			sysLogger:    logging.NewLogger(globalCfg, "System", ansi.ColorCyan),
+			checkTrigger: make(chan struct{}, 1),
 		}
 		// Start the background connection monitoring
 		go globalConnMonitor.run()
@@ -90,12 +84,10 @@ func (cm *ConnectionMonitor) broadcastStateChange() {
 		// Connection just restored
 		cm.sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", ansi.ColorGreen, ansi.ColorReset)
 		cm.lastLogged = true
-		cm.stateChangedAt = time.Now()
 	} else if !cm.isConnected && cm.lastLogged {
 		// Connection just lost
 		cm.sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", ansi.ColorRed, ansi.ColorReset)
 		cm.lastLogged = false
-		cm.stateChangedAt = time.Now()
 	}
 
 	// Collect subscriber list for broadcasting outside the lock
