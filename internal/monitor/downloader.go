@@ -13,7 +13,6 @@ import (
 	"streammon/internal/util/ansi"
 	"streammon/internal/util/lockfile"
 	"streammon/internal/util/logging"
-	"streammon/internal/util/terminal"
 	"streammon/internal/util/text"
 )
 
@@ -35,13 +34,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
-	// Create synchronization for waiting state detection
 	isWaiting := &atomic.Bool{}
 
-	// Create synchronization for merger detection
 	mergerDetected := &atomic.Bool{}
 
-	// Create synchronization for downloader-specific completion markers
 	downloadCompleted := &atomic.Bool{}
 
 	// Callback to detect waiting state and completion markers from subprocess output
@@ -200,184 +196,5 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Start a goroutine to wait for it to finish and clean up
 	go b.waitForDownload(ch, proc)
-	return true
-}
-
-// waitForDownload blocks until a download process finishes, then cleans up.
-func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) {
-	err := proc.cmd.Wait() // This blocks until the process exits
-
-	// Give subprocess time to clean up residual files, temp files, and finalize disk writes
-	// (yt-dlp and twitch-dlp may still be flushing data after process.Wait returns)
-	time.Sleep(time.Second * 5)
-
-	// Reset terminal title once subprocess completes
-	terminal.SetTerminalTitle("streammon")
-
-	globalCfg := b.controller.GetGlobalConfig()
-	logPrefix := b.controller.GetLogPrefix()
-
-	// Extract exit code from the process
-	exitCode := -1
-	if proc.cmd.ProcessState != nil {
-		exitCode = proc.cmd.ProcessState.ExitCode()
-	}
-
-	// Determine success using downloader-specific completion markers plus file existence.
-	// yt-dlp can return non-zero after a successful merge, while twitch-dlp does not emit yt-dlp merger markers.
-	outputFileExists := false
-	mergerSuccess := proc.mergerDetected.Load()
-	downloadComplete := proc.downloadCompleted.Load()
-
-	// Check if output file exists in the working directory
-	// The output file should match the pattern from the downloader command
-	if proc.cmd.Dir != "" {
-		files, err := os.ReadDir(proc.cmd.Dir)
-		if err == nil {
-			for _, file := range files {
-				if !file.IsDir() {
-					info, err := file.Info()
-					if err != nil {
-						continue
-					}
-					if mediaFileMatchesDownload(file.Name(), info.ModTime(), proc) {
-						outputFileExists = true
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Log exit code and diagnostic info
-	if exitCode >= 0 {
-		switch proc.downloaderName {
-		case "yt-dlp":
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, mergerSuccess, outputFileExists))
-		case "twitch-dlp":
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, outputFileExists))
-		default:
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
-		}
-	}
-
-	// Determine final success status
-	isSuccess := false
-	if proc.forcedTermination.Load() {
-		// Forced termination by monitor (stream went offline)
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset))
-		isSuccess = true // Treat forced termination as success (meaningful data captured)
-	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists {
-		// Both success conditions met
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
-		cleanupYTDLPResidue(proc.cmd.Dir, proc, proc.logger)
-		isSuccess = true
-	} else if proc.downloaderName == "twitch-dlp" && outputFileExists && (downloadComplete || exitCode == 0) {
-		// twitch-dlp does not emit yt-dlp merger markers; use its own completion markers and file output.
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
-		isSuccess = true
-	} else if proc.downloaderName == "livestream_dl" && outputFileExists && exitCode == 0 {
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully with livestream_dl fallback.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
-		isSuccess = true
-	} else {
-		// One or both success conditions failed
-		failureReasons := []string{}
-		switch proc.downloaderName {
-		case "yt-dlp":
-			if !mergerSuccess {
-				failureReasons = append(failureReasons, "no_merger_detected")
-			}
-		case "twitch-dlp":
-			if !downloadComplete && exitCode != 0 {
-				failureReasons = append(failureReasons, "no_completion_detected")
-			}
-		default:
-			if !downloadComplete && !mergerSuccess && exitCode != 0 {
-				failureReasons = append(failureReasons, "no_completion_detected")
-			}
-		}
-		if !outputFileExists {
-			failureReasons = append(failureReasons, "output_file_not_found")
-		}
-		if proc.downloaderName == "yt-dlp" && b.startFallbackDownload(ch, proc) {
-			go b.waitForDownload(ch, proc)
-			return
-		}
-		proc.logger.LogError(fmt.Sprintf("Download for %s%s%s finished with error: %v (exit_code=%d, reasons=%v)",
-			ansi.ColorOrange, ch.Name, ansi.ColorReset, err, exitCode, failureReasons))
-		isSuccess = false
-	}
-
-	// The full download lifecycle is complete. Release the shared slot and lockfile.
-	<-downloadSlots
-	lockfile.DeleteLock(proc.lockPath)
-	proc.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", proc.lockPath))
-
-	shouldLogSlots := (logPrefix == logPrefixTwitch && globalCfg.TwitchVerboseDebug) || (logPrefix == logPrefixYouTube && globalCfg.YoutubeVerboseDebug)
-	if shouldLogSlots {
-		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
-	}
-
-	// Finalize success or set pending state for YouTube
-	if isSuccess {
-		if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
-			b.setPendingYTSuccess(ch.ID, proc.videoID)
-			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
-		} else {
-			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
-		}
-	}
-
-	// Clean up active download entry
-	b.downloadMutex.Lock()
-	delete(b.activeDownloads, ch.ID)
-	b.downloadMutex.Unlock()
-
-	proc.logger.Close()
-}
-
-func (b *BaseMonitor) startFallbackDownload(ch config.Channel, proc *downloadProcess) bool {
-	if proc.fallbackAttempted {
-		return false
-	}
-	controller, ok := b.controller.(FallbackDownloaderController)
-	if !ok {
-		return false
-	}
-
-	cmd, downloaderName, enabled := controller.BuildFallbackDownloaderCmd(ch, proc.status)
-	if !enabled || cmd == nil {
-		return false
-	}
-	proc.fallbackAttempted = true
-
-	cmd.Dir = proc.cmd.Dir
-	cmd.Env = append(os.Environ(), "FORCE_COLOR=1", "TERM=xterm-256color")
-	if b.controller.GetGlobalConfig().SaveDownloadLogs || b.controller.GetGlobalConfig().YoutubeDlpVerboseDebug {
-		if stdoutPipe, err := cmd.StdoutPipe(); err == nil && stdoutPipe != nil {
-			go logging.ReadPipeAndLog(stdoutPipe, proc.logger, downloaderName, proc.outputCallback)
-		}
-		if stderrPipe, err := cmd.StderrPipe(); err == nil && stderrPipe != nil {
-			go logging.ReadPipeAndLog(stderrPipe, proc.logger, downloaderName, proc.outputCallback)
-		}
-	}
-
-	commandStr := cmd.Path
-	if len(cmd.Args) > 1 {
-		commandStr += " " + text.JoinCommandArgs(cmd.Args[1:])
-	}
-	proc.logger.LogRegular(fmt.Sprintf("yt-dlp failed for %s%s%s. Trying livestream_dl fallback.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
-	proc.logger.LogSubprocessOutput("COMMAND: "+commandStr, downloaderName)
-
-	if err := cmd.Start(); err != nil {
-		proc.logger.LogError(fmt.Sprintf("Error starting livestream_dl fallback for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
-		return false
-	}
-
-	proc.cmd = cmd
-	proc.downloaderName = downloaderName
-	proc.startedAt = time.Now()
-	proc.mergerDetected.Store(false)
-	proc.downloadCompleted.Store(false)
 	return true
 }
