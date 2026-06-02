@@ -125,7 +125,7 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
      - Log: "Detected {errorCount} errors during poll. Staggering next poll by +{backoff}"
      - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors and log that polling returned to the normal interval
-   - Purpose: 
+   - Purpose:
      - Prevent hammer-like polling during actual API outages (non-network errors)
      - Allow graceful pause during connectivity loss without artificial backoff penalty
      - Distinguish between "internet is down" (monitored separately) vs "API is broken" (needs backoff)
@@ -286,7 +286,7 @@ For each configured YouTube channel:
      - Provides visibility for debugging without affecting success logic
    - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
    - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
-   - **If failure** (one or both conditions missing): 
+   - **If failure** (one or both conditions missing):
      - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
      - Reasons list includes: "no_merger_detected" and/or "output_file_not_found"
 
@@ -352,7 +352,7 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
      - Add backoff: `1 minute × consecutiveErrors` (capped at 10 minutes max)
      - Example: First error round → +1m backoff; Second → +2m; etc.
      - Reset counter to 0 on successful poll with no errors and log that polling returned to the normal interval
-   - Purpose: 
+   - Purpose:
      - Prevent hammer-like polling during actual API outages (non-network errors)
      - Allow graceful pause during connectivity loss without artificial backoff penalty
      - Distinguish between "internet is down" (monitored separately) vs "API is broken" (needs backoff)
