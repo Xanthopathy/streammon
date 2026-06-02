@@ -14,6 +14,7 @@ import (
 	"streammon/internal/config"
 	"streammon/internal/models"
 	"streammon/internal/util/ansi"
+	"streammon/internal/util/logging"
 )
 
 // NetworkError represents an error caused by internet connectivity issues.
@@ -216,6 +217,10 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 	defer wg.Done()
 
 	logPrefix := b.controller.GetLogPrefix()
+	debugType := logging.DebugYouTube
+	if logPrefix == logPrefixTwitch {
+		debugType = logging.DebugTwitch
+	}
 
 	if ctx.Err() != nil {
 		return &NetworkError{Err: ctx.Err()}
@@ -260,14 +265,14 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
 			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
 			if proc.isWaiting != nil && proc.isWaiting.Load() {
-				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline and downloader is waiting. Terminating downloader.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+				b.logger.Debug(debugType, fmt.Sprintf("API reports %s%s%s as offline and downloader is waiting. Terminating downloader.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 				proc.forcedTermination.Store(true)
 				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
 					proc.cmd.Process.Kill()
 				}
 				// Fall through to update status to offline; waitForDownload will handle cleanup
 			} else {
-				b.logger.Debug(logPrefix, fmt.Sprintf("API reports %s%s%s as offline, but download is active for same stream ID (%s). Ignoring.", ansi.ColorOrange, ch.Name, ansi.ColorReset, proc.videoID))
+				b.logger.Debug(debugType, fmt.Sprintf("API reports %s%s%s as offline, but download is active for same stream ID (%s). Ignoring.", ansi.ColorOrange, ch.Name, ansi.ColorReset, proc.videoID))
 				return nil // Ignore this offline signal.
 			}
 		}

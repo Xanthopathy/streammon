@@ -12,9 +12,9 @@ import (
 
 func (b *BaseMonitor) archiveFilename() string {
 	switch b.controller.GetLogPrefix() {
-	case "YT":
+	case logPrefixYouTube:
 		return "youtube_archive.txt"
-	case "Twitch":
+	case logPrefixTwitch:
 		return "twitch_archive.txt"
 	default:
 		return "archive.txt"

@@ -65,7 +65,7 @@ func (m *TwitchMonitor) GetLogColor() string {
 }
 
 func (m *TwitchMonitor) GetLogPrefix() string {
-	return "Twitch"
+	return logPrefixTwitch
 }
 
 func (m *TwitchMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, httpClient *http.Client) (models.LiveInfo, error) {

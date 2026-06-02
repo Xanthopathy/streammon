@@ -46,7 +46,7 @@ func (b *BaseMonitor) finalizeSuccessfulDownload(channelID string, videoID strin
 	globalCfg := b.controller.GetGlobalConfig()
 	logPrefix := b.controller.GetLogPrefix()
 
-	shouldArchive := (logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads) || (logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads)
+	shouldArchive := (logPrefix == logPrefixYouTube && globalCfg.YoutubeArchiveDownloads) || (logPrefix == logPrefixTwitch && globalCfg.TwitchArchiveDownloads)
 
 	if !shouldArchive {
 		return

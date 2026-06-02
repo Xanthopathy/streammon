@@ -56,9 +56,9 @@ func (b *BaseMonitor) Run() {
 
 	// Load archive.txt if enabled to prevent re-downloads
 	shouldArchive := false
-	if logPrefix == "YT" && globalCfg.YoutubeArchiveDownloads {
+	if logPrefix == logPrefixYouTube && globalCfg.YoutubeArchiveDownloads {
 		shouldArchive = true
-	} else if logPrefix == "Twitch" && globalCfg.TwitchArchiveDownloads {
+	} else if logPrefix == logPrefixTwitch && globalCfg.TwitchArchiveDownloads {
 		shouldArchive = true
 	}
 

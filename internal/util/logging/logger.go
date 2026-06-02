@@ -17,6 +17,24 @@ import (
 	"streammon/internal/util/timefmt"
 )
 
+// DebugType identifies a configured debug output category.
+type DebugType struct {
+	name string
+}
+
+var (
+	DebugTwitch     = DebugType{name: "Twitch"}
+	DebugTwitchAPI  = DebugType{name: "TwitchAPI"}
+	DebugTwitchDLP  = DebugType{name: "TwitchDLP"}
+	DebugYouTube    = DebugType{name: "YouTube"}
+	DebugYouTubeAPI = DebugType{name: "YouTubeAPI"}
+	DebugYouTubeDLP = DebugType{name: "YouTubeDLP"}
+)
+
+func (d DebugType) String() string {
+	return d.name
+}
+
 // Logger handles logging for a monitor or a download session.
 // Single .log file for all output (subprocess, events, errors)
 // Terminal output controlled by debug toggles
@@ -237,9 +255,8 @@ func (l *Logger) LogErrorf(format string, args ...any) {
 }
 
 // Debug logs a message if the corresponding debug flag is enabled in GlobalConfig.
-// debugType: e.g., "TwitchAPI", "YouTube", "Sema", etc.
-// logic matches the old util.DebugLog
-func (l *Logger) Debug(debugType, message string) {
+// debugType controls visibility through the matching debug config flag.
+func (l *Logger) Debug(debugType DebugType, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -247,25 +264,22 @@ func (l *Logger) Debug(debugType, message string) {
 
 	// Determine Visibility based on specific flags
 	switch debugType {
-	case "TwitchAPI":
+	case DebugTwitchAPI:
 		shouldLog = l.globalCfg.TwitchAPIVerboseDebug
-	case "TwitchDLP":
+	case DebugTwitchDLP:
 		shouldLog = l.globalCfg.TwitchDlpVerboseDebug
-	case "YouTubeAPI":
+	case DebugYouTubeAPI:
 		shouldLog = l.globalCfg.YoutubeAPIVerboseDebug
-	case "YouTubeDLP":
+	case DebugYouTubeDLP:
 		shouldLog = l.globalCfg.YoutubeDlpVerboseDebug
-	default:
-		// Fallback to platform-level debug flags
-		if l.logPrefix == "Twitch" || strings.HasPrefix(debugType, "Twitch") {
-			shouldLog = l.globalCfg.TwitchVerboseDebug
-		} else if l.logPrefix == "YT" || strings.HasPrefix(debugType, "YT") || strings.HasPrefix(debugType, "YouTube") {
-			shouldLog = l.globalCfg.YoutubeVerboseDebug
-		}
+	case DebugTwitch:
+		shouldLog = l.globalCfg.TwitchVerboseDebug
+	case DebugYouTube:
+		shouldLog = l.globalCfg.YoutubeVerboseDebug
 	}
 
 	if shouldLog {
-		l.writeLine(l.formatTaggedLine(ansi.ColorBlue, debugType, message), true)
+		l.writeLine(l.formatTaggedLine(ansi.ColorBlue, debugType.String(), message), true)
 	}
 }
 

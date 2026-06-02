@@ -50,7 +50,7 @@ func CheckYouTubeViaMembersPlaylist(
 
 	playlistURL := "https://www.youtube.com/playlist?list=" + playlistID
 	logger.Debug(
-		"YouTubeAPI",
+		logging.DebugYouTubeAPI,
 		fmt.Sprintf(
 			"Checking members playlist for %s%s%s: %s",
 			ansi.ColorOrange,
@@ -82,7 +82,7 @@ func CheckYouTubeViaMembersPlaylist(
 
 		if entry.LiveStatus != "is_live" {
 			logger.Debug(
-				"YouTubeAPI",
+				logging.DebugYouTubeAPI,
 				fmt.Sprintf(
 					"Members playlist candidate for %s%s%s is not live: %s (%s, live_status=%s)",
 					ansi.ColorOrange,
@@ -97,7 +97,7 @@ func CheckYouTubeViaMembersPlaylist(
 		}
 
 		logger.Debug(
-			"YouTubeAPI",
+			logging.DebugYouTubeAPI,
 			fmt.Sprintf(
 				"Found live members-only stream for %s%s%s: %s (%s)",
 				ansi.ColorOrange,

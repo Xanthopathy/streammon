@@ -10,6 +10,11 @@ import (
 	"streammon/internal/models"
 )
 
+const (
+	logPrefixYouTube = "YT"
+	logPrefixTwitch  = "Twitch"
+)
+
 // MonitorController defines the platform-specific logic that a monitor must implement.
 type MonitorController interface {
 	// Getters for configuration and identity

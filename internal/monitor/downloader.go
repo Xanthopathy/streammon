@@ -27,7 +27,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	logPrefix := b.controller.GetLogPrefix()
 
 	// Log slot acquisition
-	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
+	shouldLogSlots := (logPrefix == logPrefixTwitch && globalCfg.TwitchVerboseDebug) || (logPrefix == logPrefixYouTube && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
 		// Note: len(downloadSlots) shows the number of *active* slots.
 		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
@@ -97,10 +97,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	dlpDebug := false
 
 	switch logPrefix {
-	case "Twitch":
+	case logPrefixTwitch:
 		apiDebug = globalCfg.TwitchAPIVerboseDebug
 		dlpDebug = globalCfg.TwitchDlpVerboseDebug
-	case "YT":
+	case logPrefixYouTube:
 		apiDebug = globalCfg.YoutubeAPIVerboseDebug
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
@@ -139,9 +139,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Determine debugType based on platform prefix
 	var debugType string
 	switch logPrefix {
-	case "YT":
+	case logPrefixYouTube:
 		debugType = "yt-dlp"
-	case "Twitch":
+	case logPrefixTwitch:
 		debugType = "twitch-dlp"
 	default:
 		debugType = "dlp"
@@ -313,14 +313,14 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	lockfile.DeleteLock(proc.lockPath)
 	proc.logger.LogEvent("LOCK", fmt.Sprintf("Deleted: %s", proc.lockPath))
 
-	shouldLogSlots := (logPrefix == "Twitch" && globalCfg.TwitchVerboseDebug) || (logPrefix == "YT" && globalCfg.YoutubeVerboseDebug)
+	shouldLogSlots := (logPrefix == logPrefixTwitch && globalCfg.TwitchVerboseDebug) || (logPrefix == logPrefixYouTube && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
 		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Finalize success or set pending state for YouTube
 	if isSuccess {
-		if logPrefix == "YT" && !proc.forcedTermination.Load() {
+		if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
 			b.setPendingYTSuccess(ch.ID, proc.videoID)
 			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
 		} else {

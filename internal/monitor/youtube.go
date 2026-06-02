@@ -105,7 +105,7 @@ func (m *YTMonitor) GetLogColor() string {
 }
 
 func (m *YTMonitor) GetLogPrefix() string {
-	return "YT"
+	return logPrefixYouTube
 }
 
 func (m *YTMonitor) cookiesFile() string {
@@ -147,7 +147,7 @@ func (m *YTMonitor) checkMembersIfEnabled(ctx context.Context, ch config.Channel
 	)
 	if memberErr != nil {
 		m.base.logger.Debug(
-			"YouTubeAPI",
+			logging.DebugYouTubeAPI,
 			fmt.Sprintf(
 				"Member check failed for %s%s%s: %v",
 				ansi.ColorOrange,
@@ -170,13 +170,13 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 	if err != nil {
 		// Default to 24 hours if parse fails
 		ignoreOlderThan = 24 * time.Hour
-		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse ignore_older_than for %s%s%s: %v, using default 24h", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
+		m.base.logger.Debug(logging.DebugYouTube, fmt.Sprintf("Failed to parse ignore_older_than for %s%s%s: %v, using default 24h", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
 	}
 
 	fallbackDuration, err := time.ParseDuration(m.cfg.Scraper.FallbackDuration)
 	if err != nil {
 		fallbackDuration = 15 * time.Minute
-		m.base.logger.Debug("YouTube", fmt.Sprintf("Failed to parse fallback_duration, using default 15m: %v", err))
+		m.base.logger.Debug(logging.DebugYouTube, fmt.Sprintf("Failed to parse fallback_duration, using default 15m: %v", err))
 	}
 
 	// Determine check order based on config
@@ -256,8 +256,7 @@ func (m *YTMonitor) CheckChannelStatus(ctx context.Context, ch config.Channel, h
 		}
 
 		// Log failure only if API verbose is on (to reduce spam)
-		// Use "YouTubeAPI" debug type which triggers on youtube_api_verbose_debug
-		m.base.logger.Debug("YouTubeAPI", fmt.Sprintf("Method '%s' failed for %s%s%s: %v. Trying fallback to '%s'...", method, ansi.ColorOrange, ch.Name, ansi.ColorReset, err, fallbackName))
+		m.base.logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Method '%s' failed for %s%s%s: %v. Trying fallback to '%s'...", method, ansi.ColorOrange, ch.Name, ansi.ColorReset, err, fallbackName))
 		lastErr = err
 	}
 

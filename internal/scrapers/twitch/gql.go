@@ -85,7 +85,7 @@ func CheckLiveGQL(ctx context.Context, httpClient *http.Client, channelLogin str
 		// Only retry if we haven't exhausted attempts
 		if attempt < maxRetries {
 			backoffDuration := time.Duration((attempt+1)*1000) * time.Millisecond // 1s, 2s
-			logger.Debug("TwitchAPI", fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
+			logger.Debug(logging.DebugTwitchAPI, fmt.Sprintf("Timeout checking %s (attempt %d/%d), retrying in %v...", channelLogin, attempt+1, maxRetries+1, backoffDuration))
 			timer := time.NewTimer(backoffDuration)
 			select {
 			case <-ctx.Done():
@@ -118,7 +118,7 @@ func checkLiveGQLOnce(ctx context.Context, httpClient *http.Client, channelLogin
 	// Pretty-print the JSON payload for readability
 	var prettyPayload bytes.Buffer
 	json.Indent(&prettyPayload, body, "", "  ")
-	logger.Debug("TwitchAPI", fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
+	logger.Debug(logging.DebugTwitchAPI, fmt.Sprintf("Requesting for %s with payload:\n%s", channelLogin, prettyPayload.String()))
 
 	// Create and send the HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://gql.twitch.tv/gql", bytes.NewBuffer(body))
@@ -148,7 +148,7 @@ func checkLiveGQLOnce(ctx context.Context, httpClient *http.Client, channelLogin
 	// Pretty-print the JSON response for readability
 	var prettyResponse bytes.Buffer
 	json.Indent(&prettyResponse, responseBody, "", "  ")
-	logger.Debug("TwitchAPI", fmt.Sprintf("Raw response for %s:\n%s", channelLogin, prettyResponse.String()))
+	logger.Debug(logging.DebugTwitchAPI, fmt.Sprintf("Raw response for %s:\n%s", channelLogin, prettyResponse.String()))
 
 	// Decode the response
 	var gqlResp streamMetadataGQLResponse
@@ -188,7 +188,7 @@ func checkLiveGQLOnce(ctx context.Context, httpClient *http.Client, channelLogin
 		// Sanity check: if lastBroadcast.id and stream.id don't match, something is weird.
 		// The live stream ID should take precedence.
 		if lastBroadcast != nil && stream.ID != lastBroadcast.ID {
-			logger.Debug("TwitchAPI", fmt.Sprintf("Stream ID (%s) and LastBroadcast ID (%s) mismatch for %s", stream.ID, lastBroadcast.ID, channelLogin))
+			logger.Debug(logging.DebugTwitchAPI, fmt.Sprintf("Stream ID (%s) and LastBroadcast ID (%s) mismatch for %s", stream.ID, lastBroadcast.ID, channelLogin))
 		}
 	}
 
