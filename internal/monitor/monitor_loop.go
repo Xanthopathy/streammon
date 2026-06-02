@@ -15,9 +15,6 @@ func (b *BaseMonitor) Run() {
 	channels := b.controller.GetChannels()
 	logPrefix := b.controller.GetLogPrefix()
 
-	// Seed random for jitter
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	// Initialize the global download semaphore using the value from the global config.
 	initializeDownloadSlots(globalCfg.MaxConcurrentDownloads)
 
@@ -114,7 +111,9 @@ func (b *BaseMonitor) Run() {
 		// Example: 60s becomes something between 54s and 66s.
 		jitterPercent := 0.10
 		jitterRange := int64(float64(pollInterval) * jitterPercent)
-		sleepDuration += time.Duration(rand.Int63n(jitterRange*2) - jitterRange)
+		if jitterRange > 0 {
+			sleepDuration += time.Duration(rand.Int63n(jitterRange*2) - jitterRange)
+		}
 
 		// Backoff logic if errors occurred
 		if errorCount > 0 {

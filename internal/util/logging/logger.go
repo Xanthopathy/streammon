@@ -17,14 +17,6 @@ import (
 	"streammon/internal/util/timefmt"
 )
 
-// LogLevel defines the logging severity level
-type LogLevel int
-
-const (
-	LogLevelRegular LogLevel = iota // Regular logs only
-	LogLevelDebug                   // All logs including debug spam
-)
-
 // Logger handles logging for a monitor or a download session.
 // Single .log file for all output (subprocess, events, errors)
 // Terminal output controlled by debug toggles

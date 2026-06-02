@@ -28,9 +28,7 @@ type BaseMonitor struct {
 	archivedVideos            map[string]bool             // map[videoID]bool - loaded from archive.txt
 	archivedVidMu             sync.RWMutex                // protects archivedVideos
 	rpsWarningSent            bool                        // Tracks if we've warned about RPS throttling
-	isConnected               bool                        // Tracks current internet connection status
 	pauseCond                 *sync.Cond                  // Condition variable to freeze/thaw monitoring loops
-	connCheckTrigger          chan struct{}               // Channel to trigger immediate connection checks
 	pollGeneration            atomic.Uint64               // Atomic counter to track poll generations for pending YouTube success handling
 	pendingYTSuccessMu        sync.Mutex                  // Mutex to protect pendingYTSuccess
 	pendingYTSuccesses        map[string]pendingYTSuccess // Tracks pending YouTube success info across polls
@@ -49,19 +47,7 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		downloadedVidsLogged: make(map[string]bool),
 		archivedVideos:       make(map[string]bool),
 		rpsWarningSent:       false,
-		isConnected:          true,
 		pauseCond:            sync.NewCond(&sync.Mutex{}),
-		connCheckTrigger:     make(chan struct{}, 1),
 		pendingYTSuccesses:   make(map[string]pendingYTSuccess),
-	}
-}
-
-// TriggerConnectionCheck signals the monitor loop to check connectivity immediately.
-// It uses a non-blocking send to avoid stalling the caller.
-func (b *BaseMonitor) TriggerConnectionCheck() {
-	select {
-	case b.connCheckTrigger <- struct{}{}:
-	default:
-		// Already triggered, skip
 	}
 }

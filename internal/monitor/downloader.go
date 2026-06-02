@@ -101,7 +101,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		apiDebug = globalCfg.TwitchAPIVerboseDebug
 		dlpDebug = globalCfg.TwitchDlpVerboseDebug
 	case "YT":
-		apiDebug = globalCfg.YoutubeVerboseDebug
+		apiDebug = globalCfg.YoutubeAPIVerboseDebug
 		dlpDebug = globalCfg.YoutubeDlpVerboseDebug
 	}
 
