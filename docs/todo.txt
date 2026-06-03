@@ -1,31 +1,6 @@
-[DONE] don't have no such host/connection issues count towards backoff error (implemented NetworkError wrapper + global connection monitor to pause operations)
-[DONE] CheckInternetConnection rotate through a list of reliable hosts (Cloudflare, Google, Quad9, OpenDNS)
-[DONE] durability for when wifi is unstable or offline for a duration of time
-[DONE] yt-dlp false positive errors (exit code 1 but successful merge+file exists) - now checks BOTH conditions: merger detection + file existence
-[DONE] merge = save to txt
-[DONE] ensure finished videos save to archive.txt
-[DONE] don't end downloader too quickly as it might need to clean residual files (added 1 second sleep after process.Wait)
-[DONE] Timeout/outage-like failures now classify as network errors, cancel the current poll loop, cancel in-flight HTTP requests, and stop YouTube fallback from treating connectivity failures as fallback candidates.
-[DONE] Downloader diagnostics and success checks are platform-specific: yt-dlp uses merger/file checks, while twitch-dlp uses completion markers/file checks and its own diagnostic wording.
-[DONE] Stagger reversion is now logged
-[DONE] yt-dlp progress color
-[DONE] Connection loss now cancels the active channel-check poll, stops scheduling more checks, cancels in-flight HTTP requests, and prevents YouTube fallback from treating connectivity failures as fallback candidates. Active downloader subprocesses still rely on downloader/offline handling.
-[DONE] Download log filenames no longer derive from UTC CreatedAt, so streams crossing local midnight won't split/mislabel logs; download logs are named username-video_id.log.
-[DONE] YouTube fallback state map is guarded by a mutex, preventing concurrent channel checks from causing fatal concurrent map writes.
-[DONE] Clean yt-dlp residue files after successful YouTube merges and strip terminal erase sequences from saved logs.
-[DONE] Retry a completed YouTube download after one poll if the same stream is still live.
-[DONE] Save complete downloader subprocess output to log files while keeping terminal throttling.
-[DONE] Add cookie-backed YouTube members-only stream checks.
-[DONE] Add persistent YouTube cookie export instructions to youtube_cookies.txt.
-[DONE] Add optional livestream_dl fallback for failed YouTube yt-dlp downloads.
-[DONE] Move archives to root-level platform files and migrate legacy per-download-folder archives.
-
 [shafted] do something with bubbletea
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 [shafted] holodex or invidious api as a third option (important for member streams)
 
 dockerize?
-// netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.
-
-[DONE] make the cookie shenanigan more comprehensible (removed broad download cookies; member streams default to livestream_dl with member cookies)
-make the config toml files a little more readable?
+(netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.)
