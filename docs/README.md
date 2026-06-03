@@ -67,18 +67,18 @@ YouTube channel example:
 
 ```toml
 [[channel]]
-id = "UCxxxxxxxxxxxxxxxxxxxxxx"
-name = "Channel Name"
-filters = ["(?i).*karaoke.*", "(?i).*3d live.*"]
+id = "UCFzQd4pZ43ZNEdWBFe7QOKA" # UC...
+name = "Saya Sairroxs"
+filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
 ```
 
 Twitch channel example:
 
 ```toml
 [[channel]]
-id = "channel_login"
-name = "Channel Name"
-filters = ["(?i).*english.*"]
+id = "sayasairroxs"
+name = "Saya Sairroxs"
+filters = [".*"]
 ```
 
 Leave `filters` empty or omit it to download every live stream for that channel.
