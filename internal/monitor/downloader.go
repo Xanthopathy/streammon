@@ -102,10 +102,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Build command using the controller
 	cmd := b.controller.BuildDownloaderCmd(ch, status)
-	downloaderName := filepath.Base(cmd.Path)
-	if downloaderName == "" {
-		downloaderName = "dlp"
-	}
+	downloaderName := downloaderNameFromCommand(cmd.Path, cmd.Args)
 
 	// Build command string for logging
 	commandStr := cmd.Path
