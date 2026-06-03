@@ -71,6 +71,10 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Build command using the controller
 	cmd := b.controller.BuildDownloaderCmd(ch, status)
+	downloaderName := filepath.Base(cmd.Path)
+	if downloaderName == "" {
+		downloaderName = "dlp"
+	}
 
 	// Build command string for logging
 	commandStr := cmd.Path
@@ -125,40 +129,27 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Doesn't work, twitch-dlp already does this and yt-dlp doesn't show color with this
 	cmd.Env = append(os.Environ(), "FORCE_COLOR=1", "TERM=xterm-256color")
 
-	// Setup subprocess output redirection
-	// Pipe output if we need to log it or show it in terminal (dlpDebug)
-	// Determine debugType based on platform prefix
-	var debugType string
-	switch logPrefix {
-	case logPrefixYouTube:
-		debugType = "yt-dlp"
-	case logPrefixTwitch:
-		debugType = "twitch-dlp"
-	default:
-		debugType = "dlp"
-	}
-
 	if globalCfg.SaveDownloadLogs || dlpDebug {
 		stdoutPipe, errOut := cmd.StdoutPipe()
 		stderrPipe, errErr := cmd.StderrPipe()
 
 		if errOut == nil && stdoutPipe != nil {
-			go logging.ReadPipeAndLog(stdoutPipe, logger, debugType, outputCallback)
+			go logging.ReadPipeAndLog(stdoutPipe, logger, downloaderName, outputCallback)
 		}
 		if errErr == nil && stderrPipe != nil {
-			go logging.ReadPipeAndLog(stderrPipe, logger, debugType, outputCallback)
+			go logging.ReadPipeAndLog(stderrPipe, logger, downloaderName, outputCallback)
 		}
 	}
 
 	// Log the command if dlp debug is enabled (for terminal display)
 	if dlpDebug {
-		logger.LogSubprocessOutput("COMMAND: "+commandStr, debugType)
+		logger.LogSubprocessOutput("COMMAND: "+commandStr, downloaderName)
 	}
 
 	proc := &downloadProcess{
 		cmd:               cmd,
 		videoID:           status.VideoID,
-		downloaderName:    debugType,
+		downloaderName:    downloaderName,
 		lockPath:          lockPath,
 		logger:            logger,
 		isWaiting:         isWaiting,
@@ -171,7 +162,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Start command
 	if err := cmd.Start(); err != nil {
 		logger.LogError(fmt.Sprintf("Error starting download for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
-		if debugType == "yt-dlp" && b.startFallbackDownload(ch, proc) {
+		if downloaderName == "yt-dlp" && b.startFallbackDownload(ch, proc) {
 			b.activeDownloads[ch.ID] = proc
 			go b.waitForDownload(ch, proc)
 			return true

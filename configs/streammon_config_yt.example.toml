@@ -23,9 +23,10 @@ args = [
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
-    # Download cookies are intentionally manual. Passing YouTube cookies to
-    # yt-dlp can stall indefinitely, so streammon never adds them automatically.
-    # Add one of these only if you knowingly want downloader cookies:
+    # Download cookies for regular streams are intentionally manual. For
+    # member streams, streammon appends cookies_file automatically because
+    # cookies are required.
+    # Add one of these only if you knowingly want cookies for regular streams:
     # "--cookies", "youtube_cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
@@ -37,8 +38,10 @@ args = [
 enabled = false
 
 # Arguments passed to livestream_dl. streammon appends the YouTube video ID.
-# Download cookies are intentionally manual here too. Add cookie args yourself
-# only if you knowingly want livestream_dl to receive them.
+# For member downloads with member_downloader="livestream_dl", streammon also
+# appends "--cookies cookies_file" unless these args already include cookies.
+# For fallback downloads, cookies remain manual unless the stream was found by
+# the member checker.
 args = [
     "--resolution", "best",
     "--threads", "4",
@@ -83,15 +86,22 @@ check_method = "live"
 # Default: "15m"
 fallback_duration = "15m"
 
-# cookies_file: Netscape-format YouTube cookies file for member checks only.
-# streammon uses this to discover members-only streams, but never adds it to
-# yt-dlp/livestream_dl download commands automatically.
+# cookies_file: Netscape-format YouTube cookies file for member checks.
+# streammon uses this to discover members-only streams. Member downloads also
+# pass this file to the configured member_downloader because cookies are
+# required for member streams.
 cookies_file = "youtube_cookies.txt"
 
 # member_check_all: Check YouTube members-only playlists for every configured channel.
 # Requires cookies for an account that legitimately has membership access.
 # Usually keep this false and set member_check=true only on channels you are membered to.
 member_check_all = false
+
+# member_downloader: Downloader used when a members-only stream is discovered.
+# Options:
+#   - "livestream_dl": Recommended for now; streammon passes cookies_file.
+#   - "yt-dlp": Uses [streammon].args and streammon passes cookies_file.
+member_downloader = "livestream_dl"
 
 # member_check_args: Advanced yt-dlp arguments used for members-only playlist checks.
 # These should emit playlist JSON while limiting how many recent entries are inspected.

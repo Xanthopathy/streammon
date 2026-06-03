@@ -13,8 +13,8 @@
 # Keep youtube_cookies.txt private. It grants access to your signed-in YouTube
 # account and must not be committed, uploaded, or shared.
 #
-# streammon uses this file for members-only stream discovery only. It does not
-# pass cookies to downloaders automatically because YouTube downloads with
-# yt-dlp cookies can stall indefinitely.
+# streammon uses this file for members-only stream discovery and downloads.
+# By default, member downloads use livestream_dl with this cookie file because
+# YouTube downloads with yt-dlp cookies can stall indefinitely.
 #
 # Netscape HTTP Cookie File

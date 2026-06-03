@@ -113,6 +113,7 @@ func CheckYouTubeViaMembersPlaylist(
 			VideoID:   entry.ID,
 			Title:     entry.Title,
 			CreatedAt: time.Now(),
+			Source:    models.LiveSourceMembers,
 		}, nil
 	}
 

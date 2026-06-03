@@ -63,6 +63,7 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "fallback_duration"}, defaults.Scraper.FallbackDuration)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "cookies_file"}, defaults.Scraper.CookiesFile)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_all"}, defaults.Scraper.MemberCheckAll)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_downloader"}, defaults.Scraper.MemberDownloader)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_args"}, defaults.Scraper.MemberCheckArgs)
 
 	if strings.TrimSpace(cfg.StreamMon.WorkingDirectory) == "" {
@@ -87,6 +88,11 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	if cfg.Scraper.CheckMethod != "rss" && cfg.Scraper.CheckMethod != "live" {
 		addInvalidWarning(&warnings, path, "scraper.check_method", cfg.Scraper.CheckMethod, defaults.Scraper.CheckMethod, `must be "rss" or "live"`)
 		cfg.Scraper.CheckMethod = defaults.Scraper.CheckMethod
+	}
+	cfg.Scraper.MemberDownloader = strings.TrimSpace(cfg.Scraper.MemberDownloader)
+	if cfg.Scraper.MemberDownloader != "livestream_dl" && cfg.Scraper.MemberDownloader != "yt-dlp" {
+		addInvalidWarning(&warnings, path, "scraper.member_downloader", cfg.Scraper.MemberDownloader, defaults.Scraper.MemberDownloader, `must be "livestream_dl" or "yt-dlp"`)
+		cfg.Scraper.MemberDownloader = defaults.Scraper.MemberDownloader
 	}
 	if usesYouTubeMemberChecks(cfg) && strings.TrimSpace(cfg.Scraper.CookiesFile) == "" {
 		addInvalidWarning(&warnings, path, "scraper.cookies_file", cfg.Scraper.CookiesFile, defaults.Scraper.CookiesFile, "must not be empty when member checks are enabled")

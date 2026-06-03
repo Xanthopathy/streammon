@@ -45,6 +45,7 @@ type YTConfig struct {
 		FallbackDuration     string   `toml:"fallback_duration"`
 		CookiesFile          string   `toml:"cookies_file"`
 		MemberCheckAll       bool     `toml:"member_check_all"`
+		MemberDownloader     string   `toml:"member_downloader"`
 		MemberCheckArgs      []string `toml:"member_check_args"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`

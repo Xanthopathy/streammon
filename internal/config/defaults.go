@@ -47,6 +47,7 @@ func GetDefaultYTConfig() *YTConfig {
 			FallbackDuration     string   `toml:"fallback_duration"`
 			CookiesFile          string   `toml:"cookies_file"`
 			MemberCheckAll       bool     `toml:"member_check_all"`
+			MemberDownloader     string   `toml:"member_downloader"`
 			MemberCheckArgs      []string `toml:"member_check_args"`
 		}{
 			PollInterval:         "60s",
@@ -56,6 +57,7 @@ func GetDefaultYTConfig() *YTConfig {
 			FallbackDuration:     "15m",
 			CookiesFile:          "youtube_cookies.txt",
 			MemberCheckAll:       false,
+			MemberDownloader:     "livestream_dl",
 			MemberCheckArgs: []string{
 				"--flat-playlist",
 				"--playlist-items", "1:3",

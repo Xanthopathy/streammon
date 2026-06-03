@@ -135,6 +135,7 @@ In `streammon_config_yt.toml`:
 | `fallback_duration`       | How long YouTube sticks to the fallback method after it works.     |
 | `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams. |
 | `max_requests_per_second` | Safety limit for channel checks.                                   |
+| `member_downloader`       | Downloader used for members-only streams: `"livestream_dl"` or `"yt-dlp"`. |
 
 The optional `[livestream_dl]` block enables one `livestream_dl` retry after a
 failed YouTube `yt-dlp` download. Leave it disabled unless `livestream_dl` is
@@ -144,11 +145,11 @@ For account-required or members-only YouTube streams, follow
 [yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),
 fill in `youtube_cookies.txt`, and keep that file private.
 
-`youtube_cookies.txt` is used by streammon for members-only stream checks only.
-streammon does not add cookies to YouTube download commands automatically because
-YouTube downloads with yt-dlp cookies can stall indefinitely. If you knowingly
-want downloader cookies, add `--cookies` or `--cookies-from-browser` yourself in
-the relevant downloader `args`.
+`youtube_cookies.txt` is used by streammon for members-only stream checks and
+members-only downloads. When a members-only stream is found, streammon passes
+`youtube_cookies.txt` to the configured `member_downloader`. The default is
+`livestream_dl`, because YouTube downloads with yt-dlp cookies can stall
+indefinitely, but you can set `member_downloader = "yt-dlp"` if you prefer.
 
 In `streammon_config_twitch.toml`:
 
