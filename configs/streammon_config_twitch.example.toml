@@ -1,14 +1,8 @@
 [streammon]
-# working_directory: Where downloaded Twitch streams are saved.
-# Use relative paths (from current directory) or absolute paths.
-# Examples:
-#   - "download_twitch"              (current directory)
-#   - "../downloads/twitch"          (parent directory)
-#   - "../../streams/archive"        (two levels up)
+# Where downloaded Twitch streams are saved.
 working_directory = "download_twitch"
 
-# Arguments passed to twitch-dlp. (See https://github.com/DmitryScaletta/twitch-dlp)
-# You can comment out lines using '#' to disable specific flags.
+# Arguments passed to twitch-dlp.
 args = [
     "--live-from-start",
     "--retry-streams", "60",
@@ -16,24 +10,14 @@ args = [
 ]
 
 [scraper]
-# poll_interval: How often to check each channel for new/live streams.
-# This is your "freshness target" - how frequently you want to detect new streams.
-# Spread intelligently: A monitor with 40 channels at poll_interval=60s will space
-# individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
-# Lower = more responsive but higher load. Recommended range: 30s-180s depending on channel count.
+# How often to check the full channel list.
 poll_interval = "30s"
 
-# max_requests_per_second: Rate limit for API checks (default: 2)
-# Balances freshness with detection avoidance. Example:
-#  + 40 channels @ 2 RPS = minimum 20s between request waves
-#  + Actual spacing = max(poll_interval / channels, 1 / max_requests_per_second)
-# Twitch is generally more lenient than YouTube, but it's still good practice.
+# Rate limit for channel checks.
 max_requests_per_second = 2
 
 # ========================== Channels ========================== #
-# Common filter presets (Copy-paste these into channel filters)
-# All: [".*"]
-# Common keywords for yabai streams: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+# Use filters = [".*"] to download every live stream.
 
 # Example:
 # [[channel]]

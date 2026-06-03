@@ -124,18 +124,50 @@ In `streammon_config.toml`:
 | `youtube_dlp_verbose_debug` / `twitch_dlp_verbose_debug` | Show raw downloader output in the terminal.                                                                        |
 | `youtube_api_verbose_debug` / `twitch_api_verbose_debug` | Show detailed API/RSS checks. Usually leave off unless debugging.                                                  |
 
+`timezone` accepts IANA names like `"UTC"`, `"America/New_York"`,
+`"Europe/London"`, or `"Asia/Tokyo"`. Fixed offsets like `"UTC-5"` and
+`"UTC+3"` also work.
+
+`subprocess_progress_interval` and `subprocess_wait_interval` are in seconds.
+Set progress interval to `0` to log every progress update, or increase it if
+download logs are too noisy.
+
 In `streammon_config_yt.toml`:
 
-| Setting                   | What it does                                                       |
-| ------------------------- | ------------------------------------------------------------------ |
-| `working_directory`       | Where YouTube files go.                                            |
-| `args`                    | Arguments passed to `yt-dlp`.                                      |
-| `poll_interval`           | Delay between full channel-list checks.                            |
-| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.         |
-| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.     |
-| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams. |
-| `max_requests_per_second` | Safety limit for channel checks.                                   |
+| Setting                   | What it does                                                               |
+| ------------------------- | -------------------------------------------------------------------------- |
+| `working_directory`       | Where YouTube files go.                                                    |
+| `args`                    | Arguments passed to `yt-dlp`.                                              |
+| `poll_interval`           | Delay between full channel-list checks.                                    |
+| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.                 |
+| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.             |
+| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.         |
+| `max_requests_per_second` | Safety limit for channel checks.                                           |
 | `member_downloader`       | Downloader used for members-only streams: `"livestream_dl"` or `"yt-dlp"`. |
+
+`working_directory` can be relative to where you run streammon, or absolute.
+Examples:
+
+```toml
+working_directory = "download_yt"
+working_directory = "../downloads/youtube"
+working_directory = "C:\\Archives\\YouTube"
+working_directory = "/mnt/media/youtube"
+```
+
+`poll_interval` is the freshness target for a full channel-list check. streammon
+spreads individual channel requests across that interval while also respecting
+`max_requests_per_second`. For example, 40 channels at `poll_interval = "60s"`
+spaces checks about 1.5 seconds apart, unless the RPS limit forces a slower
+cycle. Lower intervals detect streams sooner but create more traffic.
+
+For YouTube, be cautious with high request rates. If YouTube softblocks or
+rate-limits checks, back off and give it time before trying again.
+
+`check_method = "rss"` is lower bandwidth but can lag behind YouTube updates. Also likes to go down for a couple hours, but that happens during downtime (when americans are asleep).
+`check_method = "live"` checks the channel `/live` page and is usually more
+direct, but heavier. If the configured method fails, streammon tries the other
+method and keeps using a working fallback for `fallback_duration`.
 
 The optional `[livestream_dl]` block enables one `livestream_dl` retry after a
 failed YouTube `yt-dlp` download. Leave it disabled unless `livestream_dl` is
@@ -151,6 +183,11 @@ members-only downloads. When a members-only stream is found, streammon passes
 `livestream_dl`, because YouTube downloads with yt-dlp cookies can stall
 indefinitely, but you can set `member_downloader = "yt-dlp"` if you prefer.
 
+`member_check_all = true` runs the members-only playlist check for every
+configured YouTube channel. It is convenient, but heavier and noisier if you
+track channels you are not membered to. The more precise setup is to leave it
+false and set `member_check = true` only on specific `[[channel]]` entries.
+
 In `streammon_config_twitch.toml`:
 
 | Setting                   | What it does                            |
@@ -159,6 +196,10 @@ In `streammon_config_twitch.toml`:
 | `args`                    | Arguments passed to `twitch-dlp`.       |
 | `poll_interval`           | Delay between full channel-list checks. |
 | `max_requests_per_second` | Safety limit for GraphQL checks.        |
+
+Twitch uses the same `working_directory`, `poll_interval`, and
+`max_requests_per_second` ideas as YouTube. Twitch is generally more lenient
+than YouTube, but keeping a reasonable request rate is still good practice.
 
 ## What The Logs Mean
 

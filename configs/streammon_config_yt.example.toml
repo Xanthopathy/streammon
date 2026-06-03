@@ -1,16 +1,8 @@
 [streammon]
-# working_directory: Where downloaded YouTube streams are saved.
-# Use relative paths (from current directory) or absolute paths.
-# Examples:
-#   - "download_yt"                  (current directory)
-#   - "../downloads/youtube"         (parent directory)
-#   - "../../streams/archive"        (two levels up)
-#   - "C:\\Archives\\YouTube"       (absolute Windows path)
-#   - "/mnt/media/youtube"           (absolute Linux path)
+# Where downloaded YouTube streams are saved.
 working_directory = "download_yt"
 
-# Arguments passed to yt-dlp. (See https://github.com/yt-dlp/yt-dlp)
-# You can comment out lines using '#' to disable specific flags.
+# Arguments passed to yt-dlp.
 args = [
     "--wait-for-video", "60",
     "--live-from-start",
@@ -23,25 +15,16 @@ args = [
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
-    # Download cookies for regular streams are intentionally manual. For
-    # member streams, streammon appends cookies_file automatically because
-    # cookies are required.
-    # Add one of these only if you knowingly want cookies for regular streams:
+    # Cookies for regular streams are manual:
     # "--cookies", "youtube_cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
 
 [livestream_dl]
 # Optional fallback used once when a yt-dlp download fails.
-# Install from https://github.com/CanOfSocks/livestream_dl and make sure the
-# livestream_dl executable is available in PATH before enabling this.
 enabled = false
 
-# Arguments passed to livestream_dl. streammon appends the YouTube video ID.
-# For member downloads with member_downloader="livestream_dl", streammon also
-# appends "--cookies cookies_file" unless these args already include cookies.
-# For fallback downloads, cookies remain manual unless the stream was found by
-# the member checker.
+# Arguments passed to livestream_dl.
 args = [
     "--resolution", "best",
     "--threads", "4",
@@ -54,57 +37,31 @@ args = [
 ]
 
 [scraper]
-# ignore_older_than: Ignores videos whose rss entries has a longer [updated] field's time to now than the configured limit 
-# 24h default means it only downloads videos with an [updated] time within 24h of the time the app started
+# Ignore RSS entries older than this when streammon starts.
 ignore_older_than = "24h"
 
-# poll_interval: How often to check each channel for new/live streams.
-# This is your "freshness target" - how frequently you want to detect new streams.
-# Spread intelligently: A monitor with 40 channels at poll_interval=60s will space
-# individual API requests ~1.5s apart (using max_requests_per_second as the safety limit).
-# Lower = more responsive but higher load. Recommended range: 30s-180s depending on channel count.
-# YouTube RSS has soft rate limits; test your setup and monitor error logs.
+# How often to check the full channel list.
 poll_interval = "30s"
 
-# max_requests_per_second: Rate limit for API checks (default: 2)
-# Balances freshness with detection avoidance. Example:
-#  + 40 channels @ 2 RPS = minimum 20s between request waves
-#  + Actual spacing = max(poll_interval / channels, 1 / max_requests_per_second)
-# Increase cautiously if you get rate-limited; YouTube doesn't like bursts. (Wait an hour or more before running this app again if it softblocks)
+# Rate limit for channel checks.
 max_requests_per_second = 2
 
-# check_method: The default method to check for live streams.
-# Options:
-#   - "rss": Low bandwidth, relies on YouTube's RSS feed updating (can be delayed).
-#   - "live": Checks the channel's /live page. More accurate/real-time but heavier.
-# If the default method fails, the other method is tried automatically as a fallback.
+# Default live check method: "rss" or "live".
 check_method = "live"
 
-# fallback_duration: How long to stick to the fallback method after a failure.
-# If the primary method (e.g., RSS) fails, the system switches to the fallback (e.g., Live Page)
-# and stays there for this duration before trying the primary method again.
-# Default: "15m"
+# How long to keep using a working fallback check method.
 fallback_duration = "15m"
 
-# cookies_file: Netscape-format YouTube cookies file for member checks.
-# streammon uses this to discover members-only streams. Member downloads also
-# pass this file to the configured member_downloader because cookies are
-# required for member streams.
+# Netscape-format YouTube cookies file for member checks/downloads.
 cookies_file = "youtube_cookies.txt"
 
-# member_check_all: Check YouTube members-only playlists for every configured channel.
-# Requires cookies for an account that legitimately has membership access.
-# Usually keep this false and set member_check=true only on channels you are membered to.
+# Check members-only playlists for every channel.
 member_check_all = false
 
-# member_downloader: Downloader used when a members-only stream is discovered.
-# Options:
-#   - "livestream_dl": Recommended for now; streammon passes cookies_file.
-#   - "yt-dlp": Uses [streammon].args and streammon passes cookies_file.
+# Downloader for members-only streams: "livestream_dl" or "yt-dlp".
 member_downloader = "livestream_dl"
 
-# member_check_args: Advanced yt-dlp arguments used for members-only playlist checks.
-# These should emit playlist JSON while limiting how many recent entries are inspected.
+# yt-dlp args used for members-only playlist checks.
 member_check_args = [
     "--flat-playlist",
     "--playlist-items", "1:3",
@@ -122,6 +79,4 @@ member_check_args = [
 # id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
 # name = "Saya Sairroxs"
 # filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
-# member_check: Check this channel's members-only playlist using cookies_file.
-# Useful when you are membered to this channel but not every tracked channel.
 # member_check = false

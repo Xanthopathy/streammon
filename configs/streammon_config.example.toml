@@ -1,45 +1,37 @@
-# Timezone for timestamps in logs. Uses IANA Time Zone database names.
-# Examples: "UTC", "America/New_York", "Europe/London", "Asia/Tokyo"
-# You can also use fixed offsets like "UTC-5" or "UTC+3".
+# Timezone for timestamps in logs.
 timezone = "UTC"
 
-# Global limit for concurrent downloads (Not yet implemented in logic)
+# Global limit for concurrent downloads.
 max_concurrent_downloads = 10
 
-# Enable/disable monitors globally.
+# Enable or disable monitors globally.
 enable_youtube = true
 enable_twitch = true
 
-# General verbose debug flags (controls terminal output for that platform)
-# Overrides the granular debug flags below
+# General verbose debug flags for each platform.
 youtube_verbose_debug = true
 twitch_verbose_debug = true
 
-# Granular debug flags for Twitch (more precise control over terminal output)
-twitch_api_verbose_debug = false    # Show Twitch GraphQL API calls and responses
-twitch_dlp_verbose_debug = true     # Show raw twitch-dlp subprocess output
+# Granular debug flags for Twitch.
+twitch_api_verbose_debug = false
+twitch_dlp_verbose_debug = true
 
-# Granular debug flags for YouTube (more precise control over terminal output)
-youtube_api_verbose_debug = true   # Show YouTube RSS API calls and responses
-youtube_dlp_verbose_debug = true    # Show raw yt-dlp subprocess output
+# Granular debug flags for YouTube.
+youtube_api_verbose_debug = true
+youtube_dlp_verbose_debug = true
 
-# Archive downloaded video IDs to root-level youtube_archive.txt and twitch_archive.txt to prevent redundant redownloads.
+# Archive downloaded video IDs to prevent redundant redownloads.
 youtube_archive_downloads = true
 twitch_archive_downloads = true
 
-# Save logs from download processes (yt-dlp/twitch-dlp) to .log files in the download folder
+# Save downloader subprocess logs beside downloaded files.
 save_download_logs = true
 
-# How often to write subprocess progress lines to log files (in seconds)
-# Set to 0 to log every progress update (can be verbose)
-# Set to 1 or higher to throttle progress logging
+# Log subprocess progress lines at most this often, in seconds.
 subprocess_progress_interval = 30
 
-# How often to write subprocess progress lines to log files (in seconds)
-# Exclusively for [wait] Remaining time until next attempt: hh:mm:ss
+# Log downloader wait countdown lines at most this often, in seconds.
 subprocess_wait_interval = 600
 
-# Automatically delete old lockfiles (.lock-*) from working directories on startup.
-# This prevents "already queued" errors after a crash or forced restart.
-# Default: true
+# Delete old lockfiles from working directories on startup.
 clear_all_lockfiles = true
