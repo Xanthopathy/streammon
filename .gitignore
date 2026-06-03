@@ -1,11 +1,8 @@
-_old/
+*.exe
+*.zip
 build/
 download_twitch/
 download_yt/
-*.exe
-*.zip
-tree.bat
-notes.txt
 streammon_config.toml
 streammon_config_yt.toml
 streammon_config_twitch.toml
