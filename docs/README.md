@@ -128,9 +128,10 @@ In `streammon_config.toml`:
 `"Europe/London"`, or `"Asia/Tokyo"`. Fixed offsets like `"UTC-5"` and
 `"UTC+3"` also work.
 
-`subprocess_progress_interval` and `subprocess_wait_interval` are in seconds.
-Set progress interval to `0` to log every progress update, or increase it if
-download logs are too noisy.
+`subprocess_progress_interval` and `subprocess_wait_interval` are in seconds and
+apply to both `.log` files and terminal subprocess output. Set progress interval
+to `0` to log every progress update, or increase it if download logs are too
+noisy.
 
 In `streammon_config_yt.toml`:
 

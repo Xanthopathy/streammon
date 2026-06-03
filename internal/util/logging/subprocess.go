@@ -17,9 +17,9 @@ func (l *Logger) formatSubprocessLine(debugType, output string) string {
 		output)
 }
 
-// LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp)
-// Log files receive every subprocess line.
-// Terminal visibility is controlled by dlpDebug and progress throttling.
+// LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp).
+// Progress/wait lines are throttled for both log files and terminal output.
+// Terminal visibility is also controlled by dlpDebug.
 // debugType: the specific subprocess type (e.g., "yt-dlp", "twitch-dlp")
 func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	l.mu.Lock()
@@ -55,10 +55,10 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 		}
 	}
 
-	// Preserve every subprocess line in the download log
-	l.writeFileLine(line)
+	if shouldWrite {
+		l.writeFileLine(line)
+	}
 
-	// Throttle terminal output independently from file logging
 	if shouldWrite && l.dlpDebug {
 		fmt.Print(line)
 	}
