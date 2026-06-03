@@ -118,10 +118,6 @@ func (m *YTMonitor) cookiesFileAbs() string {
 	return absPath
 }
 
-func (m *YTMonitor) shouldUseCookiesForDownload(ch config.Channel) bool {
-	return m.cfg.Scraper.UseCookiesForDownloads || ch.UseCookiesForDownloads
-}
-
 func (m *YTMonitor) shouldCheckMembers(ch config.Channel) bool {
 	return m.cfg.Scraper.MemberCheckAll || ch.MemberCheck
 }

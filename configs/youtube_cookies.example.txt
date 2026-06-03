@@ -1,4 +1,4 @@
-# YouTube cookies for streammon
+# YouTube cookies for streammon member checks
 #
 # yt-dlp's persistent-cookie instructions:
 # https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies
@@ -12,5 +12,9 @@
 #
 # Keep youtube_cookies.txt private. It grants access to your signed-in YouTube
 # account and must not be committed, uploaded, or shared.
+#
+# streammon uses this file for members-only stream discovery only. It does not
+# pass cookies to downloaders automatically because YouTube downloads with
+# yt-dlp cookies can stall indefinitely.
 #
 # Netscape HTTP Cookie File

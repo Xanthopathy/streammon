@@ -23,7 +23,10 @@ args = [
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
-    # Manual alternative to cookies_file/use_cookies_for_downloads:
+    # Download cookies are intentionally manual. Passing YouTube cookies to
+    # yt-dlp can stall indefinitely, so streammon never adds them automatically.
+    # Add one of these only if you knowingly want downloader cookies:
+    # "--cookies", "youtube_cookies.txt",
     # "--cookies-from-browser", "firefox",
 ]
 
@@ -33,13 +36,9 @@ args = [
 # livestream_dl executable is available in PATH before enabling this.
 enabled = false
 
-# Add "--cookies cookies_file" to fallback downloads. This is independent from
-# scraper.use_cookies_for_downloads so the fallback can be configured separately.
-use_cookies = false
-
 # Arguments passed to livestream_dl. streammon appends the YouTube video ID.
-# With use_cookies=true, it also appends "--cookies cookies_file" unless these
-# args already include --cookies or --cookies-from-browser.
+# Download cookies are intentionally manual here too. Add cookie args yourself
+# only if you knowingly want livestream_dl to receive them.
 args = [
     "--resolution", "best",
     "--threads", "4",
@@ -84,16 +83,10 @@ check_method = "live"
 # Default: "15m"
 fallback_duration = "15m"
 
-# cookies_file: Netscape-format YouTube cookies file.
-# Used only when one of the cookie-backed settings below enables it.
+# cookies_file: Netscape-format YouTube cookies file for member checks only.
+# streammon uses this to discover members-only streams, but never adds it to
+# yt-dlp/livestream_dl download commands automatically.
 cookies_file = "youtube_cookies.txt"
-
-# use_cookies_for_downloads: Adds "--cookies cookies_file" to yt-dlp downloads.
-# Useful for account-required, age-gated, members-only, or random YouTube behavior.
-# Leave false if you manually put --cookies or --cookies-from-browser in [streammon].args.
-# Set this globally for every channel, or set use_cookies_for_downloads=true on only
-# the channels that need cookies.
-use_cookies_for_downloads = false
 
 # member_check_all: Check YouTube members-only playlists for every configured channel.
 # Requires cookies for an account that legitimately has membership access.
@@ -122,5 +115,3 @@ member_check_args = [
 # member_check: Check this channel's members-only playlist using cookies_file.
 # Useful when you are membered to this channel but not every tracked channel.
 # member_check = false
-# use_cookies_for_downloads: Use cookies for this channel's downloads only.
-# use_cookies_for_downloads = false

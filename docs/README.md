@@ -144,6 +144,12 @@ For account-required or members-only YouTube streams, follow
 [yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),
 fill in `youtube_cookies.txt`, and keep that file private.
 
+`youtube_cookies.txt` is used by streammon for members-only stream checks only.
+streammon does not add cookies to YouTube download commands automatically because
+YouTube downloads with yt-dlp cookies can stall indefinitely. If you knowingly
+want downloader cookies, add `--cookies` or `--cookies-from-browser` yourself in
+the relevant downloader `args`.
+
 In `streammon_config_twitch.toml`:
 
 | Setting                   | What it does                            |

@@ -55,7 +55,6 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "working_directory"}, defaults.StreamMon.WorkingDirectory)
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "args"}, defaults.StreamMon.Args)
 	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "enabled"}, defaults.LivestreamDL.Enabled)
-	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "use_cookies"}, defaults.LivestreamDL.UseCookies)
 	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "args"}, defaults.LivestreamDL.Args)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "poll_interval"}, defaults.Scraper.PollInterval)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "ignore_older_than"}, defaults.Scraper.IgnoreOlderThan)
@@ -63,7 +62,6 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "check_method"}, defaults.Scraper.CheckMethod)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "fallback_duration"}, defaults.Scraper.FallbackDuration)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "cookies_file"}, defaults.Scraper.CookiesFile)
-	addMissingWarning(&warnings, path, meta, []string{"scraper", "use_cookies_for_downloads"}, defaults.Scraper.UseCookiesForDownloads)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_all"}, defaults.Scraper.MemberCheckAll)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_args"}, defaults.Scraper.MemberCheckArgs)
 
@@ -90,8 +88,8 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 		addInvalidWarning(&warnings, path, "scraper.check_method", cfg.Scraper.CheckMethod, defaults.Scraper.CheckMethod, `must be "rss" or "live"`)
 		cfg.Scraper.CheckMethod = defaults.Scraper.CheckMethod
 	}
-	if usesYouTubeCookies(cfg) && strings.TrimSpace(cfg.Scraper.CookiesFile) == "" {
-		addInvalidWarning(&warnings, path, "scraper.cookies_file", cfg.Scraper.CookiesFile, defaults.Scraper.CookiesFile, "must not be empty when cookie-backed checks or downloads are enabled")
+	if usesYouTubeMemberChecks(cfg) && strings.TrimSpace(cfg.Scraper.CookiesFile) == "" {
+		addInvalidWarning(&warnings, path, "scraper.cookies_file", cfg.Scraper.CookiesFile, defaults.Scraper.CookiesFile, "must not be empty when member checks are enabled")
 		cfg.Scraper.CookiesFile = defaults.Scraper.CookiesFile
 	}
 	addChannelWarnings(&warnings, path, cfg.Channels)
@@ -100,12 +98,12 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	return warnings
 }
 
-func usesYouTubeCookies(cfg *YTConfig) bool {
-	if cfg.Scraper.UseCookiesForDownloads || cfg.Scraper.MemberCheckAll {
+func usesYouTubeMemberChecks(cfg *YTConfig) bool {
+	if cfg.Scraper.MemberCheckAll {
 		return true
 	}
 	for _, ch := range cfg.Channels {
-		if ch.UseCookiesForDownloads || ch.MemberCheck {
+		if ch.MemberCheck {
 			return true
 		}
 	}

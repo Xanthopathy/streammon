@@ -25,30 +25,27 @@ type StreamMonConfig struct {
 }
 
 type Channel struct {
-	ID                     string   `toml:"id"`
-	Name                   string   `toml:"name"`
-	Filters                []string `toml:"filters"`
-	MemberCheck            bool     `toml:"member_check"`
-	UseCookiesForDownloads bool     `toml:"use_cookies_for_downloads"`
+	ID          string   `toml:"id"`
+	Name        string   `toml:"name"`
+	Filters     []string `toml:"filters"`
+	MemberCheck bool     `toml:"member_check"`
 }
 
 type YTConfig struct {
 	StreamMon    StreamMonConfig `toml:"streammon"`
 	LivestreamDL struct {
-		Enabled    bool     `toml:"enabled"`
-		UseCookies bool     `toml:"use_cookies"`
-		Args       []string `toml:"args"`
+		Enabled bool     `toml:"enabled"`
+		Args    []string `toml:"args"`
 	} `toml:"livestream_dl"`
 	Scraper struct {
-		PollInterval           string   `toml:"poll_interval"`
-		IgnoreOlderThan        string   `toml:"ignore_older_than"`
-		MaxRequestsPerSecond   float64  `toml:"max_requests_per_second"`
-		CheckMethod            string   `toml:"check_method"`
-		FallbackDuration       string   `toml:"fallback_duration"`
-		CookiesFile            string   `toml:"cookies_file"`
-		UseCookiesForDownloads bool     `toml:"use_cookies_for_downloads"`
-		MemberCheckAll         bool     `toml:"member_check_all"`
-		MemberCheckArgs        []string `toml:"member_check_args"`
+		PollInterval         string   `toml:"poll_interval"`
+		IgnoreOlderThan      string   `toml:"ignore_older_than"`
+		MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
+		CheckMethod          string   `toml:"check_method"`
+		FallbackDuration     string   `toml:"fallback_duration"`
+		CookiesFile          string   `toml:"cookies_file"`
+		MemberCheckAll       bool     `toml:"member_check_all"`
+		MemberCheckArgs      []string `toml:"member_check_args"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

@@ -40,24 +40,22 @@ func GetDefaultYTConfig() *YTConfig {
 			},
 		},
 		Scraper: struct {
-			PollInterval           string   `toml:"poll_interval"`
-			IgnoreOlderThan        string   `toml:"ignore_older_than"`
-			MaxRequestsPerSecond   float64  `toml:"max_requests_per_second"`
-			CheckMethod            string   `toml:"check_method"`
-			FallbackDuration       string   `toml:"fallback_duration"`
-			CookiesFile            string   `toml:"cookies_file"`
-			UseCookiesForDownloads bool     `toml:"use_cookies_for_downloads"`
-			MemberCheckAll         bool     `toml:"member_check_all"`
-			MemberCheckArgs        []string `toml:"member_check_args"`
+			PollInterval         string   `toml:"poll_interval"`
+			IgnoreOlderThan      string   `toml:"ignore_older_than"`
+			MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
+			CheckMethod          string   `toml:"check_method"`
+			FallbackDuration     string   `toml:"fallback_duration"`
+			CookiesFile          string   `toml:"cookies_file"`
+			MemberCheckAll       bool     `toml:"member_check_all"`
+			MemberCheckArgs      []string `toml:"member_check_args"`
 		}{
-			PollInterval:           "60s",
-			IgnoreOlderThan:        "24h",
-			MaxRequestsPerSecond:   2,
-			CheckMethod:            "rss",
-			FallbackDuration:       "15m",
-			CookiesFile:            "youtube_cookies.txt",
-			UseCookiesForDownloads: false,
-			MemberCheckAll:         false,
+			PollInterval:         "60s",
+			IgnoreOlderThan:      "24h",
+			MaxRequestsPerSecond: 2,
+			CheckMethod:          "rss",
+			FallbackDuration:     "15m",
+			CookiesFile:          "youtube_cookies.txt",
+			MemberCheckAll:       false,
 			MemberCheckArgs: []string{
 				"--flat-playlist",
 				"--playlist-items", "1:3",
@@ -67,7 +65,6 @@ func GetDefaultYTConfig() *YTConfig {
 		},
 	}
 	cfg.LivestreamDL.Enabled = false
-	cfg.LivestreamDL.UseCookies = false
 	cfg.LivestreamDL.Args = []string{
 		"--resolution", "best",
 		"--threads", "4",
