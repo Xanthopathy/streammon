@@ -6,13 +6,15 @@ This is meant to replace the now deprecated [hoshinova](https://github.com/HoloA
 
 ## What You Need
 
-- `yt-dlp` in your `PATH`
-- FFmpeg in your `PATH`
-- Node.js, because Twitch downloads run through `npx twitch-dlp`
-- [`livestream_dl`](https://github.com/CanOfSocks/livestream_dl) in your `PATH` if you want members-only YouTube downloads, or if you enable the regular YouTube fallback path, or if you want it to be your main downloader entirely
-- Go 1.21+ only if you build from source
+- [FFmpeg](https://ffmpeg.org/) in your `PATH` for stream downloads.
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) in your `PATH` if you enable the YouTube monitor. streammon uses it for regular YouTube downloads and members-only playlist checks.
+- [livestream_dl](https://github.com/CanOfSocks/livestream_dl) in your `PATH` if you want members-only YouTube downloads, enable the regular YouTube fallback path, or set it as the main YouTube downloader.
+- [Node.js](https://nodejs.org/) and [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) if you enable the Twitch monitor. Twitch downloads run through `npx twitch-dlp`.
+- [Go 1.21+](https://go.dev/dl/) only if you build from source.
 
 Quick checks:
+
+Run the checks for the platform and downloader paths you enabled.
 
 ```powershell
 yt-dlp --version
@@ -42,16 +44,16 @@ On Linux or macOS:
 ./streammon
 ```
 
-From source:
+From source on any OS with Go installed, build or run directly:
 
-```powershell
-.\scripts\build.ps1
+```sh
+go build -o streammon ./cmd/streammon
 ```
 
 or:
 
-```powershell
-go run .\cmd\streammon\main.go
+```sh
+go run ./cmd/streammon
 ```
 
 ### 2. Edit the configs
@@ -94,7 +96,7 @@ filters = ["(?i).*(live|birthday).*"]      # title contains live or birthday
 filters = ["(?i)^.*(concert|3d).*"]        # title contains concert or 3d
 ```
 
-`(?i)` makes the match case-insensitive.
+Filters use Go regular expressions. See the [Go regexp syntax](https://pkg.go.dev/regexp/syntax) for the full pattern language. `(?i)` makes the match case-insensitive.
 
 ### 3. Run it in a terminal
 
@@ -253,7 +255,7 @@ If nothing downloads:
 1. Run from a terminal and check for `Config:` warnings.
 2. Confirm the platform is enabled in `streammon_config.toml`.
 3. Temporarily remove `filters` from one channel to prove detection works.
-4. Check that `yt-dlp`, `ffmpeg`, `node`, and `npx -y twitch-dlp --help` work.
+4. Check the tools for the enabled platform: `yt-dlp` / `livestream_dl` for YouTube, or `node` and `npx -y twitch-dlp --help` for Twitch.
 5. Turn on the relevant API debug flag only while testing.
 
 If YouTube misses streams:
@@ -271,3 +273,11 @@ If your logs are too noisy:
 
 - Set `youtube_dlp_verbose_debug = false` and `twitch_dlp_verbose_debug = false`.
 - Increase `subprocess_progress_interval` and `subprocess_wait_interval`.
+
+## Maintainer Notes
+
+`scripts/build.ps1` is for publishing releases, not normal local builds. It creates a `build/` folder with Windows, Linux, and macOS release folders, copies the example configs into each folder with their runtime filenames, and writes zip archives for each target.
+
+```powershell
+.\scripts\build.ps1 -Clean
+```
