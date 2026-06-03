@@ -144,6 +144,7 @@ In `streammon_config_yt.toml`:
 | `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.         |
 | `max_requests_per_second` | Safety limit for channel checks.                                           |
 | `member_downloader`       | Downloader used for members-only streams: `"livestream_dl"` or `"yt-dlp"`. |
+| `download_wait_retries` | Stop a stalled YouTube downloader after this many `[wait]` retry lines. |
 
 `working_directory` can be relative to where you run streammon, or absolute.
 Examples:
@@ -182,6 +183,12 @@ members-only downloads. When a members-only stream is found, streammon passes
 `youtube_cookies.txt` to the configured `member_downloader`. The default is
 `livestream_dl`, because YouTube downloads with yt-dlp cookies can stall
 indefinitely, but you can set `member_downloader = "yt-dlp"` if you prefer.
+
+streammon watches YouTube downloaders for repeated `[wait]` lines. After
+`download_wait_retries` wait lines, it stops the downloader. If the stalled
+process was `yt-dlp`, normal fallback handling can then try `livestream_dl`; for
+member streams, that fallback uses `youtube_cookies.txt`. Set the value to `0`
+to disable this stall guard.
 
 `member_check_all = true` runs the members-only playlist check for every
 configured YouTube channel. It is convenient, but heavier and noisier if you

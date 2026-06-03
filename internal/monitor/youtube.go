@@ -122,6 +122,10 @@ func (m *YTMonitor) shouldCheckMembers(ch config.Channel) bool {
 	return m.cfg.Scraper.MemberCheckAll || ch.MemberCheck
 }
 
+func (m *YTMonitor) GetDownloadWaitRetries() int {
+	return m.cfg.Scraper.DownloadWaitRetries
+}
+
 // LogStats prints a summary of any failures/swaps that occurred during the check loop.
 // It should be called by the main loop after checkAllChannels completes.
 func (m *YTMonitor) LogStats() {

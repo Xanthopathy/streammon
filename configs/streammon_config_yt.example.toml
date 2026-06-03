@@ -61,6 +61,9 @@ member_check_all = false
 # Downloader for members-only streams: "livestream_dl" or "yt-dlp".
 member_downloader = "livestream_dl"
 
+# Stop a downloader after this many [wait] retry lines. 0 disables this.
+download_wait_retries = 3
+
 # yt-dlp args used for members-only playlist checks.
 member_check_args = [
     "--flat-playlist",

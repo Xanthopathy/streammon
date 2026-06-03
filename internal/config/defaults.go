@@ -48,6 +48,7 @@ func GetDefaultYTConfig() *YTConfig {
 			CookiesFile          string   `toml:"cookies_file"`
 			MemberCheckAll       bool     `toml:"member_check_all"`
 			MemberDownloader     string   `toml:"member_downloader"`
+			DownloadWaitRetries  int      `toml:"download_wait_retries"`
 			MemberCheckArgs      []string `toml:"member_check_args"`
 		}{
 			PollInterval:         "60s",
@@ -58,6 +59,7 @@ func GetDefaultYTConfig() *YTConfig {
 			CookiesFile:          "youtube_cookies.txt",
 			MemberCheckAll:       false,
 			MemberDownloader:     "livestream_dl",
+			DownloadWaitRetries:  3,
 			MemberCheckArgs: []string{
 				"--flat-playlist",
 				"--playlist-items", "1:3",

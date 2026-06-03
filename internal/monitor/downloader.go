@@ -39,6 +39,11 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	mergerDetected := &atomic.Bool{}
 
 	downloadCompleted := &atomic.Bool{}
+	downloadWaitRetries := 0
+	if controller, ok := b.controller.(interface{ GetDownloadWaitRetries() int }); ok {
+		downloadWaitRetries = controller.GetDownloadWaitRetries()
+	}
+	var proc *downloadProcess
 
 	// Callback to detect waiting state and completion markers from subprocess output
 	outputCallback := func(line string) {
@@ -47,6 +52,32 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		} else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
 			// If we see active download progress, we are no longer waiting.
 			isWaiting.Store(false)
+			if proc != nil && proc.downloadWaitCount != nil {
+				proc.downloadWaitCount.Store(0)
+			}
+		}
+
+		if proc != nil &&
+			proc.downloadWaitCount != nil &&
+			proc.downloadWaitTriggered != nil &&
+			downloadWaitRetries > 0 &&
+			strings.Contains(line, "[wait]") {
+			count := proc.downloadWaitCount.Add(1)
+			if int(count) >= downloadWaitRetries && proc.downloadWaitTriggered.CompareAndSwap(false, true) {
+				proc.logger.LogRegular(fmt.Sprintf(
+					"%s is still waiting on %s%s%s after %d wait lines. Stopping it.",
+					proc.downloaderName,
+					ansi.ColorOrange,
+					ch.Name,
+					ansi.ColorReset,
+					count,
+				))
+				if proc.cmd != nil && proc.cmd.Process != nil {
+					if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
+						proc.cmd.Process.Kill()
+					}
+				}
+			}
 		}
 
 		// Track successful completion markers from yt-dlp post-processing.
@@ -146,17 +177,19 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		logger.LogSubprocessOutput("COMMAND: "+commandStr, downloaderName)
 	}
 
-	proc := &downloadProcess{
-		cmd:               cmd,
-		videoID:           status.VideoID,
-		downloaderName:    downloaderName,
-		lockPath:          lockPath,
-		logger:            logger,
-		isWaiting:         isWaiting,
-		mergerDetected:    mergerDetected,
-		downloadCompleted: downloadCompleted,
-		status:            status,
-		outputCallback:    outputCallback,
+	proc = &downloadProcess{
+		cmd:                   cmd,
+		videoID:               status.VideoID,
+		downloaderName:        downloaderName,
+		lockPath:              lockPath,
+		logger:                logger,
+		isWaiting:             isWaiting,
+		mergerDetected:        mergerDetected,
+		downloadCompleted:     downloadCompleted,
+		downloadWaitCount:     &atomic.Int32{},
+		downloadWaitTriggered: &atomic.Bool{},
+		status:                status,
+		outputCallback:        outputCallback,
 	}
 
 	// Start command

@@ -46,6 +46,7 @@ type YTConfig struct {
 		CookiesFile          string   `toml:"cookies_file"`
 		MemberCheckAll       bool     `toml:"member_check_all"`
 		MemberDownloader     string   `toml:"member_downloader"`
+		DownloadWaitRetries  int      `toml:"download_wait_retries"`
 		MemberCheckArgs      []string `toml:"member_check_args"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`

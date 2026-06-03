@@ -64,6 +64,7 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "cookies_file"}, defaults.Scraper.CookiesFile)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_all"}, defaults.Scraper.MemberCheckAll)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_downloader"}, defaults.Scraper.MemberDownloader)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "download_wait_retries"}, defaults.Scraper.DownloadWaitRetries)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_args"}, defaults.Scraper.MemberCheckArgs)
 
 	if strings.TrimSpace(cfg.StreamMon.WorkingDirectory) == "" {
@@ -93,6 +94,10 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	if cfg.Scraper.MemberDownloader != "livestream_dl" && cfg.Scraper.MemberDownloader != "yt-dlp" {
 		addInvalidWarning(&warnings, path, "scraper.member_downloader", cfg.Scraper.MemberDownloader, defaults.Scraper.MemberDownloader, `must be "livestream_dl" or "yt-dlp"`)
 		cfg.Scraper.MemberDownloader = defaults.Scraper.MemberDownloader
+	}
+	if cfg.Scraper.DownloadWaitRetries < 0 {
+		addInvalidWarning(&warnings, path, "scraper.download_wait_retries", cfg.Scraper.DownloadWaitRetries, defaults.Scraper.DownloadWaitRetries, "must be 0 or greater")
+		cfg.Scraper.DownloadWaitRetries = defaults.Scraper.DownloadWaitRetries
 	}
 	if usesYouTubeMemberChecks(cfg) && strings.TrimSpace(cfg.Scraper.CookiesFile) == "" {
 		addInvalidWarning(&warnings, path, "scraper.cookies_file", cfg.Scraper.CookiesFile, defaults.Scraper.CookiesFile, "must not be empty when member checks are enabled")

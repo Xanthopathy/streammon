@@ -56,10 +56,10 @@ func (m *YTMonitor) buildLivestreamDLCmd(status models.LiveInfo, includeCookies 
 
 // BuildFallbackDownloaderCmd constructs the optional livestream_dl fallback.
 func (m *YTMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status models.LiveInfo) (*exec.Cmd, string, bool) {
-	if !m.cfg.LivestreamDL.Enabled {
+	isMemberStream := status.Source == models.LiveSourceMembers
+	if !m.cfg.LivestreamDL.Enabled && !isMemberStream {
 		return nil, "", false
 	}
 
-	includeCookies := status.Source == models.LiveSourceMembers
-	return m.buildLivestreamDLCmd(status, includeCookies), "livestream_dl", true
+	return m.buildLivestreamDLCmd(status, isMemberStream), "livestream_dl", true
 }

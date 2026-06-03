@@ -54,5 +54,11 @@ func (b *BaseMonitor) startFallbackDownload(ch config.Channel, proc *downloadPro
 	proc.startedAt = time.Now()
 	proc.mergerDetected.Store(false)
 	proc.downloadCompleted.Store(false)
+	if proc.downloadWaitCount != nil {
+		proc.downloadWaitCount.Store(0)
+	}
+	if proc.downloadWaitTriggered != nil {
+		proc.downloadWaitTriggered.Store(false)
+	}
 	return true
 }
