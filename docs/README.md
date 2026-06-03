@@ -1,15 +1,15 @@
 # streammon
 
-streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp) or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
+streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp), [livestream_dl](https://github.com/CanOfSocks/livestream_dl), or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
 
-This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). It can optionally use [livestream_dl](https://github.com/CanOfSocks/livestream_dl) as a fallback if the base `yt-dlp` download fails.
+This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). As of v1.1.0, `livestream_dl` is the default members-only YouTube downloader and can also be used as a fallback if a regular `yt-dlp` download fails.
 
 ## What You Need
 
 - `yt-dlp` in your `PATH`
 - FFmpeg in your `PATH`
 - Node.js, because Twitch downloads run through `npx twitch-dlp`
-- Optional: [`livestream_dl`](https://github.com/CanOfSocks/livestream_dl) in your `PATH` for YouTube fallback downloads
+- [`livestream_dl`](https://github.com/CanOfSocks/livestream_dl) in your `PATH` if you want members-only YouTube downloads, or if you enable the regular YouTube fallback path, or if you want it to be your main downloader entirely
 - Go 1.21+ only if you build from source
 
 Quick checks:
@@ -19,6 +19,7 @@ yt-dlp --version
 ffmpeg -version
 node --version
 npx -y twitch-dlp --help
+livestream_dl --help
 ```
 
 ## Get It Running
@@ -70,6 +71,7 @@ YouTube channel example:
 id = "UCFzQd4pZ43ZNEdWBFe7QOKA" # UC...
 name = "Saya Sairroxs"
 filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+member_check = false
 ```
 
 Twitch channel example:
@@ -135,17 +137,17 @@ noisy.
 
 In `streammon_config_yt.toml`:
 
-| Setting                   | What it does                                                               |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `working_directory`       | Where YouTube files go.                                                    |
-| `args`                    | Arguments passed to `yt-dlp`.                                              |
-| `poll_interval`           | Delay between full channel-list checks.                                    |
-| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.                 |
-| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.             |
-| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.         |
-| `max_requests_per_second` | Safety limit for channel checks.                                           |
-| `member_downloader`       | Downloader used for members-only streams: `"livestream_dl"` or `"yt-dlp"`. |
-| `download_wait_retries` | Stop a stalled YouTube downloader after this many `[wait]` retry lines. |
+| Setting                   | What it does                                                            |
+| ------------------------- | ----------------------------------------------------------------------- |
+| `working_directory`       | Where YouTube files go.                                                 |
+| `args`                    | Arguments passed to `yt-dlp`.                                           |
+| `poll_interval`           | Delay between full channel-list checks.                                 |
+| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.              |
+| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.          |
+| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.      |
+| `max_requests_per_second` | Safety limit for channel checks.                                        |
+| `member_downloader`       | Downloader used for members-only streams. Default: `"livestream_dl"`.   |
+| `download_wait_retries`   | Stop a stalled YouTube downloader after this many `[wait]` retry lines. |
 
 `working_directory` can be relative to where you run streammon, or absolute.
 Examples:
@@ -171,9 +173,10 @@ rate-limits checks, back off and give it time before trying again.
 direct, but heavier. If the configured method fails, streammon tries the other
 method and keeps using a working fallback for `fallback_duration`.
 
-The optional `[livestream_dl]` block enables one `livestream_dl` retry after a
-failed YouTube `yt-dlp` download. Leave it disabled unless `livestream_dl` is
-installed and available in your `PATH`.
+The `[livestream_dl]` block has two jobs. Its `args` are used when
+`member_downloader = "livestream_dl"` downloads a members-only stream. Its
+`enabled` flag controls only the optional regular-stream fallback: one
+`livestream_dl` retry after a failed public YouTube `yt-dlp` download.
 
 For account-required or members-only YouTube streams, follow
 [yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),
@@ -181,9 +184,11 @@ fill in `youtube_cookies.txt`, and keep that file private.
 
 `youtube_cookies.txt` is used by streammon for members-only stream checks and
 members-only downloads. When a members-only stream is found, streammon passes
-`youtube_cookies.txt` to the configured `member_downloader`. The default is
-`livestream_dl`, because YouTube downloads with yt-dlp cookies can stall
-indefinitely, but you can set `member_downloader = "yt-dlp"` if you prefer.
+`youtube_cookies.txt` to the configured `member_downloader`. Both `yt-dlp` and
+`livestream_dl` work for regular public streams, but members-only streams are
+different: `yt-dlp` with YouTube cookies currently tends to stall there, while
+`livestream_dl` can handle that path. That is why `member_downloader` defaults
+to `livestream_dl`.
 
 streammon watches YouTube downloaders for repeated `[wait]` lines. After
 `download_wait_retries` wait lines, it stops the downloader. If the stalled
@@ -213,7 +218,7 @@ than YouTube, but keeping a reasonable request rate is still good practice.
 
 - `is now LIVE`: the stream passed your filters and is eligible for download.
 - `has gone offline`: the platform says the stream ended.
-- `skipped: found in archive`: the stream ID is already in `archive.txt`.
+- `skipped: found in archive`: the stream ID is already in `youtube_archive.txt` or `twitch_archive.txt`.
 - `already queued/downloading`: a `.lock-*` file exists for that stream.
 - `Connection lost (confirmed)`: checks pause until the connection is stable again.
 - `Config:` warnings: a config key is missing, invalid, or unknown. streammon tells you what default it used.
@@ -223,7 +228,7 @@ than YouTube, but keeping a reasonable request rate is still good practice.
 
 streammon uses three layers:
 
-- `archive.txt` remembers successful downloads across restarts.
+- `youtube_archive.txt` and `twitch_archive.txt` remember successful downloads across restarts.
 - An in-memory session cache prevents re-queueing a stream during the current run.
 - `.lock-*` files prevent multiple app instances from starting the same stream.
 
