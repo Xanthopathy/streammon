@@ -6,6 +6,7 @@ StreamMon is an automated orchestration tool that monitors YouTube and Twitch ch
 
 - **v1.0.8**: Widened network-error detection, fixed a connection-monitor broadcast deadlock during longer outages, and made `[Diagnostic]` log tags blue.
 - **v1.0.9**: Added config validation warnings, startup lockfile cleanup, safer YouTube fallback-state locking, fixed request-spacing math for fractional RPS values, logged return to normal poll intervals after errors clear, separated Twitch success diagnostics from YouTube merger checks, improved downloader wait/offline handling, and refactored utility packages without changing the external workflow.
+- **v1.1.0**: Adds root-level archive files with legacy migration, YouTube members-only discovery through cookie-backed playlist checks, scoped cookie use for member downloads, `livestream_dl` as the default members-only downloader plus optional public-stream fallback, stalled `[wait]` retry termination, safer pending-success handling for long YouTube streams, yt-dlp residue cleanup, fuller subprocess logs, and broader package splits for config, monitoring, download lifecycle, logging, UTC offsets, and lockfiles.
 
 ---
 
@@ -52,9 +53,10 @@ When the application starts (`main.go`):
    - Each monitor creates its configured `working_directory` if it doesn't exist
    - Example: `download_yt/` and `download_twitch/`
 
-3. **Load Archive.txt** (Platform-Specific, if enabled)
-   - If `youtube_archive_downloads: true`: Load `download_yt/archive.txt` into memory (`archivedVideos` map)
-   - If `twitch_archive_downloads: true`: Load `download_twitch/archive.txt` into memory (`archivedVideos` map)
+3. **Load Archive File** (Platform-Specific, if enabled)
+   - If `youtube_archive_downloads: true`: Load `youtube_archive.txt` from the application root into memory (`archivedVideos` map)
+   - If `twitch_archive_downloads: true`: Load `twitch_archive.txt` from the application root into memory (`archivedVideos` map)
+   - Legacy `{working_directory}/archive.txt` files are migrated automatically: moved when possible, or merged and removed when both old and new files exist
    - Archive contains successfully downloaded video IDs; persists across application restarts
    - Log message shows count of archived video IDs loaded
    - Safety mechanism: Previous downloads won't be re-attempted even if app restarts
@@ -92,6 +94,9 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
    - Poll interval from `streammon_config_yt.toml`
    - List of channels to monitor
    - yt-dlp arguments and working directory
+   - `livestream_dl` arguments for the default members-only downloader path and the optional public-stream fallback path
+   - Cookie/member-check settings: `cookies_file`, `member_check_all`, per-channel `member_check`, `member_downloader`, `member_check_args`
+   - `download_wait_retries` threshold for ending stalled wait loops
 3. Prints startup log with channel count and working directory
 
 ### 2. Continuous Polling Loop
@@ -144,6 +149,8 @@ For each configured YouTube channel:
    - If the first method fails with a non-network error, the other method is tried as fallback
    - If fallback succeeds, that fallback method is kept for the channel until `fallback_duration` expires
    - Fallback state is mutex-protected so concurrent channel checks cannot race the fallback map
+   - If regular checks report offline or all regular methods fail, and `member_check_all` or that channel's `member_check` is enabled, run a members-only playlist check through `yt-dlp`
+   - Member checks use `cookies_file` plus `member_check_args`, parse the returned playlist JSON, and mark matching live entries as `Source = "members"`
 
 2. **Handle Status Response**
    - **Error**: Log error, skip channel, continue
@@ -171,7 +178,7 @@ For each configured YouTube channel:
 2. **Pre-Flight Checks** (`tryStartDownload()`)
 
    a. **Archive Check**
-   - Check if this video ID exists in `archivedVideos` map (loaded from archive.txt at startup)
+   - Check if this video ID exists in `archivedVideos` map (loaded from the platform archive at startup)
    - If yes: Video was previously downloaded successfully; skip with log message "already downloaded in archive"
    - Purpose: Prevents re-downloading the same video across app restarts
 
@@ -230,8 +237,11 @@ For each configured YouTube channel:
    - Used for intelligent progress reporting and timeout handling
 
    e. **Build Downloader Command**
-   - YouTube uses `yt-dlp` with arguments from config
+   - Regular YouTube streams use `yt-dlp` with arguments from config
    - Command: `yt-dlp [args from config] https://www.youtube.com/watch?v={videoID}`
+   - Members-only streams use `member_downloader`, which defaults to `livestream_dl`; `yt-dlp` remains configurable but can stall with member cookies
+   - Cookies are added automatically only for members-only checks/downloads when the configured args do not already include `--cookies` or `--cookies-from-browser`
+   - Regular stream downloads do not auto-add cookies; cookies for public streams remain an explicit user config choice
    - Working directory: channel-specific directory
    - Env variables: Set `FORCE_COLOR=1` and `TERM=xterm-256color` to enable color output
 
@@ -279,6 +289,8 @@ For each configured YouTube channel:
      - This handles the yt-dlp quirk: exit code 1 with warnings but output file IS created
      - Previous implementation trusted exit codes → false positives when warnings occurred
      - New implementation verifies actual completion + file creation instead
+   - If yt-dlp fails and `livestream_dl.enabled` is true, the same download process tries a one-time `livestream_dl` fallback before releasing the slot or deleting the lockfile
+   - `livestream_dl` fallback success requires exit code 0 and a matching media file
    - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
 5. **Log Completion**
@@ -286,14 +298,16 @@ For each configured YouTube channel:
      - Provides visibility for debugging without affecting success logic
    - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
    - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
+   - **If `livestream_dl` fallback succeeds**: Log that the download finished successfully with the fallback downloader
    - **If failure** (one or both conditions missing):
      - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
      - Reasons list includes: "no_merger_detected" and/or "output_file_not_found"
 
 6. **Persist to Archive** (if `youtube_archive_downloads: true` and download succeeded)
-   - Append video ID to `archive.txt` file in working directory
+   - Append video ID to root-level `youtube_archive.txt`
    - Format: One video ID per line (same format as yt-dlp's archive file)
    - Purpose: Ensure video won't be re-downloaded even after app restart
+   - For normal YouTube completion, archiving waits until the next poll confirms the stream is no longer live; if the same video ID is still live, another download attempt is allowed instead of prematurely archiving a still-running stream
 
 7. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
@@ -306,6 +320,7 @@ For each configured YouTube channel:
 
 - If a download is **actively running** for the same stream ID, **ignore** the offline signal
 - If the subprocess is only waiting/retrying (`[retry-streams]`), mark it as forced termination and interrupt the process
+- If `[wait]` retry lines reach `download_wait_retries`, stop the stalled downloader wait loop; `0` disables this guard
 - Forced termination is treated as successful capture because meaningful data may already be on disk
 - This prevents premature abortion during API lag while still breaking out of endless retry/wait states after a stream really ends
 
@@ -399,7 +414,7 @@ For each configured Twitch channel:
 2. **Pre-Flight Checks** (`tryStartDownload()`)
 
    a. **Archive Check**
-   - Check if this broadcast/stream ID exists in `archivedVideos` map (loaded from archive.txt at startup)
+   - Check if this broadcast/stream ID exists in `archivedVideos` map (loaded from the platform archive at startup)
    - If yes: Stream was previously downloaded successfully; skip with log message
    - Purpose: Prevents re-downloading the same stream across app restarts
 
@@ -500,7 +515,7 @@ For each configured Twitch channel:
    - Failure reasons include `no_completion_detected` and/or `output_file_not_found`
 
 5. **Persist to Archive** (if `twitch_archive_downloads: true` and download succeeded)
-   - Append broadcast ID to `archive.txt` file in working directory
+   - Append broadcast ID to root-level `twitch_archive.txt`
    - Format: One broadcast ID per line
    - Purpose: Ensure broadcast won't be re-downloaded even after app restart
 
@@ -679,13 +694,14 @@ The system intelligently distinguishes between network errors and actual API err
 
 **Three-Layer Deduplication System:**
 
-- **Layer 1 - Archive File**: `{working_directory}/archive.txt"
+- **Layer 1 - Archive File**: root-level `youtube_archive.txt` or `twitch_archive.txt`
   - Persistent storage of successfully downloaded video IDs
   - Loaded into `archivedVideos` map at monitor startup
   - Appended to on every successful download
   - Survives application restarts and crashes
   - Prevents re-downloading the same video across any future app instance
-  - Note: Can be manually edited / reset by deleting archive.txt
+  - Legacy `{working_directory}/archive.txt` files are migrated into the root-level archive
+  - Note: Can be manually edited / reset by deleting the platform archive file
 
 - **Layer 2 - In-Memory Session Cache**: `downloadedVideos[channelID][videoID]`
   - Tracks downloads detected and downloaded in current app instance
@@ -704,7 +720,7 @@ The system intelligently distinguishes between network errors and actual API err
 **Deduplication Decision Tree:**
 
 ```
-Is video in archive.txt? (Persistent)
+Is video in platform archive file? (Persistent)
 ├─ YES: SKIP ✓ (prevent re-download across restarts)
 ├─ NO: Continue to next check
 │
@@ -717,7 +733,7 @@ Is lockfile present?
 ├─ NO: Continue to launch
 │
 LAUNCH DOWNLOAD ✓
-└─ On success: Add to archive.txt + session cache
+└─ On success: Add to platform archive file + session cache
 └─ On crash: Lockfile remains (will be detected on next app instance)
 ```
 
@@ -750,7 +766,7 @@ LAUNCH DOWNLOAD ✓
 
 **Archive Cache**: `map[videoID]bool`
 
-- Loaded from archive.txt at startup
+- Loaded from the platform archive file at startup
 - Protected by `archivedVidMu` (RWMutex)
 - Used for quick lookup of previously downloaded IDs
 
@@ -872,17 +888,28 @@ twitch_dlp_verbose_debug = true
 working_directory = "download_yt"
 args = ["--wait-for-video", "60", "--live-from-start", ...]
 
+[livestream_dl]
+# Used by default for members-only downloads; `enabled` controls only the public-stream fallback path.
+enabled = false
+args = ["--resolution", "best", "--threads", "4", "--segment-retries", "10", ...]
+
 [scraper]
 poll_interval = "120s"
 ignore_older_than = "24h"
 check_method = "rss"
 fallback_duration = "15m"
 max_requests_per_second = 2
+cookies_file = "youtube_cookies.txt"
+member_check_all = false
+member_downloader = "livestream_dl"
+download_wait_retries = 3
+member_check_args = ["--flat-playlist", "--playlist-items", "1:3", "--dump-single-json", "--no-warnings"]
 
 [[channel]]
 id = "UC..."
 name = "Channel Name"
 filters = ["(?i).*karaoke.*"]
+member_check = false
 ```
 
 ### Twitch Config (`streammon_config_twitch.toml`)
@@ -994,7 +1021,7 @@ This prevents resource leaks while the app remains running. If the whole app is 
 
 3. Spawn Monitors (YouTube + Twitch in parallel)
    ├─ For each monitor:
-   │  ├─ Load archive.txt into memory (if enabled)
+   │  ├─ Load platform archive file into memory (if enabled)
    │  ├─ Create working directory
    │  ├─ Subscribe to global connection monitor
    │  ├─ Start polling loop (check every {poll_interval})
@@ -1019,7 +1046,7 @@ This prevents resource leaks while the app remains running. If the whole app is 
       ├─ Wait for process exit
       ├─ Release semaphore slot
       ├─ Delete lockfile
-      ├─ Append video ID to archive.txt (if success)
+      ├─ Append video ID to platform archive file (if success)
       ├─ Update session cache
       └─ Close logger and clean up
 
