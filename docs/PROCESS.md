@@ -93,8 +93,10 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
 2. Retrieves YouTube-specific configuration:
    - Poll interval from `streammon_config_yt.toml`
    - List of channels to monitor
-   - yt-dlp arguments and working directory
-   - `livestream_dl` arguments for the default members-only downloader path and the optional public-stream fallback path
+   - Working directory under `[streammon]`
+   - Downloader-specific arguments under `[yt-dlp]` and `[livestream_dl]`
+   - `downloader_method` for regular YouTube stream downloads
+   - `livestream_dl` arguments for primary, fallback, and members-only downloader paths
    - Cookie/member-check settings: `cookies_file`, `member_check_all`, per-channel `member_check`, `member_downloader`, `member_check_args`
    - `download_wait_retries` threshold for ending stalled wait loops
 3. Prints startup log with channel count and working directory
@@ -237,8 +239,9 @@ For each configured YouTube channel:
    - Used for intelligent progress reporting and timeout handling
 
    e. **Build Downloader Command**
-   - Regular YouTube streams use `yt-dlp` with arguments from config
-   - Command: `yt-dlp [args from config] https://www.youtube.com/watch?v={videoID}`
+   - Regular YouTube streams use `downloader_method`, defaulting to `yt-dlp`
+   - `yt-dlp` command: `yt-dlp [yt-dlp.args] https://www.youtube.com/watch?v={videoID}`
+   - `livestream_dl` command: `livestream_dl [livestream_dl.args] {videoID}`
    - Members-only streams use `member_downloader`, which defaults to `livestream_dl`; `yt-dlp` remains configurable but can stall with member cookies
    - Cookies are added automatically only for members-only checks/downloads when the configured args do not already include `--cookies` or `--cookies-from-browser`
    - Regular stream downloads do not auto-add cookies; cookies for public streams remain an explicit user config choice
@@ -289,7 +292,9 @@ For each configured YouTube channel:
      - This handles the yt-dlp quirk: exit code 1 with warnings but output file IS created
      - Previous implementation trusted exit codes → false positives when warnings occurred
      - New implementation verifies actual completion + file creation instead
-   - If yt-dlp fails and `livestream_dl.enabled` is true, the same download process tries a one-time `livestream_dl` fallback before releasing the slot or deleting the lockfile
+   - If the primary downloader fails, the same download process can try the other YouTube downloader before releasing the slot or deleting the lockfile
+   - For regular `yt-dlp` primary downloads, `livestream_dl.enabled` controls whether `livestream_dl` fallback is attempted
+   - For regular `livestream_dl` primary downloads, fallback can try `yt-dlp`
    - `livestream_dl` fallback success requires exit code 0 and a matching media file
    - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
@@ -886,10 +891,13 @@ twitch_dlp_verbose_debug = true
 ```toml
 [streammon]
 working_directory = "download_yt"
+
+[yt-dlp]
 args = ["--wait-for-video", "60", "--live-from-start", ...]
 
 [livestream_dl]
-# Used by default for members-only downloads; `enabled` controls only the public-stream fallback path.
+# Used by downloader_method/member_downloader when selected.
+# `enabled` controls only fallback from regular yt-dlp downloads to livestream_dl.
 enabled = false
 args = ["--resolution", "best", "--threads", "4", "--segment-retries", "10", ...]
 
@@ -897,6 +905,7 @@ args = ["--resolution", "best", "--threads", "4", "--segment-retries", "10", ...
 poll_interval = "120s"
 ignore_older_than = "24h"
 check_method = "rss"
+downloader_method = "yt-dlp"
 fallback_duration = "15m"
 max_requests_per_second = 2
 cookies_file = "youtube_cookies.txt"
@@ -917,6 +926,8 @@ member_check = false
 ```toml
 [streammon]
 working_directory = "download_twitch"
+
+[twitch-dlp]
 args = ["--live-from-start", "--retry-streams", "60", ...]
 
 [scraper]

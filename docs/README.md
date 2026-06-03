@@ -140,9 +140,11 @@ In `streammon_config_yt.toml`:
 | Setting                   | What it does                                                            |
 | ------------------------- | ----------------------------------------------------------------------- |
 | `working_directory`       | Where YouTube files go.                                                 |
-| `args`                    | Arguments passed to `yt-dlp`.                                           |
+| `[yt-dlp].args`           | Arguments passed to `yt-dlp`.                                           |
+| `[livestream_dl].args`    | Arguments passed to `livestream_dl`.                                    |
 | `poll_interval`           | Delay between full channel-list checks.                                 |
 | `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.              |
+| `downloader_method`       | Regular-stream downloader: `"yt-dlp"` or `"livestream_dl"`.             |
 | `fallback_duration`       | How long YouTube sticks to the fallback method after it works.          |
 | `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.      |
 | `max_requests_per_second` | Safety limit for channel checks.                                        |
@@ -159,6 +161,10 @@ working_directory = "C:\\Archives\\YouTube"
 working_directory = "/mnt/media/youtube"
 ```
 
+Older configs that still put downloader `args` under `[streammon]` continue to
+work for now, but streammon will warn and prefer `[yt-dlp].args` or
+`[twitch-dlp].args`.
+
 `poll_interval` is the freshness target for a full channel-list check. streammon
 spreads individual channel requests across that interval while also respecting
 `max_requests_per_second`. For example, 40 channels at `poll_interval = "60s"`
@@ -173,10 +179,16 @@ rate-limits checks, back off and give it time before trying again.
 direct, but heavier. If the configured method fails, streammon tries the other
 method and keeps using a working fallback for `fallback_duration`.
 
+`downloader_method` controls the primary downloader for regular public YouTube
+streams. The default is `yt-dlp`; set it to `livestream_dl` if you want
+`livestream_dl` to be the main downloader instead. If the primary downloader
+fails, streammon can try the other downloader as a one-shot fallback.
+
 The `[livestream_dl]` block has two jobs. Its `args` are used when
+`downloader_method = "livestream_dl"` downloads a regular stream and when
 `member_downloader = "livestream_dl"` downloads a members-only stream. Its
-`enabled` flag controls only the optional regular-stream fallback: one
-`livestream_dl` retry after a failed public YouTube `yt-dlp` download.
+`enabled` flag controls only the optional fallback from a regular public
+`yt-dlp` download to `livestream_dl`.
 
 For account-required or members-only YouTube streams, follow
 [yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),
@@ -206,7 +218,7 @@ In `streammon_config_twitch.toml`:
 | Setting                   | What it does                            |
 | ------------------------- | --------------------------------------- |
 | `working_directory`       | Where Twitch files go.                  |
-| `args`                    | Arguments passed to `twitch-dlp`.       |
+| `[twitch-dlp].args`       | Arguments passed to `twitch-dlp`.       |
 | `poll_interval`           | Delay between full channel-list checks. |
 | `max_requests_per_second` | Safety limit for GraphQL checks.        |
 
