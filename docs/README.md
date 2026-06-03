@@ -76,6 +76,13 @@ filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*su
 member_check = false
 ```
 
+To find a YouTube channel ID, use `yt-dlp` against the channel handle or URL.
+streammon wants the `UC...` channel ID, not the `@handle`.
+
+```powershell
+yt-dlp --flat-playlist --playlist-items 1 --print "%(channel_id)s" "https://www.youtube.com/@SayaSairroxs"
+```
+
 Twitch channel example:
 
 ```toml
@@ -84,6 +91,9 @@ id = "sayasairroxs"
 name = "Saya Sairroxs"
 filters = [".*"]
 ```
+
+For Twitch, `id` is the channel login from the URL, such as `sayasairroxs` from
+`https://www.twitch.tv/sayasairroxs`.
 
 Leave `filters` empty or omit it to download every live stream for that channel.
 
