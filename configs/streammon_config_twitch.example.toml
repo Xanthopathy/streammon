@@ -2,6 +2,7 @@
 # Where downloaded Twitch streams are saved.
 working_directory = "download_twitch"
 
+[twitch-dlp]
 # Arguments passed to twitch-dlp.
 args = [
     "--live-from-start",

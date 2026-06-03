@@ -74,7 +74,8 @@ func (m *TwitchMonitor) CheckChannelStatus(ctx context.Context, ch config.Channe
 
 func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.twitch.tv/" + ch.ID
-	args := append(m.cfg.StreamMon.Args, url)
+	args := append([]string{}, m.cfg.TwitchDLP.Args...)
+	args = append(args, url)
 	npxArgs := append([]string{"-y", "twitch-dlp"}, args...)
 	cmd := exec.Command("npx", npxArgs...)
 	return cmd

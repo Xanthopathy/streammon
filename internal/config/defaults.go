@@ -28,6 +28,8 @@ func GetDefaultYTConfig() *YTConfig {
 	cfg := &YTConfig{
 		StreamMon: StreamMonConfig{
 			WorkingDirectory: "download_yt",
+		},
+		YTDLP: DownloaderConfig{
 			Args: []string{
 				"--wait-for-video", "60",
 				"--live-from-start",
@@ -44,6 +46,7 @@ func GetDefaultYTConfig() *YTConfig {
 			IgnoreOlderThan      string   `toml:"ignore_older_than"`
 			MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
 			CheckMethod          string   `toml:"check_method"`
+			DownloaderMethod     string   `toml:"downloader_method"`
 			FallbackDuration     string   `toml:"fallback_duration"`
 			CookiesFile          string   `toml:"cookies_file"`
 			MemberCheckAll       bool     `toml:"member_check_all"`
@@ -55,6 +58,7 @@ func GetDefaultYTConfig() *YTConfig {
 			IgnoreOlderThan:      "24h",
 			MaxRequestsPerSecond: 2,
 			CheckMethod:          "rss",
+			DownloaderMethod:     "yt-dlp",
 			FallbackDuration:     "15m",
 			CookiesFile:          "youtube_cookies.txt",
 			MemberCheckAll:       false,
@@ -87,6 +91,8 @@ func GetDefaultTwitchConfig() *TwitchConfig {
 	return &TwitchConfig{
 		StreamMon: StreamMonConfig{
 			WorkingDirectory: "download_twitch",
+		},
+		TwitchDLP: DownloaderConfig{
 			Args: []string{
 				"--live-from-start",
 				"--retry-streams", "60",

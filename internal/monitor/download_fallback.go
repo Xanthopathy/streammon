@@ -41,7 +41,7 @@ func (b *BaseMonitor) startFallbackDownload(ch config.Channel, proc *downloadPro
 	if len(cmd.Args) > 1 {
 		commandStr += " " + text.JoinCommandArgs(cmd.Args[1:])
 	}
-	proc.logger.LogRegular(fmt.Sprintf("yt-dlp failed for %s%s%s. Trying livestream_dl fallback.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+	proc.logger.LogRegular(fmt.Sprintf("%s failed for %s%s%s. Trying %s fallback.", proc.downloaderName, ansi.ColorOrange, ch.Name, ansi.ColorReset, downloaderName))
 	proc.logger.LogSubprocessOutput("COMMAND: "+commandStr, downloaderName)
 
 	if err := cmd.Start(); err != nil {

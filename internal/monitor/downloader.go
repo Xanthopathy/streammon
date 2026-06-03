@@ -195,7 +195,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// Start command
 	if err := cmd.Start(); err != nil {
 		logger.LogError(fmt.Sprintf("Error starting download for %s%s%s: %v", ansi.ColorOrange, ch.Name, ansi.ColorReset, err))
-		if downloaderName == "yt-dlp" && b.startFallbackDownload(ch, proc) {
+		if b.startFallbackDownload(ch, proc) {
 			b.activeDownloads[ch.ID] = proc
 			go b.waitForDownload(ch, proc)
 			return true

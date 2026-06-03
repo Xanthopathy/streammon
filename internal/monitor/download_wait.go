@@ -107,7 +107,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		if !outputFileExists {
 			failureReasons = append(failureReasons, "output_file_not_found")
 		}
-		if proc.downloaderName == "yt-dlp" && b.startFallbackDownload(ch, proc) {
+		if b.startFallbackDownload(ch, proc) {
 			go b.waitForDownload(ch, proc)
 			return
 		}

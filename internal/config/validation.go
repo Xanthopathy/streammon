@@ -52,14 +52,22 @@ func collectGlobalConfigWarnings(path string, meta toml.MetaData, cfg, defaults 
 func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTConfig) []ConfigWarning {
 	var warnings []ConfigWarning
 
+	if !meta.IsDefined("yt-dlp", "args") && meta.IsDefined("streammon", "args") {
+		cfg.YTDLP.Args = cfg.StreamMon.Args
+		addDeprecatedWarning(&warnings, path, "streammon.args", "yt-dlp.args")
+	}
+
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "working_directory"}, defaults.StreamMon.WorkingDirectory)
-	addMissingWarning(&warnings, path, meta, []string{"streammon", "args"}, defaults.StreamMon.Args)
+	if !meta.IsDefined("yt-dlp", "args") && !meta.IsDefined("streammon", "args") {
+		addMissingWarning(&warnings, path, meta, []string{"yt-dlp", "args"}, defaults.YTDLP.Args)
+	}
 	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "enabled"}, defaults.LivestreamDL.Enabled)
 	addMissingWarning(&warnings, path, meta, []string{"livestream_dl", "args"}, defaults.LivestreamDL.Args)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "poll_interval"}, defaults.Scraper.PollInterval)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "ignore_older_than"}, defaults.Scraper.IgnoreOlderThan)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "max_requests_per_second"}, defaults.Scraper.MaxRequestsPerSecond)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "check_method"}, defaults.Scraper.CheckMethod)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "downloader_method"}, defaults.Scraper.DownloaderMethod)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "fallback_duration"}, defaults.Scraper.FallbackDuration)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "cookies_file"}, defaults.Scraper.CookiesFile)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_all"}, defaults.Scraper.MemberCheckAll)
@@ -71,13 +79,9 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 		addInvalidWarning(&warnings, path, "streammon.working_directory", cfg.StreamMon.WorkingDirectory, defaults.StreamMon.WorkingDirectory, "must not be empty")
 		cfg.StreamMon.WorkingDirectory = defaults.StreamMon.WorkingDirectory
 	}
-	if len(cfg.StreamMon.Args) == 0 {
-		addInvalidWarning(&warnings, path, "streammon.args", cfg.StreamMon.Args, defaults.StreamMon.Args, "must include downloader arguments")
-		cfg.StreamMon.Args = defaults.StreamMon.Args
-	}
-	if cfg.LivestreamDL.Enabled && len(cfg.LivestreamDL.Args) == 0 {
-		addInvalidWarning(&warnings, path, "livestream_dl.args", cfg.LivestreamDL.Args, defaults.LivestreamDL.Args, "must include downloader arguments when livestream_dl fallback is enabled")
-		cfg.LivestreamDL.Args = defaults.LivestreamDL.Args
+	if len(cfg.YTDLP.Args) == 0 {
+		addInvalidWarning(&warnings, path, "yt-dlp.args", cfg.YTDLP.Args, defaults.YTDLP.Args, "must include downloader arguments")
+		cfg.YTDLP.Args = defaults.YTDLP.Args
 	}
 	validateDuration(&warnings, path, "scraper.poll_interval", &cfg.Scraper.PollInterval, defaults.Scraper.PollInterval)
 	validateDuration(&warnings, path, "scraper.ignore_older_than", &cfg.Scraper.IgnoreOlderThan, defaults.Scraper.IgnoreOlderThan)
@@ -90,10 +94,19 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 		addInvalidWarning(&warnings, path, "scraper.check_method", cfg.Scraper.CheckMethod, defaults.Scraper.CheckMethod, `must be "rss" or "live"`)
 		cfg.Scraper.CheckMethod = defaults.Scraper.CheckMethod
 	}
+	cfg.Scraper.DownloaderMethod = strings.TrimSpace(cfg.Scraper.DownloaderMethod)
+	if cfg.Scraper.DownloaderMethod != "yt-dlp" && cfg.Scraper.DownloaderMethod != "livestream_dl" {
+		addInvalidWarning(&warnings, path, "scraper.downloader_method", cfg.Scraper.DownloaderMethod, defaults.Scraper.DownloaderMethod, `must be "yt-dlp" or "livestream_dl"`)
+		cfg.Scraper.DownloaderMethod = defaults.Scraper.DownloaderMethod
+	}
 	cfg.Scraper.MemberDownloader = strings.TrimSpace(cfg.Scraper.MemberDownloader)
 	if cfg.Scraper.MemberDownloader != "livestream_dl" && cfg.Scraper.MemberDownloader != "yt-dlp" {
 		addInvalidWarning(&warnings, path, "scraper.member_downloader", cfg.Scraper.MemberDownloader, defaults.Scraper.MemberDownloader, `must be "livestream_dl" or "yt-dlp"`)
 		cfg.Scraper.MemberDownloader = defaults.Scraper.MemberDownloader
+	}
+	if needsLivestreamDLArgs(cfg) && len(cfg.LivestreamDL.Args) == 0 {
+		addInvalidWarning(&warnings, path, "livestream_dl.args", cfg.LivestreamDL.Args, defaults.LivestreamDL.Args, "must include downloader arguments when livestream_dl is selected for primary, fallback, or member downloads")
+		cfg.LivestreamDL.Args = defaults.LivestreamDL.Args
 	}
 	if cfg.Scraper.DownloadWaitRetries < 0 {
 		addInvalidWarning(&warnings, path, "scraper.download_wait_retries", cfg.Scraper.DownloadWaitRetries, defaults.Scraper.DownloadWaitRetries, "must be 0 or greater")
@@ -121,11 +134,24 @@ func usesYouTubeMemberChecks(cfg *YTConfig) bool {
 	return false
 }
 
+func needsLivestreamDLArgs(cfg *YTConfig) bool {
+	return cfg.LivestreamDL.Enabled ||
+		cfg.Scraper.DownloaderMethod == "livestream_dl" ||
+		cfg.Scraper.MemberDownloader == "livestream_dl"
+}
+
 func collectTwitchConfigWarnings(path string, meta toml.MetaData, cfg, defaults *TwitchConfig) []ConfigWarning {
 	var warnings []ConfigWarning
 
+	if !meta.IsDefined("twitch-dlp", "args") && meta.IsDefined("streammon", "args") {
+		cfg.TwitchDLP.Args = cfg.StreamMon.Args
+		addDeprecatedWarning(&warnings, path, "streammon.args", "twitch-dlp.args")
+	}
+
 	addMissingWarning(&warnings, path, meta, []string{"streammon", "working_directory"}, defaults.StreamMon.WorkingDirectory)
-	addMissingWarning(&warnings, path, meta, []string{"streammon", "args"}, defaults.StreamMon.Args)
+	if !meta.IsDefined("twitch-dlp", "args") && !meta.IsDefined("streammon", "args") {
+		addMissingWarning(&warnings, path, meta, []string{"twitch-dlp", "args"}, defaults.TwitchDLP.Args)
+	}
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "poll_interval"}, defaults.Scraper.PollInterval)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "max_requests_per_second"}, defaults.Scraper.MaxRequestsPerSecond)
 
@@ -133,9 +159,9 @@ func collectTwitchConfigWarnings(path string, meta toml.MetaData, cfg, defaults 
 		addInvalidWarning(&warnings, path, "streammon.working_directory", cfg.StreamMon.WorkingDirectory, defaults.StreamMon.WorkingDirectory, "must not be empty")
 		cfg.StreamMon.WorkingDirectory = defaults.StreamMon.WorkingDirectory
 	}
-	if len(cfg.StreamMon.Args) == 0 {
-		addInvalidWarning(&warnings, path, "streammon.args", cfg.StreamMon.Args, defaults.StreamMon.Args, "must include downloader arguments")
-		cfg.StreamMon.Args = defaults.StreamMon.Args
+	if len(cfg.TwitchDLP.Args) == 0 {
+		addInvalidWarning(&warnings, path, "twitch-dlp.args", cfg.TwitchDLP.Args, defaults.TwitchDLP.Args, "must include downloader arguments")
+		cfg.TwitchDLP.Args = defaults.TwitchDLP.Args
 	}
 	validateDuration(&warnings, path, "scraper.poll_interval", &cfg.Scraper.PollInterval, defaults.Scraper.PollInterval)
 	if cfg.Scraper.MaxRequestsPerSecond <= 0 {

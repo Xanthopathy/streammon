@@ -24,6 +24,10 @@ type StreamMonConfig struct {
 	Args             []string `toml:"args"`
 }
 
+type DownloaderConfig struct {
+	Args []string `toml:"args"`
+}
+
 type Channel struct {
 	ID          string   `toml:"id"`
 	Name        string   `toml:"name"`
@@ -32,7 +36,8 @@ type Channel struct {
 }
 
 type YTConfig struct {
-	StreamMon    StreamMonConfig `toml:"streammon"`
+	StreamMon    StreamMonConfig  `toml:"streammon"`
+	YTDLP        DownloaderConfig `toml:"yt-dlp"`
 	LivestreamDL struct {
 		Enabled bool     `toml:"enabled"`
 		Args    []string `toml:"args"`
@@ -42,6 +47,7 @@ type YTConfig struct {
 		IgnoreOlderThan      string   `toml:"ignore_older_than"`
 		MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
 		CheckMethod          string   `toml:"check_method"`
+		DownloaderMethod     string   `toml:"downloader_method"`
 		FallbackDuration     string   `toml:"fallback_duration"`
 		CookiesFile          string   `toml:"cookies_file"`
 		MemberCheckAll       bool     `toml:"member_check_all"`
@@ -53,7 +59,8 @@ type YTConfig struct {
 }
 
 type TwitchConfig struct {
-	StreamMon StreamMonConfig `toml:"streammon"`
+	StreamMon StreamMonConfig  `toml:"streammon"`
+	TwitchDLP DownloaderConfig `toml:"twitch-dlp"`
 	Scraper   struct {
 		PollInterval         string  `toml:"poll_interval"`
 		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`

@@ -89,6 +89,14 @@ func addInvalidWarning(warnings *[]ConfigWarning, path, key string, value, defau
 	})
 }
 
+func addDeprecatedWarning(warnings *[]ConfigWarning, path, oldKey, newKey string) {
+	*warnings = append(*warnings, ConfigWarning{
+		Path:    path,
+		Key:     oldKey,
+		Message: fmt.Sprintf("deprecated %s; use %s instead", oldKey, newKey),
+	})
+}
+
 func addUndecodedWarnings(warnings *[]ConfigWarning, path string, meta toml.MetaData) {
 	for _, key := range meta.Undecoded() {
 		keyName := key.String()

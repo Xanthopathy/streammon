@@ -2,6 +2,7 @@
 # Where downloaded YouTube streams are saved.
 working_directory = "download_yt"
 
+[yt-dlp]
 # Arguments passed to yt-dlp.
 args = [
     "--wait-for-video", "60",
@@ -21,7 +22,9 @@ args = [
 ]
 
 [livestream_dl]
-# Optional fallback used once when a yt-dlp download fails.
+# Allows livestream_dl to be used as a fallback after regular yt-dlp downloads fail.
+# Regular streams can still use livestream_dl through scraper.downloader_method.
+# Member streams can still use livestream_dl through scraper.member_downloader.
 enabled = false
 
 # Arguments passed to livestream_dl.
@@ -48,6 +51,10 @@ max_requests_per_second = 2
 
 # Default live check method: "rss" or "live".
 check_method = "live"
+
+# Default regular-stream downloader: "yt-dlp" or "livestream_dl".
+# The other downloader can be used as fallback if configured.
+downloader_method = "yt-dlp"
 
 # How long to keep using a working fallback check method.
 fallback_duration = "15m"
