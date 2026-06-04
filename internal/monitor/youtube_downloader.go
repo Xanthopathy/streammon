@@ -82,3 +82,21 @@ func (m *YTMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status models.
 		return nil, "", false
 	}
 }
+
+// BuildRetryDownloaderCmd chooses a downloader different from the one that just
+// completed when the same YouTube video is still live on the next poll.
+func (m *YTMonitor) BuildRetryDownloaderCmd(ch config.Channel, status models.LiveInfo, avoidDownloader string) (*exec.Cmd, string, bool) {
+	isMemberStream := status.Source == models.LiveSourceMembers
+
+	switch avoidDownloader {
+	case "yt-dlp":
+		if !isMemberStream && !m.cfg.LivestreamDL.Enabled {
+			return nil, "", false
+		}
+		return m.buildLivestreamDLCmd(status, isMemberStream), "livestream_dl", true
+	case "livestream_dl":
+		return m.buildYTDLPCmd(status, isMemberStream), "yt-dlp", true
+	default:
+		return nil, "", false
+	}
+}

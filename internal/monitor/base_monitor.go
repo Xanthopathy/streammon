@@ -17,21 +17,22 @@ type BaseMonitor struct {
 	httpClient                *http.Client
 	statusMutex               sync.RWMutex
 	downloadMutex             sync.Mutex
-	liveStatus                map[string]models.LiveInfo  // map[channelID]LiveInfo
-	activeDownloads           map[string]*downloadProcess // map[channelID]*downloadProcess
-	downloadedVideos          map[string]map[string]bool  // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
-	downloadedVidMu           sync.RWMutex                // protects downloadedVideos
-	queuedVideosLogged        map[string]bool             // map[videoID]bool - tracks which queued videos have logged the "already queued" message
-	queuedVideosLoggedMutex   sync.Mutex                  // protects queuedVideosLogged
-	downloadedVidsLogged      map[string]bool             // map[videoID]bool - tracks which downloaded videos have logged the "already downloaded" message
-	downloadedVidsLoggedMutex sync.Mutex                  // protects downloadedVidsLogged
-	archivedVideos            map[string]bool             // map[videoID]bool - loaded from archive.txt
-	archivedVidMu             sync.RWMutex                // protects archivedVideos
-	rpsWarningSent            bool                        // Tracks if we've warned about RPS throttling
-	pauseCond                 *sync.Cond                  // Condition variable to freeze/thaw monitoring loops
-	pollGeneration            atomic.Uint64               // Atomic counter to track poll generations for pending YouTube success handling
-	pendingYTSuccessMu        sync.Mutex                  // Mutex to protect pendingYTSuccess
-	pendingYTSuccesses        map[string]pendingYTSuccess // Tracks pending YouTube success info across polls
+	liveStatus                map[string]models.LiveInfo   // map[channelID]LiveInfo
+	activeDownloads           map[string]*downloadProcess  // map[channelID]*downloadProcess
+	downloadedVideos          map[string]map[string]bool   // map[channelID]map[videoID]bool - in-memory cache of downloaded videos
+	downloadedVidMu           sync.RWMutex                 // protects downloadedVideos
+	queuedVideosLogged        map[string]bool              // map[videoID]bool - tracks which queued videos have logged the "already queued" message
+	queuedVideosLoggedMutex   sync.Mutex                   // protects queuedVideosLogged
+	downloadedVidsLogged      map[string]bool              // map[videoID]bool - tracks which downloaded videos have logged the "already downloaded" message
+	downloadedVidsLoggedMutex sync.Mutex                   // protects downloadedVidsLogged
+	archivedVideos            map[string]bool              // map[videoID]bool - loaded from archive.txt
+	archivedVidMu             sync.RWMutex                 // protects archivedVideos
+	rpsWarningSent            bool                         // Tracks if we've warned about RPS throttling
+	pauseCond                 *sync.Cond                   // Condition variable to freeze/thaw monitoring loops
+	pollGeneration            atomic.Uint64                // Atomic counter to track poll generations for pending YouTube success handling
+	pendingYTSuccessMu        sync.Mutex                   // Mutex to protect pendingYTSuccess
+	pendingYTSuccesses        map[string]pendingYTSuccess  // Tracks pending YouTube success info across polls
+	ytRetryDownloaders        map[string]ytRetryDownloader // Downloader override for YouTube streams that are still live after completion
 }
 
 // NewBaseMonitor creates a new generic monitor.
@@ -49,5 +50,6 @@ func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 		rpsWarningSent:       false,
 		pauseCond:            sync.NewCond(&sync.Mutex{}),
 		pendingYTSuccesses:   make(map[string]pendingYTSuccess),
+		ytRetryDownloaders:   make(map[string]ytRetryDownloader),
 	}
 }

@@ -36,3 +36,9 @@ type MonitorController interface {
 type FallbackDownloaderController interface {
 	BuildFallbackDownloaderCmd(ch config.Channel, status models.LiveInfo) (*exec.Cmd, string, bool)
 }
+
+// RetryDownloaderController is implemented by platforms that can choose an
+// alternate downloader when a completed download is discovered to still be live.
+type RetryDownloaderController interface {
+	BuildRetryDownloaderCmd(ch config.Channel, status models.LiveInfo, avoidDownloader string) (*exec.Cmd, string, bool)
+}

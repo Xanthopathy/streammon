@@ -3,6 +3,7 @@ package monitor
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -80,15 +81,19 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			}
 		}
 
-		// Track successful completion markers from yt-dlp post-processing.
-		if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") {
+		// Track successful merge markers from downloader post-processing.
+		if strings.Contains(line, "[Merger]") ||
+			strings.Contains(line, "Merging formats") ||
+			strings.Contains(line, "Successfully merged files into:") {
 			mergerDetected.Store(true)
 		}
 
-		// Track completion markers commonly emitted by twitch-dlp/ffmpeg.
+		// Track completion markers commonly emitted by twitch-dlp, livestream_dl, and ffmpeg.
 		if strings.Contains(line, "[stats] Fragments") ||
 			(strings.Contains(line, "frame=") && strings.Contains(line, "Lsize=")) ||
-			(strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) {
+			(strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) ||
+			strings.Contains(line, "Successfully merged files into:") ||
+			strings.Contains(line, "Finished moving files from temporary directory to output destination") {
 			downloadCompleted.Store(true)
 		}
 	}
@@ -100,9 +105,26 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	}
 	b.logger.LogEvent("LOCK", fmt.Sprintf("Created: %s", lockPath))
 
-	// Build command using the controller
-	cmd := b.controller.BuildDownloaderCmd(ch, status)
+	// Build command using the controller, with a one-shot YouTube retry override
+	// when a completed download is found to still be live on the next poll.
+	var cmd *exec.Cmd
+	forcedDownloaderName := ""
+	if retryDownloader, ok := b.takeYTRetryDownloader(ch.ID, status.VideoID); ok {
+		if controller, canRetry := b.controller.(RetryDownloaderController); canRetry {
+			retryCmd, downloaderName, enabled := controller.BuildRetryDownloaderCmd(ch, status, retryDownloader)
+			if enabled && retryCmd != nil {
+				cmd = retryCmd
+				forcedDownloaderName = downloaderName
+			}
+		}
+	}
+	if cmd == nil {
+		cmd = b.controller.BuildDownloaderCmd(ch, status)
+	}
 	downloaderName := downloaderNameFromCommand(cmd.Path, cmd.Args)
+	if forcedDownloaderName != "" {
+		downloaderName = canonicalDownloaderName(forcedDownloaderName)
+	}
 
 	// Build command string for logging
 	commandStr := cmd.Path
