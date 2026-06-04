@@ -99,6 +99,7 @@ The YouTube monitor (`youtube.go` → `base_monitor.go`):
    - `livestream_dl` arguments for primary, fallback, and members-only downloader paths
    - Cookie/member-check settings: `cookies_file`, `member_check_all`, per-channel `member_check`, `member_downloader`, `member_check_args`
    - `download_wait_retries` threshold for ending stalled wait loops
+   - Early-completion recovery flags: `retry_same_downloader_with_timestamp_when_live`, `retry_offline_without_live_args`
 3. Prints startup log with channel count and working directory
 
 ### 2. Continuous Polling Loop
@@ -313,7 +314,11 @@ For each configured YouTube channel:
    - Append video ID to root-level `youtube_archive.txt`
    - Format: One video ID per line (same format as yt-dlp's archive file)
    - Purpose: Ensure video won't be re-downloaded even after app restart
-   - For normal YouTube completion, archiving waits until the next poll confirms the stream is no longer live; if the same video ID is still live, streammon retries with an alternate downloader when one is enabled, otherwise it keeps waiting instead of launching the same downloader again
+   - For normal YouTube completion, archiving waits until the next poll confirms the stream is no longer live
+   - If the same video ID is still live, streammon retries with an alternate downloader when one is enabled
+   - If no alternate downloader is enabled and `retry_same_downloader_with_timestamp_when_live = true`, streammon retries the same downloader with a timestamped output name
+   - If the same pending downloader result was previously confirmed still-live after completion, then later resolves offline, and `retry_offline_without_live_args = true`, streammon runs one yt-dlp VOD retry with `--live-from-start` and `--wait-for-video` removed and a timestamped output name
+   - Otherwise streammon archives the completed file once the stream is confirmed offline
 
 7. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
@@ -913,6 +918,8 @@ cookies_file = "youtube_cookies.txt"
 member_check_all = false
 member_downloader = "livestream_dl"
 download_wait_retries = 3
+retry_same_downloader_with_timestamp_when_live = false
+retry_offline_without_live_args = false
 member_check_args = ["--flat-playlist", "--playlist-items", "1:3", "--dump-single-json", "--no-warnings"]
 
 [[channel]]

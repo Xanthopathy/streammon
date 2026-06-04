@@ -162,6 +162,8 @@ In `streammon_config_yt.toml`:
 | `max_requests_per_second` | Safety limit for channel checks.                                        |
 | `member_downloader`       | Downloader used for members-only streams. Default: `"livestream_dl"`.   |
 | `download_wait_retries`   | Stop a stalled YouTube downloader after this many `[wait]` retry lines. |
+| `retry_same_downloader_with_timestamp_when_live` | Retry an early live completion with a timestamped output if no alternate downloader is available. |
+| `retry_offline_without_live_args` | After an early completion, retry the final VOD with yt-dlp live-wait args removed once the stream is offline. |
 
 `working_directory` can be relative to where you run streammon, or absolute.
 Examples:
@@ -221,6 +223,20 @@ streammon watches YouTube downloaders for repeated `[wait]` lines. After
 process was `yt-dlp`, normal fallback handling can then try `livestream_dl`; for
 member streams, that fallback uses `youtube_cookies.txt`. Set the value to `0`
 to disable this stall guard.
+
+If a YouTube downloader completes while the same video is still live, streammon
+normally retries with the alternate downloader when one is enabled. If only one
+downloader is available, `retry_same_downloader_with_timestamp_when_live = true`
+lets streammon run that same downloader again with a timestamped output name.
+This can preserve more live content, but it can also create duplicate or split
+files.
+
+`retry_offline_without_live_args = true` adds a second recovery path only after
+streammon has already confirmed that a completed downloader ended while the same
+video was still live. When that pending result later resolves offline, streammon
+runs a final yt-dlp VOD retry after removing `--live-from-start` and
+`--wait-for-video`. This retry also uses a timestamped output name so yt-dlp
+does not skip the existing early-merged file.
 
 `member_check_all = true` runs the members-only playlist check for every
 configured YouTube channel. It is convenient, but heavier and noisier if you
