@@ -24,8 +24,8 @@ When the application starts (`main.go`):
    - Search order: executable directory, current working directory, then `configs/streammon_config.toml`
    - Timezone setting: `timezone`
    - `max_concurrent_downloads`: Maximum simultaneous download threads
-   - `subprocess_progress_interval`: Throttle [download] progress lines (seconds)
-   - `subprocess_wait_interval`: Throttle [wait] progress lines (seconds)
+   - `subprocess_progress_interval`: Throttle subprocess progress lines such as yt-dlp `[download]` and livestream_dl stats (seconds)
+   - `subprocess_wait_interval`: Throttle `[wait]` / `[retry-streams]` wait lines (seconds)
    - Platform enable flags: `enable_youtube`, `enable_twitch`
    - Debug flags: platform-level flags plus API/DLP-specific flags
    - Logging/archive/cleanup: `save_download_logs`, `youtube_archive_downloads`, `twitch_archive_downloads`, `clear_all_lockfiles`
@@ -224,7 +224,7 @@ For each configured YouTube channel:
    - Create single log file: `{channel_dir}/{sanitized_channel_name}-{videoID}.log`
    - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
-     - `[download]` progress lines throttled by `subprocess_progress_interval` (30s default)
+     - Subprocess progress lines (`[download]`, livestream_dl `Video: ... Audio: ... downloaded`, livestream_dl stats JSON) throttled by `subprocess_progress_interval` (30s default)
      - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (600s default)
      - All other lines logged immediately
    - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
@@ -233,7 +233,7 @@ For each configured YouTube channel:
    d. **Output Callback Setup**
    - Register callback function to detect subprocess state:
      - If line contains `[retry-streams]`: Set `isWaiting = true` (stream not yet available for download)
-     - If line contains `frame=` or `[download]`: Set `isWaiting = false` (active downloading in progress)
+     - If line contains `frame=`, `[download]`, or livestream_dl progress stats: Set `isWaiting = false` (active downloading in progress)
      - If line contains `[Merger]`, `Merging formats`, or `Successfully merged files into:`: Set merger detection
      - If line contains Twitch/livestream_dl/ffmpeg completion markers such as `[stats] Fragments`, final `frame=...Lsize=`, muxing overhead, `Successfully merged files into:`, or `Finished moving files from temporary directory to output destination`: Set generic download completion detection
    - Purpose: Detect when process is just waiting for live stream vs actively downloading
@@ -464,7 +464,7 @@ For each configured Twitch channel:
    - Create single log file: `{channel_dir}/{sanitized_channel_name}-{broadcastID}.log`
    - Capture subprocess stdout/stderr via pipe redirection
    - Subprocess output is written to log file with throttling applied:
-     - `[download]` progress lines throttled by `subprocess_progress_interval` (30s default)
+     - Subprocess progress lines throttled by `subprocess_progress_interval` (30s default)
      - `[wait]` / `[retry-streams]` lines throttled by `subprocess_wait_interval` (600s default)
      - All other lines logged immediately
    - Terminal visibility controlled by platform-specific DLP debug flags (independent of file logging)
@@ -807,7 +807,7 @@ LAUNCH DOWNLOAD ✓
 - All subprocess output from twitch-dlp/yt-dlp (every line captured)
 - Each line tagged with source: `[yt-dlp]` or `[twitch-dlp]`
 - Throttling applied per line type (separate throttling counters):
-  - `[download]` progress lines: Throttled by `subprocess_progress_interval` (30s default)
+  - Subprocess progress lines: Throttled by `subprocess_progress_interval` (30s default)
   - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (600s default)
   - All other lines: Logged immediately
 - Log file always receives all output (independent of debug flags)

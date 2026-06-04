@@ -10,6 +10,29 @@ import (
 	"streammon/internal/util/ansi"
 )
 
+func IsSubprocessProgressLine(output string) bool {
+	if strings.Contains(output, "[download]") {
+		return true
+	}
+
+	// livestream_dl prints carriage-return progress without yt-dlp-style tags:
+	// VIDEO_ID: Video: 123/456 (Recording) Audio: 123/456 ... ~1.23 GB downloaded
+	if strings.Contains(output, "Video:") &&
+		strings.Contains(output, "Audio:") &&
+		strings.Contains(output, "downloaded") {
+		return true
+	}
+
+	// livestream_dl --stats-as-json also emits carriage-return progress, but as JSON.
+	return strings.Contains(output, `"video"`) &&
+		strings.Contains(output, `"audio"`) &&
+		strings.Contains(output, `"downloaded_segments"`)
+}
+
+func IsSubprocessWaitLine(output string) bool {
+	return strings.Contains(output, "[wait]") || strings.Contains(output, "[retry-streams]")
+}
+
 func (l *Logger) formatSubprocessLine(debugType, output string) string {
 	return fmt.Sprintf("%s [%s%s%s] %s\n",
 		l.taggedPrefix(ansi.ColorBlue, debugType),
@@ -28,9 +51,8 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	// Format: [time] [Platform] [debugType] [ChannelName] message
 	line := l.formatSubprocessLine(debugType, output)
 
-	// Check if this is a progress line (contains [download] or [wait])
-	isDownloadLine := strings.Contains(output, "[download]")
-	isWaitLine := strings.Contains(output, "[wait]")
+	isDownloadLine := IsSubprocessProgressLine(output)
+	isWaitLine := IsSubprocessWaitLine(output)
 
 	// Determine if we should write based on throttling
 	shouldWrite := true

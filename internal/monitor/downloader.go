@@ -48,9 +48,9 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Callback to detect waiting state and completion markers from subprocess output
 	outputCallback := func(line string) {
-		if strings.Contains(line, "[retry-streams]") {
+		if logging.IsSubprocessWaitLine(line) {
 			isWaiting.Store(true)
-		} else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
+		} else if strings.Contains(line, "frame=") || logging.IsSubprocessProgressLine(line) {
 			// If we see active download progress, we are no longer waiting.
 			isWaiting.Store(false)
 			if proc != nil && proc.downloadWaitCount != nil {
@@ -62,7 +62,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			proc.downloadWaitCount != nil &&
 			proc.downloadWaitTriggered != nil &&
 			downloadWaitRetries > 0 &&
-			strings.Contains(line, "[wait]") {
+			logging.IsSubprocessWaitLine(line) {
 			count := proc.downloadWaitCount.Add(1)
 			if int(count) >= downloadWaitRetries && proc.downloadWaitTriggered.CompareAndSwap(false, true) {
 				proc.logger.LogRegular(fmt.Sprintf(

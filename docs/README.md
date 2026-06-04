@@ -143,9 +143,10 @@ In `streammon_config.toml`:
 `"UTC+3"` also work.
 
 `subprocess_progress_interval` and `subprocess_wait_interval` are in seconds and
-apply to both `.log` files and terminal subprocess output. Set progress interval
-to `0` to log every progress update, or increase it if download logs are too
-noisy.
+apply to both `.log` files and terminal subprocess output. Progress throttling
+covers yt-dlp `[download]` lines and livestream_dl stats lines. Set progress
+interval to `0` to log every progress update, or increase it if download logs
+are too noisy.
 
 In `streammon_config_yt.toml`:
 
