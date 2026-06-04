@@ -27,6 +27,7 @@ type downloadProcess struct {
 	status                models.LiveInfo
 	outputCallback        func(string)
 	fallbackAttempted     bool
+	retryMode             string
 }
 
 // --- Global Download Limiter ---

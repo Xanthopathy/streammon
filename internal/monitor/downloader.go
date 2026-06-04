@@ -109,12 +109,14 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	// when a completed download is found to still be live on the next poll.
 	var cmd *exec.Cmd
 	forcedDownloaderName := ""
+	retryMode := ""
 	if retryDownloader, ok := b.takeYTRetryDownloader(ch.ID, status.VideoID); ok {
 		if controller, canRetry := b.controller.(RetryDownloaderController); canRetry {
 			retryCmd, downloaderName, enabled := controller.BuildRetryDownloaderCmd(ch, status, retryDownloader)
 			if enabled && retryCmd != nil {
 				cmd = retryCmd
 				forcedDownloaderName = downloaderName
+				retryMode = retryDownloader.mode
 			}
 		}
 	}
@@ -209,6 +211,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		downloadWaitTriggered: &atomic.Bool{},
 		status:                status,
 		outputCallback:        outputCallback,
+		retryMode:             retryMode,
 	}
 
 	// Start command

@@ -52,13 +52,13 @@ func (b *BaseMonitor) manageDownloads() {
 }
 
 // tryStartDownload checks all conditions and launches a download if appropriate.
-func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo) {
+func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo) bool {
 	// 1. Try to acquire a global download slot. This is non-blocking.
 	select {
 	case downloadSlots <- struct{}{}:
 		// Slot acquired. We are now responsible for releasing it on any failure.
 	default:
-		return // Global capacity reached.
+		return false // Global capacity reached.
 	}
 
 	// If we return from now on, we must release the slot.
@@ -76,11 +76,11 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 
 	// Check if already downloading in this monitor instance.
 	if _, exists := b.activeDownloads[ch.ID]; exists {
-		return // Defer will release slot.
+		return false // Defer will release slot.
 	}
 
 	if b.hasPendingYTSuccess(ch.ID, status.VideoID) {
-		return
+		return false
 	}
 
 	// Check if already downloaded in this session (in-memory cache).
@@ -108,7 +108,7 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 			b.logger.Logf("%s%s%s (%s) skipped: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, status.VideoID, reason)
 		}
 		b.downloadedVidsLoggedMutex.Unlock()
-		return // Defer will release slot.
+		return false // Defer will release slot.
 	}
 
 	// Check for a lock file.
@@ -123,12 +123,14 @@ func (b *BaseMonitor) tryStartDownload(ch config.Channel, status models.LiveInfo
 			b.logger.Logf("%s%s%s (%s) is already queued/downloading (lockfile exists). If restarting, remove: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, status.VideoID, lockFileName)
 		}
 		b.queuedVideosLoggedMutex.Unlock()
-		return // Defer will release slot.
+		return false // Defer will release slot.
 	}
 
 	// 3. All checks passed. Launch the downloader.
 	// If launch is successful, it becomes responsible for the slot.
 	if b.launchDownloader(ch, status, lockPath) {
 		launchOK = true // Success! The defer will NOT release the slot.
+		return true
 	}
+	return false
 }

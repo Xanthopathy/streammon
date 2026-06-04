@@ -130,8 +130,11 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	// Finalize success or set pending state for YouTube
 	if isSuccess {
-		if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
-			b.setPendingYTSuccess(ch.ID, proc.videoID, proc.downloaderName)
+		if logPrefix == logPrefixYouTube && proc.retryMode == ytRetryModeOfflineVOD {
+			proc.logger.LogRegular("Final VOD retry completed after stream ended. Archiving this YouTube download.")
+			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
+		} else if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
+			b.setPendingYTSuccess(ch.ID, proc.videoID, proc.status.Source, proc.downloaderName)
 			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
 			proc.logger.LogRegular(fmt.Sprintf("Pending YouTube success recorded for %s; the next poll will either archive it or retry with another downloader if the stream is still live.", proc.videoID))
 		} else {
