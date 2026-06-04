@@ -200,7 +200,9 @@ The `[livestream_dl]` block has two jobs. Its `args` are used when
 `downloader_method = "livestream_dl"` downloads a regular stream and when
 `member_downloader = "livestream_dl"` downloads a members-only stream. Its
 `enabled` flag controls only the optional fallback from a regular public
-`yt-dlp` download to `livestream_dl`.
+`yt-dlp` download to `livestream_dl`. Unlike the `yt-dlp` output template,
+the default `livestream_dl` template omits `.(ext)s` because `livestream_dl`
+adds the final media extension itself.
 
 For account-required or members-only YouTube streams, follow
 [yt-dlp's persistent-cookie instructions](https://github.com/yt-dlp/yt-dlp/wiki/extractors#exporting-youtube-cookies),

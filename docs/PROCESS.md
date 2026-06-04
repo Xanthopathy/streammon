@@ -233,8 +233,8 @@ For each configured YouTube channel:
    - Register callback function to detect subprocess state:
      - If line contains `[retry-streams]`: Set `isWaiting = true` (stream not yet available for download)
      - If line contains `frame=` or `[download]`: Set `isWaiting = false` (active downloading in progress)
-     - If line contains `[Merger]` or `Merging formats`: Set YouTube merger detection
-     - If line contains Twitch/ffmpeg completion markers such as `[stats] Fragments`, final `frame=...Lsize=`, or muxing overhead: Set generic download completion detection
+     - If line contains `[Merger]`, `Merging formats`, or `Successfully merged files into:`: Set merger detection
+     - If line contains Twitch/livestream_dl/ffmpeg completion markers such as `[stats] Fragments`, final `frame=...Lsize=`, muxing overhead, `Successfully merged files into:`, or `Finished moving files from temporary directory to output destination`: Set generic download completion detection
    - Purpose: Detect when process is just waiting for live stream vs actively downloading
    - Used for intelligent progress reporting and timeout handling
 
@@ -283,8 +283,9 @@ For each configured YouTube channel:
 4. **Determine Success** (Two-Condition Verification)
    - **Extract exit code** from subprocess (may be non-zero even on success)
    - **Check for completion markers** in output:
-     - Detect `[Merger]` or `Merging formats` in subprocess output (indicates successful format merge)
+     - Detect `[Merger]`, `Merging formats`, or `Successfully merged files into:` in subprocess output (indicates successful format merge)
      - `mergerDetected = true` if marker found
+     - Detect downloader-specific completion markers for Twitch and `livestream_dl`
    - **Verify output file exists** in working directory:
      - Look for `.mp4`, `.mkv`, or `.webm` files containing the video ID
      - `outputFileExists = true` if file found
@@ -295,7 +296,7 @@ For each configured YouTube channel:
    - If the primary downloader fails, the same download process can try the other YouTube downloader before releasing the slot or deleting the lockfile
    - For regular `yt-dlp` primary downloads, `livestream_dl.enabled` controls whether `livestream_dl` fallback is attempted
    - For regular `livestream_dl` primary downloads, fallback can try `yt-dlp`
-   - `livestream_dl` fallback success requires exit code 0 and a matching media file
+   - `livestream_dl` success requires exit code 0 and a matching media file; completion/merge markers are logged diagnostically
    - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
 5. **Log Completion**
@@ -303,7 +304,7 @@ For each configured YouTube channel:
      - Provides visibility for debugging without affecting success logic
    - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
    - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
-   - **If `livestream_dl` fallback succeeds**: Log that the download finished successfully with the fallback downloader
+   - **If `livestream_dl` succeeds**: Log that the download finished successfully with `livestream_dl`
    - **If failure** (one or both conditions missing):
      - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
      - Reasons list includes: "no_merger_detected" and/or "output_file_not_found"
@@ -312,7 +313,7 @@ For each configured YouTube channel:
    - Append video ID to root-level `youtube_archive.txt`
    - Format: One video ID per line (same format as yt-dlp's archive file)
    - Purpose: Ensure video won't be re-downloaded even after app restart
-   - For normal YouTube completion, archiving waits until the next poll confirms the stream is no longer live; if the same video ID is still live, another download attempt is allowed instead of prematurely archiving a still-running stream
+   - For normal YouTube completion, archiving waits until the next poll confirms the stream is no longer live; if the same video ID is still live, streammon retries with an alternate downloader when one is enabled, otherwise it keeps waiting instead of launching the same downloader again
 
 7. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`

@@ -77,7 +77,7 @@ func GetDefaultYTConfig() *YTConfig {
 		"--resolution", "best",
 		"--threads", "4",
 		"--segment-retries", "10",
-		"--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
+		"--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s]",
 		"--write-thumbnail",
 		"--embed-thumbnail",
 		"--wait-for-video", "60",
