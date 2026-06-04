@@ -43,17 +43,19 @@ type YTConfig struct {
 		Args    []string `toml:"args"`
 	} `toml:"livestream_dl"`
 	Scraper struct {
-		PollInterval         string   `toml:"poll_interval"`
-		IgnoreOlderThan      string   `toml:"ignore_older_than"`
-		MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
-		CheckMethod          string   `toml:"check_method"`
-		DownloaderMethod     string   `toml:"downloader_method"`
-		FallbackDuration     string   `toml:"fallback_duration"`
-		CookiesFile          string   `toml:"cookies_file"`
-		MemberCheckAll       bool     `toml:"member_check_all"`
-		MemberDownloader     string   `toml:"member_downloader"`
-		DownloadWaitRetries  int      `toml:"download_wait_retries"`
-		MemberCheckArgs      []string `toml:"member_check_args"`
+		PollInterval                             string   `toml:"poll_interval"`
+		IgnoreOlderThan                          string   `toml:"ignore_older_than"`
+		MaxRequestsPerSecond                     float64  `toml:"max_requests_per_second"`
+		CheckMethod                              string   `toml:"check_method"`
+		DownloaderMethod                         string   `toml:"downloader_method"`
+		FallbackDuration                         string   `toml:"fallback_duration"`
+		CookiesFile                              string   `toml:"cookies_file"`
+		MemberCheckAll                           bool     `toml:"member_check_all"`
+		MemberDownloader                         string   `toml:"member_downloader"`
+		DownloadWaitRetries                      int      `toml:"download_wait_retries"`
+		RetrySameDownloaderWithTimestampWhenLive bool     `toml:"retry_same_downloader_with_timestamp_when_live"`
+		RetryOfflineWithoutLiveArgs              bool     `toml:"retry_offline_without_live_args"`
+		MemberCheckArgs                          []string `toml:"member_check_args"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

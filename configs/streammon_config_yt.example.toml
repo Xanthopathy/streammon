@@ -71,6 +71,14 @@ member_downloader = "livestream_dl"
 # Stop a downloader after this many [wait] retry lines. 0 disables this.
 download_wait_retries = 3
 
+# If a downloader completes while the same video is still live and no alternate downloader is available, retry 
+# the same downloader with a timestamped output name. This can create split/duplicate files, so it is off by default.
+retry_same_downloader_with_timestamp_when_live = false
+
+# If a YouTube download completed but the next poll finds the stream offline, retry once with yt-dlp 
+# after removing --live-from-start and --wait-for-video. This uses a timestamped output name to avoid being skipped.
+retry_offline_without_live_args = false
+
 # yt-dlp args used for members-only playlist checks.
 member_check_args = [
     "--flat-playlist",

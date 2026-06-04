@@ -42,28 +42,32 @@ func GetDefaultYTConfig() *YTConfig {
 			},
 		},
 		Scraper: struct {
-			PollInterval         string   `toml:"poll_interval"`
-			IgnoreOlderThan      string   `toml:"ignore_older_than"`
-			MaxRequestsPerSecond float64  `toml:"max_requests_per_second"`
-			CheckMethod          string   `toml:"check_method"`
-			DownloaderMethod     string   `toml:"downloader_method"`
-			FallbackDuration     string   `toml:"fallback_duration"`
-			CookiesFile          string   `toml:"cookies_file"`
-			MemberCheckAll       bool     `toml:"member_check_all"`
-			MemberDownloader     string   `toml:"member_downloader"`
-			DownloadWaitRetries  int      `toml:"download_wait_retries"`
-			MemberCheckArgs      []string `toml:"member_check_args"`
+			PollInterval                             string   `toml:"poll_interval"`
+			IgnoreOlderThan                          string   `toml:"ignore_older_than"`
+			MaxRequestsPerSecond                     float64  `toml:"max_requests_per_second"`
+			CheckMethod                              string   `toml:"check_method"`
+			DownloaderMethod                         string   `toml:"downloader_method"`
+			FallbackDuration                         string   `toml:"fallback_duration"`
+			CookiesFile                              string   `toml:"cookies_file"`
+			MemberCheckAll                           bool     `toml:"member_check_all"`
+			MemberDownloader                         string   `toml:"member_downloader"`
+			DownloadWaitRetries                      int      `toml:"download_wait_retries"`
+			RetrySameDownloaderWithTimestampWhenLive bool     `toml:"retry_same_downloader_with_timestamp_when_live"`
+			RetryOfflineWithoutLiveArgs              bool     `toml:"retry_offline_without_live_args"`
+			MemberCheckArgs                          []string `toml:"member_check_args"`
 		}{
-			PollInterval:         "60s",
-			IgnoreOlderThan:      "24h",
-			MaxRequestsPerSecond: 2,
-			CheckMethod:          "rss",
-			DownloaderMethod:     "yt-dlp",
-			FallbackDuration:     "15m",
-			CookiesFile:          "youtube_cookies.txt",
-			MemberCheckAll:       false,
-			MemberDownloader:     "livestream_dl",
-			DownloadWaitRetries:  3,
+			PollInterval:                             "60s",
+			IgnoreOlderThan:                          "24h",
+			MaxRequestsPerSecond:                     2,
+			CheckMethod:                              "rss",
+			DownloaderMethod:                         "yt-dlp",
+			FallbackDuration:                         "15m",
+			CookiesFile:                              "youtube_cookies.txt",
+			MemberCheckAll:                           false,
+			MemberDownloader:                         "livestream_dl",
+			DownloadWaitRetries:                      3,
+			RetrySameDownloaderWithTimestampWhenLive: false,
+			RetryOfflineWithoutLiveArgs:              false,
 			MemberCheckArgs: []string{
 				"--flat-playlist",
 				"--playlist-items", "1:3",

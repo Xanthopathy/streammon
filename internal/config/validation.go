@@ -73,6 +73,8 @@ func collectYTConfigWarnings(path string, meta toml.MetaData, cfg, defaults *YTC
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_all"}, defaults.Scraper.MemberCheckAll)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_downloader"}, defaults.Scraper.MemberDownloader)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "download_wait_retries"}, defaults.Scraper.DownloadWaitRetries)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "retry_same_downloader_with_timestamp_when_live"}, defaults.Scraper.RetrySameDownloaderWithTimestampWhenLive)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "retry_offline_without_live_args"}, defaults.Scraper.RetryOfflineWithoutLiveArgs)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "member_check_args"}, defaults.Scraper.MemberCheckArgs)
 
 	if strings.TrimSpace(cfg.StreamMon.WorkingDirectory) == "" {
