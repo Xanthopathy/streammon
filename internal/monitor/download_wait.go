@@ -64,6 +64,8 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, mergerSuccess, outputFileExists))
 		case "twitch-dlp":
 			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, outputFileExists))
+		case "livestream_dl":
+			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
 		default:
 			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
 		}
@@ -85,7 +87,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true
 	} else if proc.downloaderName == "livestream_dl" && outputFileExists && exitCode == 0 {
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully with livestream_dl fallback.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully with livestream_dl.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
 		isSuccess = true
 	} else {
 		// One or both success conditions failed
@@ -129,8 +131,9 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	// Finalize success or set pending state for YouTube
 	if isSuccess {
 		if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
-			b.setPendingYTSuccess(ch.ID, proc.videoID)
+			b.setPendingYTSuccess(ch.ID, proc.videoID, proc.downloaderName)
 			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
+			proc.logger.LogRegular(fmt.Sprintf("Pending YouTube success recorded for %s; the next poll will either archive it or retry with another downloader if the stream is still live.", proc.videoID))
 		} else {
 			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
 		}
