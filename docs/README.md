@@ -2,7 +2,7 @@
 
 streammon watches YouTube and Twitch channels, checks when they go live, and starts [yt-dlp](https://github.com/yt-dlp/yt-dlp), [livestream_dl](https://github.com/CanOfSocks/livestream_dl), or [twitch-dlp](https://github.com/DmitryScaletta/twitch-dlp) for streams you actually want to save.
 
-This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). As of v1.1.0, `livestream_dl` is the default members-only YouTube downloader and can also be used as a fallback if a regular `yt-dlp` download fails.
+This is meant to replace the now deprecated [hoshinova](https://github.com/HoloArchivists/hoshinova). `livestream_dl` is the default members-only YouTube downloader and can also be used as a fallback if a regular `yt-dlp` download fails. streammon also includes safer early-completion retries and cleaner `livestream_dl` progress logging.
 
 ## What You Need
 
@@ -144,9 +144,9 @@ In `streammon_config.toml`:
 
 `subprocess_progress_interval` and `subprocess_wait_interval` are in seconds and
 apply to both `.log` files and terminal subprocess output. Progress throttling
-covers yt-dlp `[download]` lines and livestream_dl stats lines. Set progress
-interval to `0` to log every progress update, or increase it if download logs
-are too noisy.
+covers yt-dlp `[download]` lines, twitch-dlp progress, and livestream_dl text or
+JSON stats lines. Set progress interval to `0` to log every progress update, or
+increase it if download logs are too noisy.
 
 In `streammon_config_yt.toml`:
 
@@ -259,6 +259,9 @@ than YouTube, but keeping a reasonable request rate is still good practice.
 
 ## What The Logs Mean
 
+- Timestamps use your configured timezone and show the numeric offset, such as `+09:00`.
+- `[Startup]`, `[Config]`, `[Update]`, `[Monitor]`, `[Lock]`, `[Download]`, `[Success]`, `[Archive]`, and `[Shutdown]` are streammon lifecycle/action tags.
+- `[Retry]` and `[Fallback]` show downloader recovery decisions, including early YouTube completion retries.
 - `is now LIVE`: the stream passed your filters and is eligible for download.
 - `has gone offline`: the platform says the stream ended.
 - `skipped: found in archive`: the stream ID is already in `youtube_archive.txt` or `twitch_archive.txt`.
@@ -266,6 +269,7 @@ than YouTube, but keeping a reasonable request rate is still good practice.
 - `Connection lost (confirmed)`: checks pause until the connection is stable again.
 - `Config:` warnings: a config key is missing, invalid, or unknown. streammon tells you what default it used.
 - `[Diagnostic]`: downloader exit details used to decide whether the file completed successfully.
+- `[yt-dlp]`, `[livestream_dl]`, and `[twitch-dlp]` lines are raw downloader output. On Windows, `.exe`, `.cmd`, and `.bat` suffixes are normalized away in these labels.
 
 ## Duplicate Protection
 
@@ -302,6 +306,7 @@ If your logs are too noisy:
 
 - Set `youtube_dlp_verbose_debug = false` and `twitch_dlp_verbose_debug = false`.
 - Increase `subprocess_progress_interval` and `subprocess_wait_interval`.
+- livestream_dl progress and warning lines are colorized in the terminal when raw downloader output is visible.
 
 ## Maintainer Notes
 

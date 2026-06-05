@@ -2,11 +2,7 @@
 
 StreamMon is an automated orchestration tool that monitors YouTube and Twitch channels, detects live streams, applies configurable filters, and automatically archives them using specialized downloaders. This document outlines the complete process flow for both platforms.
 
-## Version Context
-
-- **v1.0.8**: Widened network-error detection, fixed a connection-monitor broadcast deadlock during longer outages, and made `[Diagnostic]` log tags blue.
-- **v1.0.9**: Added config validation warnings, startup lockfile cleanup, safer YouTube fallback-state locking, fixed request-spacing math for fractional RPS values, logged return to normal poll intervals after errors clear, separated Twitch success diagnostics from YouTube merger checks, improved downloader wait/offline handling, and refactored utility packages without changing the external workflow.
-- **v1.1.0**: Adds root-level archive files with legacy migration, YouTube members-only discovery through cookie-backed playlist checks, scoped cookie use for member downloads, `livestream_dl` as the default members-only downloader plus optional public-stream fallback, stalled `[wait]` retry termination, safer pending-success handling for long YouTube streams, yt-dlp residue cleanup, fuller subprocess logs, and broader package splits for config, monitoring, download lifecycle, logging, UTC offsets, and lockfiles.
+Version history can be read in [VERSION_HISTORY.md](VERSION_HISTORY.md).
 
 ---
 
@@ -257,7 +253,7 @@ For each configured YouTube channel:
    g. **Start Process**
    - Execute command via `cmd.Start()` (non-blocking)
    - If start fails, delete lockfile, release slot, log error, and return
-   - Log: "[YT] Started download for {channel}: {title}"
+   - Log: `[Download] Started {downloader} for {channel}: {title}`
 
    h. **Track Process**
    - Store process info in `activeDownloads[channelID]` with process handle
@@ -303,8 +299,8 @@ For each configured YouTube channel:
 5. **Log Completion**
    - **Diagnostic info** (always logged): `[Diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool}`
      - Provides visibility for debugging without affecting success logic
-   - **If forced termination**: Log "[YT] Download for {channel} stopped by monitor (stream offline)."
-   - **If success** (both conditions met): Log "[YT] Download for {channel} finished successfully."
+   - **If forced termination**: Log `[Download] Download for {channel} stopped by monitor (stream offline).`
+   - **If success** (both conditions met): Log `[Success] Download for {channel} finished successfully.`
    - **If `livestream_dl` succeeds**: Log that the download finished successfully with `livestream_dl`
    - **If failure** (one or both conditions missing):
      - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
@@ -319,6 +315,7 @@ For each configured YouTube channel:
    - If no alternate downloader is enabled and `retry_same_downloader_with_timestamp_when_live = true`, streammon retries the same downloader with a timestamped output name
    - If the same pending downloader result was previously confirmed still-live after completion, then later resolves offline, and `retry_offline_without_live_args = true`, streammon runs one yt-dlp VOD retry with `--live-from-start` and `--wait-for-video` removed and a timestamped output name
    - Otherwise streammon archives the completed file once the stream is confirmed offline
+   - Retry/archive decisions are logged with `[Retry]` and `[Archive]` event tags
 
 7. **Update Session Cache** (on success)
    - Add video ID to session cache: `downloadedVideos[channelID][videoID] = true`
@@ -491,7 +488,7 @@ For each configured Twitch channel:
    g. **Start Process**
    - Execute command via `cmd.Start()` (non-blocking)
    - If start fails, delete lockfile, release slot, log error, and return
-   - Log: "[Twitch] Started download for {channel}: {title}"
+   - Log: `[Download] Started twitch-dlp for {channel}: {title}`
 
    h. **Track Process**
    - Store process info in `activeDownloads[channelID]` with process handle
@@ -804,8 +801,8 @@ LAUNCH DOWNLOAD ✓
 
 - Location: `{channel_dir}/{sanitized_channel_name}-{videoID}.log`
 - Contains subprocess command executed (logged on startup)
-- All subprocess output from twitch-dlp/yt-dlp (every line captured)
-- Each line tagged with source: `[yt-dlp]` or `[twitch-dlp]`
+- All subprocess output from twitch-dlp/yt-dlp/livestream_dl (every line captured)
+- Each line tagged with its canonical source, such as `[yt-dlp]`, `[livestream_dl]`, or `[twitch-dlp]`
 - Throttling applied per line type (separate throttling counters):
   - Subprocess progress lines: Throttled by `subprocess_progress_interval` (30s default)
   - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (600s default)
@@ -817,7 +814,7 @@ LAUNCH DOWNLOAD ✓
 
 **Always shown:**
 
-- Monitor startup/shutdown messages
+- Monitor startup/shutdown messages and streammon lifecycle events
 - Channel status transitions ("is now LIVE", "has gone OFFLINE")
 - Download start/completion with title and status
 - Important errors and warnings
@@ -830,16 +827,17 @@ LAUNCH DOWNLOAD ✓
 - If `twitch_verbose_debug: true`: Twitch monitor debug output
 - If `youtube_api_verbose_debug: true`: YouTube RSS API calls and responses (very verbose)
 - If `twitch_api_verbose_debug: true`: Twitch GraphQL API calls and responses (very verbose)
-- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp subprocess output in terminal (with throttling on [download]/[wait])
-- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output in terminal (with throttling on [download]/[wait])
+- If `youtube_dlp_verbose_debug: true`: Raw yt-dlp/livestream_dl subprocess output in terminal (with throttling on progress and wait lines)
+- If `twitch_dlp_verbose_debug: true`: Raw twitch-dlp subprocess output in terminal (with throttling on progress and wait lines)
 - **Note:** DLP verbose flags control **terminal** printing only; log files always receive all subprocess output
 
 #### Terminal Colors
 
-- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), System (cyan), Info (blue)
-- **Timestamps**: All terminal output includes timestamp with configurable timezone (IANA timezone names like "Asia/Tokyo" or UTC offsets like "UTC+7")
-- **Subprocess lines** tagged with `[yt-dlp]` or `[twitch-dlp]` and subject to throttling
-- **Debug/event lines** use colored tags such as `[YouTubeAPI]`, `[TwitchAPI]`, `[LOCK]`, `[WARN]`, and `[Diagnostic]`
+- **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), System (cyan), downloader/debug tags (blue), and event tags (teal)
+- **Timestamps**: All terminal output includes a timestamp in the configured timezone with numeric offset, such as `2026-06-05 12:34:56 +09:00`
+- **Subprocess lines** tagged with canonical downloader names like `[yt-dlp]`, `[livestream_dl]`, or `[twitch-dlp]`; Windows suffixes such as `.exe`, `.cmd`, and `.bat` are normalized away
+- **livestream_dl output**: warnings/info/progress amounts are colorized when raw subprocess output is shown
+- **Debug/event lines** use colored tags such as `[YouTubeAPI]`, `[TwitchAPI]`, `[Lock]`, `[Download]`, `[Retry]`, `[Archive]`, `[WARN]`, and `[Diagnostic]`
 
 #### Output Callback System
 
@@ -849,15 +847,26 @@ Each download subprocess has a callback function that monitors output:
 outputCallback := func(line string) {
     if strings.Contains(line, "[retry-streams]") {
         isWaiting.Store(true)  // Stream not yet live
-    } else if strings.Contains(line, "frame=") || strings.Contains(line, "[download]") {
+    } else if strings.Contains(line, "frame=") ||
+        strings.Contains(line, "[download]") ||
+        (strings.Contains(line, "Video:") &&
+            strings.Contains(line, "Audio:") &&
+            strings.Contains(line, "downloaded")) ||
+        (strings.Contains(line, `"video"`) &&
+            strings.Contains(line, `"audio"`) &&
+            strings.Contains(line, `"downloaded_segments"`)) {
         isWaiting.Store(false) // Active downloading
     }
-    if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") {
+    if strings.Contains(line, "[Merger]") ||
+        strings.Contains(line, "Merging formats") ||
+        strings.Contains(line, "Successfully merged files into:") {
         mergerDetected.Store(true)
     }
     if strings.Contains(line, "[stats] Fragments") ||
         (strings.Contains(line, "frame=") && strings.Contains(line, "Lsize=")) ||
-        (strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) {
+        (strings.Contains(line, "[out#") && strings.Contains(line, "muxing overhead:")) ||
+        strings.Contains(line, "Successfully merged files into:") ||
+        strings.Contains(line, "Finished moving files from temporary directory to output destination") {
         downloadCompleted.Store(true)
     }
 }
@@ -879,8 +888,8 @@ max_concurrent_downloads = 10
 enable_youtube = true
 enable_twitch = true
 save_download_logs = true
-subprocess_progress_interval = 30     # Throttle [download] lines (seconds)
-subprocess_wait_interval = 600        # Throttle [wait] lines (seconds)
+subprocess_progress_interval = 30     # Throttle downloader progress lines (seconds)
+subprocess_wait_interval = 600        # Throttle [wait]/[retry-streams] lines (seconds)
 youtube_archive_downloads = true
 twitch_archive_downloads = true
 clear_all_lockfiles = true
