@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
 	"streammon/internal/util/ansi"
 )
+
+var livestreamDownloadedPattern = regexp.MustCompile(`~[0-9]+(?:\.[0-9]+)?\s+[KMGT]?B downloaded`)
 
 func IsSubprocessProgressLine(output string) bool {
 	if strings.Contains(output, "[download]") {
@@ -33,11 +36,29 @@ func IsSubprocessWaitLine(output string) bool {
 	return strings.Contains(output, "[wait]") || strings.Contains(output, "[retry-streams]")
 }
 
+func colorizeLivestreamDLOutput(output string) string {
+	output = strings.ReplaceAll(output, "[WARNING]", ansi.ColorYellow+"[WARNING]"+ansi.ColorReset)
+	output = strings.ReplaceAll(output, "WARNING:", ansi.ColorYellow+"WARNING:"+ansi.ColorReset)
+	output = strings.ReplaceAll(output, "[INFO]", ansi.ColorBlue+"[INFO]"+ansi.ColorReset)
+
+	return livestreamDownloadedPattern.ReplaceAllStringFunc(output, func(match string) string {
+		return ansi.ColorBlue + match + ansi.ColorReset
+	})
+}
+
+func colorizeSubprocessOutput(debugType, output string) string {
+	if strings.EqualFold(debugType, "livestream_dl") {
+		return colorizeLivestreamDLOutput(output)
+	}
+
+	return output
+}
+
 func (l *Logger) formatSubprocessLine(debugType, output string) string {
 	return fmt.Sprintf("%s [%s%s%s] %s\n",
 		l.taggedPrefix(ansi.ColorBlue, debugType),
 		ansi.ColorOrange, l.channelName, ansi.ColorReset,
-		output)
+		colorizeSubprocessOutput(debugType, output))
 }
 
 // LogSubprocessOutput writes subprocess output (from yt-dlp/twitch-dlp).

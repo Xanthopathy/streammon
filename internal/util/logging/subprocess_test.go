@@ -1,6 +1,11 @@
 package logging
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	"streammon/internal/util/ansi"
+)
 
 func TestIsSubprocessProgressLine(t *testing.T) {
 	tests := []struct {
@@ -45,5 +50,32 @@ func TestIsSubprocessWaitLine(t *testing.T) {
 	}
 	if !IsSubprocessWaitLine("[retry-streams] Waiting for stream") {
 		t.Fatal("expected [retry-streams] line to be classified as wait")
+	}
+}
+
+func TestColorizeSubprocessOutputOnlyTouchesLivestreamDL(t *testing.T) {
+	line := "5a5f6URAlIs: Video: 5195/5194 (Recording) Audio: 5193/5191 (Recording) ~657.55 MB downloaded"
+
+	got := colorizeSubprocessOutput("livestream_dl", line)
+	wantAmount := ansi.ColorBlue + "~657.55 MB downloaded" + ansi.ColorReset
+	if !strings.Contains(got, wantAmount) {
+		t.Fatalf("expected downloaded amount to be blue, got %q", got)
+	}
+
+	got = colorizeSubprocessOutput("yt-dlp", line)
+	if got != line {
+		t.Fatalf("expected non-livestream_dl output to remain unchanged, got %q", got)
+	}
+}
+
+func TestColorizeLivestreamDLSeverityTags(t *testing.T) {
+	warning := "[WARNING] [5a5f6URAlIs] segment failed"
+	if got := colorizeLivestreamDLOutput(warning); !strings.Contains(got, ansi.ColorYellow+"[WARNING]"+ansi.ColorReset) {
+		t.Fatalf("expected warning tag to be yellow, got %q", got)
+	}
+
+	info := "[INFO] [5a5f6URAlIs] merge complete"
+	if got := colorizeLivestreamDLOutput(info); !strings.Contains(got, ansi.ColorBlue+"[INFO]"+ansi.ColorReset) {
+		t.Fatalf("expected info tag to be blue, got %q", got)
 	}
 }
