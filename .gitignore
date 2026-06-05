@@ -8,3 +8,5 @@ streammon_config_yt.toml
 streammon_config_twitch.toml
 notes.txt
 tree.bat
+.gocache/
+.gotestcache/
