@@ -33,7 +33,7 @@ func FormatTime(t time.Time, timezone string) string {
 		}
 	}
 
-	// The format "MST-07:00" includes the timezone name and offset, e.g., "UTC+00:00".
-	formattedTime := t.In(loc).Format("2006-01-02 15:04:05 MST-07:00")
+	// UTC not displayed to save space
+	formattedTime := t.In(loc).Format("2006-01-02 15:04:05 -07:00")
 	return fmt.Sprintf("[%s%s%s]", ansi.ColorYellow, formattedTime, ansi.ColorReset)
 }
