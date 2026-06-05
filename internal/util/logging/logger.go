@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -117,6 +118,16 @@ func (l *Logger) taggedPrefix(tagColor, tag string) string {
 	return fmt.Sprintf("%s [%s%s%s]", l.linePrefix(), tagColor, tag, ansi.ColorReset)
 }
 
+func formatEventTag(eventType string) string {
+	eventType = strings.TrimSpace(eventType)
+	if eventType == "" {
+		return eventType
+	}
+
+	lower := strings.ToLower(eventType)
+	return strings.ToUpper(lower[:1]) + lower[1:]
+}
+
 func (l *Logger) writeFileLine(line string) {
 	if l.logFile == nil {
 		return
@@ -149,12 +160,12 @@ func (l *Logger) Logf(format string, args ...any) {
 	l.LogRegular(fmt.Sprintf(format, args...))
 }
 
-// LogEvent logs a message with a specific event type tag (e.g., "LOCK").
+// LogEvent logs a message with a specific event type tag (e.g., "Lock").
 func (l *Logger) LogEvent(eventType, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.writeLine(l.formatTaggedLine(ansi.ColorTeal, eventType, message), true)
+	l.writeLine(l.formatTaggedLine(ansi.ColorTeal, formatEventTag(eventType), message), true)
 }
 
 // LogEventf is a convenience wrapper for LogEvent that uses fmt.Sprintf.
