@@ -154,7 +154,12 @@ func (l *Logger) LogEvent(eventType, message string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.writeLine(l.formatTaggedLine(ansi.ColorBlue, eventType, message), true)
+	l.writeLine(l.formatTaggedLine(ansi.ColorTeal, eventType, message), true)
+}
+
+// LogEventf is a convenience wrapper for LogEvent that uses fmt.Sprintf.
+func (l *Logger) LogEventf(eventType, format string, args ...any) {
+	l.LogEvent(eventType, fmt.Sprintf(format, args...))
 }
 
 // LogError logs an error to both terminal and log file

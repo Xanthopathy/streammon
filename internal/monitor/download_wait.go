@@ -61,13 +61,13 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	if exitCode >= 0 {
 		switch proc.downloaderName {
 		case "yt-dlp":
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, mergerSuccess, outputFileExists))
+			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | merger_detected: %v | file_exists: %v", proc.downloaderName, exitCode, mergerSuccess, outputFileExists)
 		case "twitch-dlp":
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, outputFileExists))
+			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | completion_detected: %v | file_exists: %v", proc.downloaderName, exitCode, downloadComplete, outputFileExists)
 		case "livestream_dl":
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
+			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists)
 		default:
-			proc.logger.LogRegular(fmt.Sprintf("[%sDiagnostic%s] %s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", ansi.ColorBlue, ansi.ColorReset, proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists))
+			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | completion_detected: %v | merger_detected: %v | file_exists: %v", proc.downloaderName, exitCode, downloadComplete, mergerSuccess, outputFileExists)
 		}
 	}
 
@@ -75,19 +75,19 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	isSuccess := false
 	if proc.forcedTermination.Load() {
 		// Forced termination by monitor (stream went offline)
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		proc.logger.LogEventf("DOWNLOAD", "Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		isSuccess = true // Treat forced termination as success (meaningful data captured)
 	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists {
 		// Both success conditions met
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		proc.logger.LogEventf("SUCCESS", "Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		cleanupYTDLPResidue(proc.cmd.Dir, proc, proc.logger)
 		isSuccess = true
 	} else if proc.downloaderName == "twitch-dlp" && outputFileExists && (downloadComplete || exitCode == 0) {
 		// twitch-dlp does not emit yt-dlp merger markers; use its own completion markers and file output.
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		proc.logger.LogEventf("SUCCESS", "Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		isSuccess = true
 	} else if proc.downloaderName == "livestream_dl" && outputFileExists && exitCode == 0 {
-		proc.logger.LogRegular(fmt.Sprintf("Download for %s%s%s finished successfully with livestream_dl.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+		proc.logger.LogEventf("SUCCESS", "Download for %s%s%s finished successfully with livestream_dl.", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		isSuccess = true
 	} else {
 		// One or both success conditions failed
@@ -125,18 +125,18 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 
 	shouldLogSlots := (logPrefix == logPrefixTwitch && globalCfg.TwitchVerboseDebug) || (logPrefix == logPrefixYouTube && globalCfg.YoutubeVerboseDebug)
 	if shouldLogSlots {
-		proc.logger.Logf("Released download slot for %s%s%s. Slots used: %d/%d.", ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
+		proc.logger.LogEventf("SLOT", "Released download slot for %s%s%s. Slots used: %d/%d.", ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
 	// Finalize success or set pending state for YouTube
 	if isSuccess {
 		if logPrefix == logPrefixYouTube && proc.retryMode == ytRetryModeOfflineVOD {
-			proc.logger.LogRegular("Final VOD retry completed after stream ended. Archiving this YouTube download.")
+			proc.logger.LogEvent("ARCHIVE", "Final VOD retry completed after stream ended. Archiving this YouTube download.")
 			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
 		} else if logPrefix == logPrefixYouTube && !proc.forcedTermination.Load() {
 			b.setPendingYTSuccess(ch.ID, proc.videoID, proc.status.Source, proc.downloaderName)
-			proc.logger.LogRegular("Waiting for the next YT poll before archiving this download.")
-			proc.logger.LogRegular(fmt.Sprintf("Pending YouTube success recorded for %s; the next poll will either archive it or retry with another downloader if the stream is still live.", proc.videoID))
+			proc.logger.LogEvent("ARCHIVE", "Waiting for the next YT poll before archiving this download.")
+			proc.logger.LogEventf("ARCHIVE", "Pending YouTube success recorded for %s; the next poll will either archive it or retry with another downloader if the stream is still live.", proc.videoID)
 		} else {
 			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
 		}

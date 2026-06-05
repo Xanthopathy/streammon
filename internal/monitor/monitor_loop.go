@@ -23,8 +23,8 @@ func (b *BaseMonitor) Run() {
 	connMonitor := GetGlobalConnectionMonitor(globalCfg)
 	connMonitor.Subscribe(b.pauseCond)
 
-	b.logger.Logf("Monitor started for %d channels.", len(channels))
-	b.logger.Logf("Working Directory: %s", streamMonCfg.WorkingDirectory)
+	b.logger.LogEventf("MONITOR", "Started for %d channels.", len(channels))
+	b.logger.LogEventf("CONFIG", "Working directory: %s", streamMonCfg.WorkingDirectory)
 
 	// Log request spacing configuration
 	channelCount := len(channels)
@@ -42,7 +42,7 @@ func (b *BaseMonitor) Run() {
 			effectiveSpacing = rpsSpacing
 		}
 
-		b.logger.Logf("Configured poll_interval: %v | Channels: %d | Effective request spacing: ~%v", pollInterval, channelCount, effectiveSpacing)
+		b.logger.LogEventf("CONFIG", "Configured poll_interval: %v | Channels: %d | Effective request spacing: ~%v", pollInterval, channelCount, effectiveSpacing)
 	}
 
 	// Create working directory if it doesn't exist
@@ -52,7 +52,7 @@ func (b *BaseMonitor) Run() {
 			b.logger.LogErrorf("Error creating working directory: %v", err)
 			return
 		}
-		b.logger.Logf("Created working directory: %s", streamMonCfg.WorkingDirectory)
+		b.logger.LogEventf("CONFIG", "Created working directory: %s", streamMonCfg.WorkingDirectory)
 	}
 
 	// Load archive.txt if enabled to prevent re-downloads
@@ -68,7 +68,7 @@ func (b *BaseMonitor) Run() {
 		archivePath := b.archivePath()
 		if lines, err := fileio.ReadLinesToSet(archivePath); err == nil {
 			b.archivedVideos = lines
-			b.logger.Logf("Loaded %d archived video IDs from %s.", len(b.archivedVideos), archivePath)
+			b.logger.LogEventf("ARCHIVE", "Loaded %d archived video IDs from %s.", len(b.archivedVideos), archivePath)
 		} else if !os.IsNotExist(err) {
 			b.logger.Warn(fmt.Sprintf("Could not load archive %s: %v", archivePath, err))
 		}
@@ -126,11 +126,11 @@ func (b *BaseMonitor) Run() {
 			if backoff > 10*time.Minute {
 				backoff = 10 * time.Minute
 			}
-			b.logger.Logf("Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)", errorCount, backoff, consecutiveErrors)
+			b.logger.LogEventf("POLL", "Detected %d errors during poll. Staggering next poll by +%v (Consecutive failures: %d)", errorCount, backoff, consecutiveErrors)
 			sleepDuration += backoff
 		} else {
 			if consecutiveErrors > 0 {
-				b.logger.Logf("Poll errors cleared. Returning to normal poll interval: %v", pollInterval)
+				b.logger.LogEventf("POLL", "Errors cleared. Returning to normal poll interval: %v", pollInterval)
 			}
 			consecutiveErrors = 0
 		}

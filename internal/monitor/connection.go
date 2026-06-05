@@ -82,11 +82,11 @@ func (cm *ConnectionMonitor) broadcastStateChange() {
 	// Log state transitions
 	if cm.isConnected && !cm.lastLogged {
 		// Connection just restored
-		cm.sysLogger.Logf("%sConnection restored (stable).%s Resuming operations...", ansi.ColorGreen, ansi.ColorReset)
+		cm.sysLogger.LogEventf("NETWORK", "%sConnection restored (stable).%s Resuming operations...", ansi.ColorGreen, ansi.ColorReset)
 		cm.lastLogged = true
 	} else if !cm.isConnected && cm.lastLogged {
 		// Connection just lost
-		cm.sysLogger.Logf("%sConnection lost (confirmed).%s Pausing monitors...", ansi.ColorRed, ansi.ColorReset)
+		cm.sysLogger.LogEventf("NETWORK", "%sConnection lost (confirmed).%s Pausing monitors...", ansi.ColorRed, ansi.ColorReset)
 		cm.lastLogged = false
 	}
 
@@ -155,7 +155,7 @@ func (cm *ConnectionMonitor) run() {
 			// Currently disconnected
 			if connected {
 				cm.consecutiveSuccess++
-				cm.sysLogger.Logf("Connection check passed (%d/%d)...", cm.consecutiveSuccess, threshold)
+				cm.sysLogger.LogEventf("NETWORK", "Connection check passed (%d/%d)...", cm.consecutiveSuccess, threshold)
 				if cm.consecutiveSuccess >= threshold {
 					cm.isConnected = true
 					cm.consecutiveFailure = 0

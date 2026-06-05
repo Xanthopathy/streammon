@@ -102,20 +102,20 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 
 		if !matchesFilter {
 			if wasTracked && previousStatus.IsLive {
-				b.logger.Logf("%s%s%s is live but filtered out: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, newStatus.Title)
+				b.logger.LogEventf("SKIP", "%s%s%s is live but filtered out: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, newStatus.Title)
 				b.liveStatus[ch.ID] = models.LiveInfo{IsLive: false}
 			}
 			return nil
 		}
 
 		if !wasTracked || !previousStatus.IsLive {
-			b.logger.Logf("%s%s%s %sis now LIVE%s: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorGreen, ansi.ColorReset, newStatus.Title)
+			b.logger.LogEventf("LIVE", "%s%s%s is now %sLIVE%s: %s", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorGreen, ansi.ColorReset, newStatus.Title)
 		}
 		b.liveStatus[ch.ID] = newStatus
 	} else {
 		// Went offline (genuine case, safety net already passed)
 		if wasTracked && previousStatus.IsLive {
-			b.logger.Logf("%s%s%s %shas gone offline%s.", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorRed, ansi.ColorReset)
+			b.logger.LogEventf("OFFLINE", "%s%s%s %shas gone offline%s.", ansi.ColorOrange, ch.Name, ansi.ColorReset, ansi.ColorRed, ansi.ColorReset)
 		}
 		b.liveStatus[ch.ID] = newStatus // Record that it's offline
 	}

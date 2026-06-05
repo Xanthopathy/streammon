@@ -30,10 +30,10 @@ func main() {
 	defaultCfg := config.GetDefaultGlobalConfig()
 	sysLogger := logging.NewLogger(defaultCfg, "System", ansi.ColorCyan)
 
-	sysLogger.Logf("streammon version %s", currentVersion)
+	sysLogger.LogEventf("STARTUP", "streammon version %s", currentVersion)
 
 	// 1. Load Configuration
-	sysLogger.LogRegular("Loading configurations...")
+	sysLogger.LogEvent("CONFIG", "Loading configurations...")
 
 	globalCfg, globalWarnings, err := config.LoadGlobalConfigWithWarnings(filepath.Join(exeDir, "streammon_config.toml"))
 	if err != nil {
@@ -57,7 +57,7 @@ func main() {
 		if err != nil {
 			sysLogger.Warn(fmt.Sprintf("Failed to check for updates: %v", err))
 		} else if updateMsg != "" {
-			sysLogger.LogRegular(updateMsg)
+			sysLogger.LogEvent("UPDATE", updateMsg)
 		}
 	}()
 
@@ -106,7 +106,7 @@ func main() {
 
 	// 2. Cleanup Lockfiles (if enabled)
 	if globalCfg.ClearAllLockfiles {
-		sysLogger.LogRegular("Cleaning up old lockfiles...")
+		sysLogger.LogEvent("LOCK", "Cleaning up old lockfiles...")
 		if ytCfg != nil {
 			clearLockfiles(sysLogger, "YouTube", ytCfg.StreamMon.WorkingDirectory)
 		}
@@ -136,7 +136,7 @@ func main() {
 
 	// Keep main thread alive until all goroutines are done
 	wg.Wait()
-	sysLogger.LogRegular("All monitors have finished.")
+	sysLogger.LogEvent("SHUTDOWN", "All monitors have finished.")
 }
 
 func logConfigWarnings(logger *logging.Logger, warnings []config.ConfigWarning) {
@@ -155,6 +155,6 @@ func clearLockfiles(logger *logging.Logger, platformName, workingDirectory strin
 	}
 
 	if count > 0 {
-		logger.Logf("Removed %d old %s lockfile(s) from %s", count, platformName, workingDirectory)
+		logger.LogEventf("LOCK", "Removed %d old %s lockfile(s) from %s", count, platformName, workingDirectory)
 	}
 }

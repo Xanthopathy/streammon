@@ -45,6 +45,6 @@ func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logg
 	}
 
 	if removed > 0 {
-		logger.Logf("Cleaned up %d yt-dlp residue file(s).", removed)
+		logger.LogEventf("CLEANUP", "Cleaned up %d yt-dlp residue file(s).", removed)
 	}
 }

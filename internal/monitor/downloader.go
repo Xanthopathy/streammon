@@ -31,7 +31,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	if shouldLogSlots {
 		// Note: len(downloadSlots) shows the number of *active* slots.
 		// Since we've already acquired one, the number of slots currently in use is len(downloadSlots).
-		b.logger.Logf("Acquired download slot for %s%s%s. Slots used: %d/%d.",
+		b.logger.LogEventf("SLOT", "Acquired download slot for %s%s%s. Slots used: %d/%d.",
 			ansi.ColorOrange, ch.Name, ansi.ColorReset, len(downloadSlots), cap(downloadSlots))
 	}
 
@@ -65,7 +65,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			logging.IsSubprocessWaitLine(line) {
 			count := proc.downloadWaitCount.Add(1)
 			if int(count) >= downloadWaitRetries && proc.downloadWaitTriggered.CompareAndSwap(false, true) {
-				proc.logger.LogRegular(fmt.Sprintf(
+				proc.logger.LogEvent("WAIT", fmt.Sprintf(
 					"%s is still waiting on %s%s%s after %d wait lines. Stopping it.",
 					proc.downloaderName,
 					ansi.ColorOrange,
@@ -173,7 +173,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Confirm dlpDebug setting
 	if dlpDebug {
-		logger.LogRegular("Raw subprocess output will be shown (dlp_verbose_debug=true)")
+		logger.LogEvent("DIAGNOSTIC", "Raw subprocess output will be shown (dlp_verbose_debug=true)")
 	}
 
 	// Force colors in subprocess output (yt-dlp, twitch-dlp)
@@ -229,7 +229,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	}
 	startedAt := time.Now()
 
-	logger.LogRegular(fmt.Sprintf("%sStarted download for%s %s%s%s: %s", ansi.ColorGreen, ansi.ColorReset, ansi.ColorOrange, ch.Name, ansi.ColorReset, status.Title))
+	logger.LogEventf("DOWNLOAD", "%sStarted%s %s for %s%s%s: %s", ansi.ColorGreen, ansi.ColorReset, downloaderName, ansi.ColorOrange, ch.Name, ansi.ColorReset, status.Title)
 
 	// Store process info
 	proc.startedAt = startedAt

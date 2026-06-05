@@ -81,7 +81,7 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 				b.ytRetryDownloaders[ch.ID] = retry
 				b.pendingYTSuccessMu.Unlock()
 
-				b.logger.Logf("%s%s%s (%s) is still live after %s completed. Retrying with %s.",
+				b.logger.LogEventf("RETRY", "%s%s%s (%s) is still live after %s completed. Retrying with %s.",
 					ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID, pending.completedDownloader, downloaderName)
 				return
 			}
@@ -97,7 +97,7 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 				b.ytRetryDownloaders[ch.ID] = retry
 				b.pendingYTSuccessMu.Unlock()
 
-				b.logger.Logf("%s%s%s (%s) is still live after %s completed. Retrying %s with a timestamped output name.",
+				b.logger.LogEventf("RETRY", "%s%s%s (%s) is still live after %s completed. Retrying %s with a timestamped output name.",
 					ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID, pending.completedDownloader, downloaderName)
 				return
 			}
@@ -108,7 +108,7 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 		b.pendingYTSuccesses[ch.ID] = pending
 		b.pendingYTSuccessMu.Unlock()
 
-		b.logger.Logf("%s%s%s (%s) is still live after %s completed. Waiting for it to go offline; no alternate downloader is enabled.",
+		b.logger.LogEventf("ARCHIVE", "%s%s%s (%s) is still live after %s completed. Waiting for it to go offline; no alternate downloader is enabled.",
 			ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID, pending.completedDownloader)
 		return
 	}
@@ -132,7 +132,7 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 				b.ytRetryDownloaders[ch.ID] = retry
 				b.pendingYTSuccessMu.Unlock()
 
-				b.logger.Logf("%s%s%s (%s) is no longer live. Retrying final VOD with %s and live-wait args removed.",
+				b.logger.LogEventf("RETRY", "%s%s%s (%s) is no longer live. Retrying final VOD with %s and live-wait args removed.",
 					ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID, downloaderName)
 				if b.tryStartDownload(ch, retryStatus) {
 					return
@@ -144,14 +144,14 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 				b.pendingYTSuccesses[ch.ID] = pending
 				b.pendingYTSuccessMu.Unlock()
 
-				b.logger.Logf("%s%s%s (%s) final VOD retry could not start yet. Keeping pending success for the next poll.",
+				b.logger.LogEventf("RETRY", "%s%s%s (%s) final VOD retry could not start yet. Keeping pending success for the next poll.",
 					ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID)
 				return
 			}
 		}
 	}
 
-	b.logger.Logf("%s%s%s (%s) is no longer live. Archiving completed YouTube download.",
+	b.logger.LogEventf("ARCHIVE", "%s%s%s (%s) is no longer live. Archiving completed YouTube download.",
 		ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID)
 	b.finalizeSuccessfulDownload(ch.ID, pending.videoID, b.logger)
 }

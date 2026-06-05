@@ -48,7 +48,7 @@ func (b *BaseMonitor) migrateLegacyArchive(logger *logging.Logger) {
 
 	if !newExists {
 		if err := os.Rename(oldPath, newPath); err == nil {
-			logger.Logf("Moved legacy archive %s to %s.", oldPath, newPath)
+			logger.LogEventf("ARCHIVE", "Moved legacy archive %s to %s.", oldPath, newPath)
 			return
 		} else {
 			logger.Warn(fmt.Sprintf(
@@ -71,7 +71,8 @@ func (b *BaseMonitor) migrateLegacyArchive(logger *logging.Logger) {
 		return
 	}
 
-	logger.Logf(
+	logger.LogEventf(
+		"ARCHIVE",
 		"Merged %d unique archived ID(s) from legacy archive %s into %s.",
 		merged,
 		oldPath,
@@ -87,7 +88,7 @@ func (b *BaseMonitor) migrateLegacyArchive(logger *logging.Logger) {
 		return
 	}
 
-	logger.Logf("Removed merged legacy archive %s.", oldPath)
+	logger.LogEventf("ARCHIVE", "Removed merged legacy archive %s.", oldPath)
 }
 
 func mergeArchiveFiles(dstPath, srcPath string) (int, error) {
