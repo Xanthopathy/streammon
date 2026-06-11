@@ -41,7 +41,8 @@ func (b *BaseMonitor) startFallbackDownload(ch config.Channel, proc *downloadPro
 	if len(cmd.Args) > 1 {
 		commandStr += " " + text.JoinCommandArgs(cmd.Args[1:])
 	}
-	proc.logger.LogEventf("FALLBACK", "%s failed for %s%s%s. Trying %s fallback.", proc.downloaderName, ansi.ColorOrange, ch.Name, ansi.ColorReset, downloaderName)
+	previousDownloader := proc.downloaderName
+	proc.logger.LogEventf("FALLBACK", "%s failed for %s%s%s. Trying %s fallback.", previousDownloader, ansi.ColorOrange, ch.Name, ansi.ColorReset, downloaderName)
 	proc.logger.LogSubprocessOutput("COMMAND: "+commandStr, downloaderName)
 
 	if err := cmd.Start(); err != nil {
@@ -50,6 +51,7 @@ func (b *BaseMonitor) startFallbackDownload(ch config.Channel, proc *downloadPro
 	}
 
 	proc.cmd = cmd
+	proc.previousDownloader = previousDownloader
 	proc.downloaderName = downloaderName
 	proc.startedAt = time.Now()
 	proc.mergerDetected.Store(false)

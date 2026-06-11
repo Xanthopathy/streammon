@@ -8,19 +8,19 @@ import (
 	"strings"
 )
 
-func isYTDLPResidueFile(name string, proc *downloadProcess) bool {
-	if proc.downloaderName != "yt-dlp" {
+func isYTDLPResidueFile(name string, videoID string, downloaderName string) bool {
+	if downloaderName != "yt-dlp" {
 		return false
 	}
-	if !strings.Contains(name, proc.videoID) {
+	if !strings.Contains(name, videoID) {
 		return false
 	}
 
 	return strings.Contains(name, ".part-Frag") || strings.HasSuffix(name, ".part") || strings.HasSuffix(name, ".ytdl") || strings.HasSuffix(name, ".temp")
 }
 
-func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logger) {
-	if dir == "" || proc.downloaderName != "yt-dlp" {
+func cleanupYTDLPResidueForDownloader(dir string, videoID string, downloaderName string, logger *logging.Logger) {
+	if dir == "" || downloaderName != "yt-dlp" {
 		return
 	}
 
@@ -32,7 +32,7 @@ func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logg
 
 	removed := 0
 	for _, file := range files {
-		if file.IsDir() || !isYTDLPResidueFile(file.Name(), proc) {
+		if file.IsDir() || !isYTDLPResidueFile(file.Name(), videoID, downloaderName) {
 			continue
 		}
 
@@ -47,4 +47,8 @@ func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logg
 	if removed > 0 {
 		logger.LogEventf("CLEANUP", "Cleaned up %d yt-dlp residue file(s).", removed)
 	}
+}
+
+func cleanupYTDLPResidue(dir string, proc *downloadProcess, logger *logging.Logger) {
+	cleanupYTDLPResidueForDownloader(dir, proc.videoID, proc.downloaderName, logger)
 }

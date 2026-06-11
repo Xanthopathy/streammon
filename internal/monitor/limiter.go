@@ -15,6 +15,7 @@ type downloadProcess struct {
 	cmd                   *exec.Cmd
 	videoID               string
 	downloaderName        string
+	previousDownloader    string
 	startedAt             time.Time
 	lockPath              string
 	logger                *logging.Logger

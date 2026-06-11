@@ -88,6 +88,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		isSuccess = true
 	} else if proc.downloaderName == "livestream_dl" && outputFileExists && exitCode == 0 {
 		proc.logger.LogEventf("SUCCESS", "Download for %s%s%s finished successfully with livestream_dl.", ansi.ColorOrange, ch.Name, ansi.ColorReset)
+		cleanupYTDLPResidueForDownloader(proc.cmd.Dir, proc.videoID, proc.previousDownloader, proc.logger)
 		isSuccess = true
 	} else {
 		// One or both success conditions failed
