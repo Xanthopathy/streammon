@@ -33,23 +33,25 @@ type BaseMonitor struct {
 	pendingYTSuccessMu        sync.Mutex                   // Mutex to protect pendingYTSuccess
 	pendingYTSuccesses        map[string]pendingYTSuccess  // Tracks pending YouTube success info across polls
 	ytRetryDownloaders        map[string]ytRetryDownloader // Downloader override for YouTube streams that are still live after completion
+	pendingTwitchSuccesses    map[string]pendingSuccess    // Tracks pending Twitch success info across polls
 }
 
 // NewBaseMonitor creates a new generic monitor.
 func NewBaseMonitor(controller MonitorController) *BaseMonitor {
 	return &BaseMonitor{
-		logger:               logging.NewLogger(controller.GetGlobalConfig(), controller.GetLogPrefix(), controller.GetLogColor()),
-		controller:           controller,
-		httpClient:           &http.Client{Timeout: 30 * time.Second},
-		liveStatus:           make(map[string]models.LiveInfo),
-		activeDownloads:      make(map[string]*downloadProcess),
-		downloadedVideos:     make(map[string]map[string]bool),
-		queuedVideosLogged:   make(map[string]bool),
-		downloadedVidsLogged: make(map[string]bool),
-		archivedVideos:       make(map[string]bool),
-		rpsWarningSent:       false,
-		pauseCond:            sync.NewCond(&sync.Mutex{}),
-		pendingYTSuccesses:   make(map[string]pendingYTSuccess),
-		ytRetryDownloaders:   make(map[string]ytRetryDownloader),
+		logger:                 logging.NewLogger(controller.GetGlobalConfig(), controller.GetLogPrefix(), controller.GetLogColor()),
+		controller:             controller,
+		httpClient:             &http.Client{Timeout: 30 * time.Second},
+		liveStatus:             make(map[string]models.LiveInfo),
+		activeDownloads:        make(map[string]*downloadProcess),
+		downloadedVideos:       make(map[string]map[string]bool),
+		queuedVideosLogged:     make(map[string]bool),
+		downloadedVidsLogged:   make(map[string]bool),
+		archivedVideos:         make(map[string]bool),
+		rpsWarningSent:         false,
+		pauseCond:              sync.NewCond(&sync.Mutex{}),
+		pendingYTSuccesses:     make(map[string]pendingYTSuccess),
+		ytRetryDownloaders:     make(map[string]ytRetryDownloader),
+		pendingTwitchSuccesses: make(map[string]pendingSuccess),
 	}
 }

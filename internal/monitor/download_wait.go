@@ -138,6 +138,10 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 			b.setPendingYTSuccess(ch.ID, proc.videoID, proc.status.Source, proc.downloaderName)
 			proc.logger.LogEvent("ARCHIVE", "Waiting for the next YT poll before archiving this download.")
 			proc.logger.LogEventf("ARCHIVE", "Pending YouTube success recorded for %s; the next poll will either archive it or retry with another downloader if the stream is still live.", proc.videoID)
+		} else if logPrefix == logPrefixTwitch {
+			b.setPendingTwitchSuccess(ch.ID, proc.videoID, proc.downloaderName)
+			proc.logger.LogEvent("ARCHIVE", "Waiting for the next Twitch poll before archiving this download.")
+			proc.logger.LogEventf("ARCHIVE", "Pending Twitch success recorded for %s; the next poll will archive it.", proc.videoID)
 		} else {
 			b.finalizeSuccessfulDownload(ch.ID, proc.videoID, proc.logger)
 		}

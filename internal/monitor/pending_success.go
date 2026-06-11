@@ -20,6 +20,12 @@ type pendingYTSuccess struct {
 	confirmedStillLiveAfterCompletion bool
 }
 
+type pendingSuccess struct {
+	videoID       string
+	completedPoll uint64
+	downloader    string
+}
+
 type ytRetryDownloader struct {
 	videoID             string
 	mode                string
@@ -153,5 +159,32 @@ func (b *BaseMonitor) resolvePendingYTSuccess(ch config.Channel, newStatus model
 
 	b.logger.LogEventf("ARCHIVE", "%s%s%s (%s) is no longer live. Archiving completed YouTube download.",
 		ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID)
+	b.finalizeSuccessfulDownload(ch.ID, pending.videoID, b.logger)
+}
+
+func (b *BaseMonitor) setPendingTwitchSuccess(channelID, videoID string, downloaderName string) {
+	b.pendingYTSuccessMu.Lock()
+	defer b.pendingYTSuccessMu.Unlock()
+
+	b.pendingTwitchSuccesses[channelID] = pendingSuccess{
+		videoID:       videoID,
+		completedPoll: b.pollGeneration.Load(),
+		downloader:    downloaderName,
+	}
+}
+
+func (b *BaseMonitor) resolvePendingTwitchSuccess(ch config.Channel, pollID uint64) {
+	b.pendingYTSuccessMu.Lock()
+	pending, ok := b.pendingTwitchSuccesses[ch.ID]
+	if !ok || pollID <= pending.completedPoll {
+		b.pendingYTSuccessMu.Unlock()
+		return
+	}
+
+	delete(b.pendingTwitchSuccesses, ch.ID)
+	b.pendingYTSuccessMu.Unlock()
+
+	b.logger.LogEventf("ARCHIVE", "%s%s%s (%s) completed with %s on the previous poll. Archiving Twitch download.",
+		ansi.ColorOrange, ch.Name, ansi.ColorReset, pending.videoID, pending.downloader)
 	b.finalizeSuccessfulDownload(ch.ID, pending.videoID, b.logger)
 }

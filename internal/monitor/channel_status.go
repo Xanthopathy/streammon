@@ -52,6 +52,9 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 	}
 
 	b.resolvePendingYTSuccess(ch, newStatus, pollID)
+	if logPrefix == logPrefixTwitch {
+		b.resolvePendingTwitchSuccess(ch, pollID)
+	}
 
 	// --- SAFETY NET LOGIC (pre-lock check) ---
 	if !newStatus.IsLive {
@@ -63,7 +66,22 @@ func (b *BaseMonitor) checkChannel(ctx context.Context, cancel context.CancelFun
 		proc, isDownloading := b.activeDownloads[ch.ID]
 		b.downloadMutex.Unlock()
 
-		if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
+		if logPrefix == logPrefixTwitch &&
+			isDownloading &&
+			proc.downloaderName == "twitch-dlp" &&
+			proc.downloadCompleted != nil &&
+			proc.downloadCompleted.Load() &&
+			proc.isWaiting != nil &&
+			proc.isWaiting.Load() {
+			b.logger.Debug(debugType, fmt.Sprintf("API reports %s%s%s as offline and twitch-dlp is waiting after completion. Terminating downloader.", ansi.ColorOrange, ch.Name, ansi.ColorReset))
+			proc.forcedTermination.Store(true)
+			if proc.cmd != nil && proc.cmd.Process != nil {
+				if err := proc.cmd.Process.Signal(os.Interrupt); err != nil {
+					proc.cmd.Process.Kill()
+				}
+			}
+			// Fall through to update status to offline; waitForDownload will handle cleanup.
+		} else if wasTracked && previousStatus.IsLive && isDownloading && proc.videoID == newStatus.LastBroadcastID {
 			// Check if the downloader is in a waiting state (e.g. twitch-dlp retrying after stream end)
 			if proc.isWaiting != nil && proc.isWaiting.Load() {
 				b.logger.Debug(debugType, fmt.Sprintf("API reports %s%s%s as offline and downloader is waiting. Terminating downloader.", ansi.ColorOrange, ch.Name, ansi.ColorReset))

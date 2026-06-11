@@ -13,6 +13,7 @@ import (
 
 type pendingSuccessRetryController struct {
 	retryCalls int
+	logPrefix  string
 }
 
 func (c *pendingSuccessRetryController) GetGlobalConfig() *config.GlobalConfig {
@@ -40,6 +41,9 @@ func (c *pendingSuccessRetryController) GetLogColor() string {
 }
 
 func (c *pendingSuccessRetryController) GetLogPrefix() string {
+	if c.logPrefix != "" {
+		return c.logPrefix
+	}
 	return logPrefixYouTube
 }
 
@@ -74,5 +78,22 @@ func TestOfflineVODRetryRequiresPriorStillLiveConfirmation(t *testing.T) {
 
 	if controller.retryCalls != 0 {
 		t.Fatalf("offline VOD retry was requested without prior still-live confirmation")
+	}
+}
+
+func TestTwitchPendingSuccessArchivesAfterNextPoll(t *testing.T) {
+	controller := &pendingSuccessRetryController{logPrefix: logPrefixTwitch}
+	base := NewBaseMonitor(controller)
+	base.pollGeneration.Store(1)
+	base.setPendingTwitchSuccess("channel", "stream-id", "twitch-dlp")
+
+	base.resolvePendingTwitchSuccess(config.Channel{ID: "channel", Name: "Channel"}, 1)
+	if base.downloadedVideos["channel"]["stream-id"] {
+		t.Fatalf("twitch success archived before the next poll")
+	}
+
+	base.resolvePendingTwitchSuccess(config.Channel{ID: "channel", Name: "Channel"}, 2)
+	if !base.downloadedVideos["channel"]["stream-id"] {
+		t.Fatalf("twitch success was not archived on the next poll")
 	}
 }
