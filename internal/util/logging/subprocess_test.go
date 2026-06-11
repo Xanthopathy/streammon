@@ -51,6 +51,18 @@ func TestIsSubprocessWaitLine(t *testing.T) {
 	if !IsSubprocessWaitLine("[retry-streams] Waiting for stream") {
 		t.Fatal("expected [retry-streams] line to be classified as wait")
 	}
+	if IsSubprocessWaitLine("WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...") {
+		t.Fatal("expected YouTube no-longer-live warning not to affect wait state")
+	}
+}
+
+func TestIsYouTubeNoLongerLiveWarning(t *testing.T) {
+	if !IsYouTubeNoLongerLiveWarning("WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...") {
+		t.Fatal("expected YouTube no-longer-live warning to match")
+	}
+	if IsYouTubeNoLongerLiveWarning("WARNING: [youtube] Unable to download webpage") {
+		t.Fatal("expected unrelated YouTube warning not to match")
+	}
 }
 
 func TestColorizeSubprocessOutputOnlyTouchesLivestreamDL(t *testing.T) {

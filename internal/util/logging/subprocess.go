@@ -36,6 +36,10 @@ func IsSubprocessWaitLine(output string) bool {
 	return strings.Contains(output, "[wait]") || strings.Contains(output, "[retry-streams]")
 }
 
+func IsYouTubeNoLongerLiveWarning(output string) bool {
+	return strings.Contains(output, "WARNING: [youtube]") && strings.Contains(output, "Video is no longer live")
+}
+
 func colorizeLivestreamDLOutput(output string) string {
 	output = strings.ReplaceAll(output, "[WARNING]", ansi.ColorYellow+"[WARNING]"+ansi.ColorReset)
 	output = strings.ReplaceAll(output, "WARNING:", ansi.ColorYellow+"WARNING:"+ansi.ColorReset)
@@ -78,7 +82,16 @@ func (l *Logger) LogSubprocessOutput(output string, debugType string) {
 	// Determine if we should write based on throttling
 	shouldWrite := true
 
-	if isDownloadLine && l.globalCfg.SubprocessProgressInterval > 0 {
+	if IsYouTubeNoLongerLiveWarning(output) && l.globalCfg.SubprocessProgressInterval > 0 {
+		// Apply shorter progress throttling for noisy terminal YouTube live-end warnings.
+		now := time.Now()
+		if !l.lastDownloadWriteTime.IsZero() && now.Sub(l.lastDownloadWriteTime) < time.Duration(l.globalCfg.SubprocessProgressInterval)*time.Second {
+			shouldWrite = false
+		}
+		if shouldWrite {
+			l.lastDownloadWriteTime = now
+		}
+	} else if isDownloadLine && l.globalCfg.SubprocessProgressInterval > 0 {
 		// Apply throttling for [download] lines
 		now := time.Now()
 		if !l.lastDownloadWriteTime.IsZero() && now.Sub(l.lastDownloadWriteTime) < time.Duration(l.globalCfg.SubprocessProgressInterval)*time.Second {
