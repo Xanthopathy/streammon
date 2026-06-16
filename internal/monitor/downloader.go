@@ -40,6 +40,12 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	mergerDetected := &atomic.Bool{}
 
 	downloadCompleted := &atomic.Bool{}
+	postprocessFailed := &atomic.Bool{}
+	fragmentFailure := &atomic.Bool{}
+	extractorFailed := &atomic.Bool{}
+	authFailure := &atomic.Bool{}
+	diskFailure := &atomic.Bool{}
+	processCrashed := &atomic.Bool{}
 	downloadWaitRetries := 0
 	if controller, ok := b.controller.(interface{ GetDownloadWaitRetries() int }); ok {
 		downloadWaitRetries = controller.GetDownloadWaitRetries()
@@ -86,6 +92,36 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 			strings.Contains(line, "Merging formats") ||
 			strings.Contains(line, "Successfully merged files into:") {
 			mergerDetected.Store(true)
+		}
+
+		// Detect yt-dlp/ffmpeg postprocessing failures
+		if strings.Contains(line, "ERROR: Postprocessing:") || strings.Contains(line, "Postprocessing: Conversion failed") || strings.Contains(line, "Conversion failed") {
+			postprocessFailed.Store(true)
+		}
+
+		// Detect fragment/network exhaustion or repeated fragment 4xx/5xx
+		if strings.Contains(line, "Did not get any data blocks") || strings.Contains(line, "fragment not found") || strings.Contains(line, "Got error: HTTP Error") || strings.Contains(line, "fragment") && strings.Contains(line, "Not Found") {
+			fragmentFailure.Store(true)
+		}
+
+		// Extractor / extraction failures
+		if strings.Contains(line, "ERROR: Unable to download webpage") || strings.Contains(line, "ERROR: unable to extract") || strings.Contains(line, "ERROR: No video formats") || strings.Contains(line, "ERROR: unable to download video data") {
+			extractorFailed.Store(true)
+		}
+
+		// Authentication / permission failures
+		if strings.Contains(line, "This video is private") || strings.Contains(line, "401 Unauthorized") || strings.Contains(line, "needs login") || strings.Contains(line, "requires authentication") {
+			authFailure.Store(true)
+		}
+
+		// Disk / environment errors
+		if strings.Contains(line, "Permission denied") || strings.Contains(line, "No space left on device") || strings.Contains(line, "file access error") {
+			diskFailure.Store(true)
+		}
+
+		// Process termination/crash indicators
+		if strings.Contains(line, "Killed") || strings.Contains(line, "segfault") || strings.Contains(line, "Traceback (most recent call last):") {
+			processCrashed.Store(true)
 		}
 
 		// Track completion markers commonly emitted by twitch-dlp, livestream_dl, and ffmpeg.
@@ -206,6 +242,12 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		logger:                logger,
 		isWaiting:             isWaiting,
 		mergerDetected:        mergerDetected,
+		postprocessFailed:     postprocessFailed,
+		fragmentFailure:       fragmentFailure,
+		extractorFailed:       extractorFailed,
+		authFailure:           authFailure,
+		diskFailure:           diskFailure,
+		processCrashed:        processCrashed,
 		downloadCompleted:     downloadCompleted,
 		downloadWaitCount:     &atomic.Int32{},
 		downloadWaitTriggered: &atomic.Bool{},

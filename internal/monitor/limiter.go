@@ -23,6 +23,12 @@ type downloadProcess struct {
 	forcedTermination     atomic.Bool  // Signals that the monitor intentionally stopped the process
 	mergerDetected        *atomic.Bool // Tracks if [Merger] or successful completion marker was detected in output
 	downloadCompleted     *atomic.Bool // Tracks downloader-specific completion markers in output
+	postprocessFailed     *atomic.Bool // Tracks if post-processing (ffmpeg/merger) reported a failure
+	fragmentFailure       *atomic.Bool // Tracks repeated fragment/network failures escalated by output
+	extractorFailed       *atomic.Bool // Tracks extractor or extraction failures
+	authFailure           *atomic.Bool // Tracks authentication/permission failures
+	diskFailure           *atomic.Bool // Tracks disk/write/permission failures
+	processCrashed        *atomic.Bool // Tracks if subprocess crashed or was killed unexpectedly
 	downloadWaitCount     *atomic.Int32
 	downloadWaitTriggered *atomic.Bool
 	status                models.LiveInfo

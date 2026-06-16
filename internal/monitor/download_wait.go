@@ -36,6 +36,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	outputFileExists := false
 	mergerSuccess := proc.mergerDetected.Load()
 	downloadComplete := proc.downloadCompleted.Load()
+	postprocessFailed := proc.postprocessFailed.Load()
 
 	// Check if output file exists in the working directory
 	// The output file should match the pattern from the downloader command
@@ -61,7 +62,14 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 	if exitCode >= 0 {
 		switch proc.downloaderName {
 		case "yt-dlp":
-			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | merger_detected: %v | file_exists: %v", proc.downloaderName, exitCode, mergerSuccess, outputFileExists)
+			postprocessFailed := proc.postprocessFailed.Load()
+			fragmentFailure := proc.fragmentFailure.Load()
+			extractorFailed := proc.extractorFailed.Load()
+			authFailure := proc.authFailure.Load()
+			diskFailure := proc.diskFailure.Load()
+			processCrashed := proc.processCrashed.Load()
+			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | merger_detected: %v | file_exists: %v | postprocess_failed: %v | fragment_failure: %v | extractor_failed: %v | auth_failure: %v | disk_failure: %v | process_crashed: %v",
+				proc.downloaderName, exitCode, mergerSuccess, outputFileExists, postprocessFailed, fragmentFailure, extractorFailed, authFailure, diskFailure, processCrashed)
 		case "twitch-dlp":
 			proc.logger.LogEventf("DIAGNOSTIC", "%s exit code: %d | completion_detected: %v | file_exists: %v", proc.downloaderName, exitCode, downloadComplete, outputFileExists)
 		case "livestream_dl":
@@ -77,7 +85,7 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		// Forced termination by monitor (stream went offline)
 		proc.logger.LogEventf("DOWNLOAD", "Download for %s%s%s stopped by monitor (stream offline).", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		isSuccess = true // Treat forced termination as success (meaningful data captured)
-	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists {
+	} else if proc.downloaderName == "yt-dlp" && mergerSuccess && outputFileExists && !postprocessFailed {
 		// Both success conditions met
 		proc.logger.LogEventf("SUCCESS", "Download for %s%s%s finished successfully.", ansi.ColorOrange, ch.Name, ansi.ColorReset)
 		cleanupYTDLPResidue(proc.cmd.Dir, proc, proc.logger)
@@ -97,6 +105,27 @@ func (b *BaseMonitor) waitForDownload(ch config.Channel, proc *downloadProcess) 
 		case "yt-dlp":
 			if !mergerSuccess {
 				failureReasons = append(failureReasons, "no_merger_detected")
+			}
+			if proc.postprocessFailed.Load() {
+				failureReasons = append(failureReasons, "postprocess_failed")
+			}
+			if proc.fragmentFailure.Load() {
+				failureReasons = append(failureReasons, "fragment_failure")
+			}
+			if proc.extractorFailed.Load() {
+				failureReasons = append(failureReasons, "extractor_failed")
+			}
+			if proc.authFailure.Load() {
+				failureReasons = append(failureReasons, "auth_failure")
+			}
+			if proc.diskFailure.Load() {
+				failureReasons = append(failureReasons, "disk_failure")
+			}
+			if proc.processCrashed.Load() {
+				failureReasons = append(failureReasons, "process_crashed")
+			}
+			if postprocessFailed {
+				failureReasons = append(failureReasons, "postprocess_failed")
 			}
 		case "twitch-dlp":
 			if !downloadComplete && exitCode != 0 {
