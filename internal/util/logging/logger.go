@@ -31,6 +31,10 @@ type Logger struct {
 	dlpDebug bool // For twitch-dlp/yt-dlp subprocess output
 }
 
+// terminalMu serializes writes to the shared stdout/stderr to avoid
+// interleaving between multiple Logger instances.
+var terminalMu sync.Mutex
+
 // NewLogger creates a new logger for general monitor-level logging (terminal only).
 func NewLogger(globalCfg *config.GlobalConfig, logPrefix, logColor string) *Logger {
 	return &Logger{
@@ -72,9 +76,10 @@ func NewLoggerForDownload(
 	// Create single log file only if save_download_logs is enabled
 	if globalCfg.SaveDownloadLogs {
 		logPath := filepath.Join(channelDir, baseFilename+".log")
-		if file, err := os.Create(logPath); err == nil {
+		// Open for append so fallback/extra download instances don't truncate existing logs.
+		if file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
 			logger.logFile = file
-			// Write the command at the top of the log file for reference
+			// Write the command at the end of the log file for reference when appending
 			if command != "" {
 				file.WriteString("=== Subprocess Command ===\n")
 				file.WriteString(command + "\n")
@@ -82,8 +87,10 @@ func NewLoggerForDownload(
 				file.Sync()
 			}
 		} else {
-			fmt.Printf("%s Warning: Failed to create log file: %v\n",
+			terminalMu.Lock()
+			fmt.Printf("%s Warning: Failed to open log file: %v\n",
 				formatLogPrefix(globalCfg, logPrefix, logColor), err)
+			terminalMu.Unlock()
 		}
 	}
 
@@ -141,7 +148,9 @@ func (l *Logger) writeFileLine(line string) {
 
 func (l *Logger) writeLine(line string, terminal bool) {
 	if terminal {
+		terminalMu.Lock()
 		fmt.Print(line)
+		terminalMu.Unlock()
 	}
 	l.writeFileLine(line)
 }
