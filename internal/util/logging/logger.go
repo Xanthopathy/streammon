@@ -35,14 +35,30 @@ type Logger struct {
 // interleaving between multiple Logger instances.
 var terminalMu sync.Mutex
 
-// NewLogger creates a new logger for general monitor-level logging (terminal only).
+// NewLogger creates a new logger for general monitor-level logging.
+// It writes to the terminal and, if configured, to a system log file.
 func NewLogger(globalCfg *config.GlobalConfig, logPrefix, logColor string) *Logger {
-	return &Logger{
+	logger := &Logger{
 		globalCfg:   globalCfg,
 		logPrefix:   logPrefix,
 		logColor:    logColor,
 		channelName: "Monitor", // Default context
 	}
+
+	// Open a shared system log file if configured.
+	if globalCfg.SaveSystemLogs && globalCfg.SystemLogPath != "" {
+		// Use os.O_APPEND so multiple Logger instances can safely share the file.
+		if file, err := os.OpenFile(globalCfg.SystemLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+			logger.logFile = file
+		} else {
+			terminalMu.Lock()
+			fmt.Printf("%s Warning: Failed to open system log file %q: %v\n",
+				formatLogPrefix(globalCfg, logPrefix, logColor), globalCfg.SystemLogPath, err)
+			terminalMu.Unlock()
+		}
+	}
+
+	return logger
 }
 
 // NewLoggerForDownload creates a new logger for a specific download session.

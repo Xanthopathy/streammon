@@ -14,6 +14,8 @@ type GlobalConfig struct {
 	YoutubeArchiveDownloads    bool   `toml:"youtube_archive_downloads"`
 	TwitchArchiveDownloads     bool   `toml:"twitch_archive_downloads"`
 	SaveDownloadLogs           bool   `toml:"save_download_logs"`
+	SaveSystemLogs             bool   `toml:"save_system_logs"`
+	SystemLogPath              string `toml:"system_log_path"`
 	SubprocessProgressInterval int    `toml:"subprocess_progress_interval"`
 	SubprocessWaitInterval     int    `toml:"subprocess_wait_interval"`
 	ClearAllLockfiles          bool   `toml:"clear_all_lockfiles"`

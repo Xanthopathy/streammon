@@ -27,6 +27,12 @@ twitch_archive_downloads = true
 # Save downloader subprocess logs beside downloaded files.
 save_download_logs = true
 
+# Enable a shared log file for system-level events (startup, connection checks, etc.).
+save_system_logs = true
+
+# Relative or absolute path for the system log file.
+system_log_path = "streammon.log"
+
 # Log subprocess progress lines at most this often, in seconds.
 subprocess_progress_interval = 30
 

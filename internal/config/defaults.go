@@ -17,6 +17,8 @@ func GetDefaultGlobalConfig() *GlobalConfig {
 		YoutubeArchiveDownloads:    true,
 		TwitchArchiveDownloads:     true,
 		SaveDownloadLogs:           true,
+		SaveSystemLogs:             true,
+		SystemLogPath:              "streammon.log",
 		SubprocessProgressInterval: 30,
 		SubprocessWaitInterval:     600,
 		ClearAllLockfiles:          true,
