@@ -55,6 +55,7 @@ func TestWaitForDownload_YTDLP_PostprocessDetection(t *testing.T) {
 	cfg := config.GetDefaultGlobalConfig()
 	cfg.YoutubeArchiveDownloads = false
 	cfg.SaveDownloadLogs = false
+	cfg.SaveSystemLogs = false
 
 	ctrl := &testController{global: cfg, stream: config.GetDefaultYTConfig().StreamMon, prefix: logPrefixYouTube}
 	b := NewBaseMonitor(ctrl)
@@ -195,6 +196,7 @@ func TestFragmentDoesNotBlockSuccess(t *testing.T) {
 	cfg := config.GetDefaultGlobalConfig()
 	cfg.YoutubeArchiveDownloads = false
 	cfg.SaveDownloadLogs = false
+	cfg.SaveSystemLogs = false
 
 	ctrl := &testController{global: cfg, stream: config.GetDefaultYTConfig().StreamMon, prefix: logPrefixYouTube}
 	b := NewBaseMonitor(ctrl)
