@@ -24,7 +24,7 @@ When the application starts (`main.go`):
    - `subprocess_wait_interval`: Throttle `[wait]` / `[retry-streams]` wait lines (seconds)
    - Platform enable flags: `enable_youtube`, `enable_twitch`
    - Debug flags: platform-level flags plus API/DLP-specific flags
-   - Logging/archive/cleanup: `save_download_logs`, `youtube_archive_downloads`, `twitch_archive_downloads`, `clear_all_lockfiles`
+   - Logging/archive/cleanup: `save_download_logs`, `save_system_logs`, `system_log_path`, `youtube_archive_downloads`, `twitch_archive_downloads`, `clear_all_lockfiles`
    - If loading fails, use defaults
    - If individual keys are missing, invalid, or unknown, log `Config:` warnings and use defaults for invalid/missing values
 
@@ -74,7 +74,7 @@ When the application starts (`main.go`):
    - If Twitch is enabled, spawn `MonitorTwitch()` in a goroutine
    - Each monitor's `Run()` method starts:
      - Subscribes to the global connection monitor
-     - **Download Manager**: `manageDownloads()` loop (every 5 seconds)
+     - **Download Manager**: `manageDownloads()` loop (every 5 seconds), started after the first poll cycle completes so the status map is fully populated before downloads are triggered
    - Main thread waits for all monitors to complete (via `sync.WaitGroup`)
 
 ---
@@ -290,21 +290,22 @@ For each configured YouTube channel:
      - This handles the yt-dlp quirk: exit code 1 with warnings but output file IS created
      - Previous implementation trusted exit codes → false positives when warnings occurred
      - New implementation verifies actual completion + file creation instead
+   - yt-dlp success requires merger detected AND output file exists AND no post-processing failure; fatal error conditions (`postprocess_failed`, `fragment_failure`, `extractor_failed`, `auth_failure`, `disk_failure`, `process_crashed`) are detected from subprocess output and prevent false-success archiving
    - If the primary downloader fails, the same download process can try the other YouTube downloader before releasing the slot or deleting the lockfile
    - For regular `yt-dlp` primary downloads, `livestream_dl.enabled` controls whether `livestream_dl` fallback is attempted
    - For regular `livestream_dl` primary downloads, fallback can try `yt-dlp`
-   - `livestream_dl` success requires exit code 0 and a matching media file; completion/merge markers are logged diagnostically
+   - `livestream_dl` success requires exit code 0 and a matching media file; yt-dlp residue files (`.part-Frag`, `.part`, `.ytdl`, `.temp`) from the initial `yt-dlp` attempt are cleaned up when `livestream_dl` fallback succeeds
    - **Forced termination**: If download was stopped by monitor (stream went offline), treat as success (meaningful data captured)
 
 5. **Log Completion**
-   - **Diagnostic info** (always logged): `[Diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool}`
+   - **Diagnostic info** (always logged): `[Diagnostic] yt-dlp exit code: {code} | merger_detected: {bool} | file_exists: {bool} | postprocess_failed: {bool} | fragment_failure: {bool} | extractor_failed: {bool} | auth_failure: {bool} | disk_failure: {bool} | process_crashed: {bool}`
      - Provides visibility for debugging without affecting success logic
    - **If forced termination**: Log `[Download] Download for {channel} stopped by monitor (stream offline).`
-   - **If success** (both conditions met): Log `[Success] Download for {channel} finished successfully.`
+   - **If success** (all conditions met): Log `[Success] Download for {channel} finished successfully.`
    - **If `livestream_dl` succeeds**: Log that the download finished successfully with `livestream_dl`
-   - **If failure** (one or both conditions missing):
+   - **If failure** (any condition not met):
      - Log "[YT] Download for {channel} finished with error: {error} (exit_code={code}, reasons={list})"
-     - Reasons list includes: "no_merger_detected" and/or "output_file_not_found"
+     - Reasons list may include: `no_merger_detected`, `postprocess_failed`, `fragment_failure`, `extractor_failed`, `auth_failure`, `disk_failure`, `process_crashed`, and/or `output_file_not_found`
 
 6. **Persist to Archive** (if `youtube_archive_downloads: true` and download succeeded)
    - Append video ID to root-level `youtube_archive.txt`
@@ -526,6 +527,7 @@ For each configured Twitch channel:
    - Append broadcast ID to root-level `twitch_archive.txt`
    - Format: One broadcast ID per line
    - Purpose: Ensure broadcast won't be re-downloaded even after app restart
+   - Archiving is deferred: the broadcast ID is written to the archive file only after the next poll confirms the stream is no longer live (matching the YouTube deferred-archive pattern)
 
 6. **Update Session Cache** (on success)
    - Add broadcast ID to session cache: `downloadedVideos[channelID][broadcastID] = true`
@@ -537,6 +539,7 @@ For each configured Twitch channel:
 **After API reports stream as offline:**
 
 - If a download is **actively running** for the same broadcast ID, **ignore** the offline signal
+- If twitch-dlp has completed downloading but is idling in a retry/wait state and the API confirms the stream is offline, mark it as forced termination and interrupt the process
 - If the subprocess is only waiting/retrying (`[retry-streams]`), mark it as forced termination and interrupt the process
 - Forced termination is treated as successful capture because meaningful data may already be on disk
 - This prevents premature abortion during API lag while still breaking out of endless retry/wait states after a stream really ends
@@ -795,7 +798,17 @@ LAUNCH DOWNLOAD ✓
 
 ### 6. Logging
 
-#### Log File
+#### System Log File
+
+**Single shared log file for all monitor-level events** (if `save_system_logs: true`):
+
+- Location: configured by `system_log_path` (default: `streammon.log` beside the executable)
+- Contains startup events, connection state changes, channel status transitions, errors, and config warnings
+- Opened in append mode; all Logger instances write to it safely with `O_APPEND`
+- Independent of per-download log files
+- Mirrors terminal output for non-subprocess events
+
+#### Download Log File
 
 **Single `.log` file per download** (if `save_download_logs: true`):
 
@@ -806,7 +819,9 @@ LAUNCH DOWNLOAD ✓
 - Throttling applied per line type (separate throttling counters):
   - Subprocess progress lines: Throttled by `subprocess_progress_interval` (30s default)
   - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (600s default)
+  - yt-dlp `WARNING: [youtube] Video is no longer live` lines: Throttled by `subprocess_progress_interval` to suppress repeated end-of-stream spam
   - All other lines: Logged immediately
+- Log files opened in append mode; partial logs from a previous run are not truncated
 - Log file always receives all output (independent of debug flags)
 - Created via `NewLoggerForDownload()` with full metadata
 
@@ -833,6 +848,7 @@ LAUNCH DOWNLOAD ✓
 
 #### Terminal Colors
 
+- **Synchronized Output**: All terminal writes across Logger instances are serialized through a global mutex, preventing interleaved output from concurrent downloads
 - **Colored Terminal Output**: Different colors for YouTube (red), Twitch (purple), System (cyan), downloader/debug tags (blue), and event tags (teal)
 - **Timestamps**: All terminal output includes a timestamp in the configured timezone with numeric offset, such as `2026-06-05 12:34:56 +09:00`
 - **Subprocess lines** tagged with canonical downloader names like `[yt-dlp]`, `[livestream_dl]`, or `[twitch-dlp]`; Windows suffixes such as `.exe`, `.cmd`, and `.bat` are normalized away
@@ -888,6 +904,8 @@ max_concurrent_downloads = 10
 enable_youtube = true
 enable_twitch = true
 save_download_logs = true
+save_system_logs = true               # Write monitor-level events to a shared log file
+system_log_path = "streammon.log"     # Relative or absolute path for the system log
 subprocess_progress_interval = 30     # Throttle downloader progress lines (seconds)
 subprocess_wait_interval = 600        # Throttle [wait]/[retry-streams] lines (seconds)
 youtube_archive_downloads = true

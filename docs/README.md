@@ -133,6 +133,8 @@ In `streammon_config.toml`:
 | `max_concurrent_downloads`                               | Total active downloads allowed across YouTube and Twitch.                                                          |
 | `enable_youtube` / `enable_twitch`                       | Turn each platform on or off.                                                                                      |
 | `save_download_logs`                                     | Save per-download `.log` files.                                                                                    |
+| `save_system_logs`                                       | Write monitor-level events (startup, connection, channel status) to a shared log file.                             |
+| `system_log_path`                                        | Path for the system log file. Relative to where you run streammon, or absolute. Default: `"streammon.log"`.        |
 | `clear_all_lockfiles`                                    | Remove old `.lock-*` files on startup. Helpful after crashes.                                                      |
 | `youtube_archive_downloads` / `twitch_archive_downloads` | Write completed stream IDs to `youtube_archive.txt` / `twitch_archive.txt` so they are not downloaded again later. |
 | `youtube_dlp_verbose_debug` / `twitch_dlp_verbose_debug` | Show raw downloader output in the terminal.                                                                        |
@@ -150,21 +152,21 @@ increase it if download logs are too noisy.
 
 In `streammon_config_yt.toml`:
 
-| Setting                   | What it does                                                            |
-| ------------------------- | ----------------------------------------------------------------------- |
-| `working_directory`       | Where YouTube files go.                                                 |
-| `[yt-dlp].args`           | Arguments passed to `yt-dlp`.                                           |
-| `[livestream_dl].args`    | Arguments passed to `livestream_dl`.                                    |
-| `poll_interval`           | Delay between full channel-list checks.                                 |
-| `check_method`            | `"rss"` or `"live"`. The other method is used as fallback.              |
-| `downloader_method`       | Regular-stream downloader: `"yt-dlp"` or `"livestream_dl"`.             |
-| `fallback_duration`       | How long YouTube sticks to the fallback method after it works.          |
-| `ignore_older_than`       | Prevents older RSS entries from being treated as new live streams.      |
-| `max_requests_per_second` | Safety limit for channel checks.                                        |
-| `member_downloader`       | Downloader used for members-only streams. Default: `"livestream_dl"`.   |
-| `download_wait_retries`   | Stop a stalled YouTube downloader after this many `[wait]` retry lines. |
-| `retry_same_downloader_with_timestamp_when_live` | Retry an early live completion with a timestamped output if no alternate downloader is available. |
-| `retry_offline_without_live_args` | After an early completion, retry the final VOD with yt-dlp live-wait args removed once the stream is offline. |
+| Setting                                          | What it does                                                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `working_directory`                              | Where YouTube files go.                                                                                       |
+| `[yt-dlp].args`                                  | Arguments passed to `yt-dlp`.                                                                                 |
+| `[livestream_dl].args`                           | Arguments passed to `livestream_dl`.                                                                          |
+| `poll_interval`                                  | Delay between full channel-list checks.                                                                       |
+| `check_method`                                   | `"rss"` or `"live"`. The other method is used as fallback.                                                    |
+| `downloader_method`                              | Regular-stream downloader: `"yt-dlp"` or `"livestream_dl"`.                                                   |
+| `fallback_duration`                              | How long YouTube sticks to the fallback method after it works.                                                |
+| `ignore_older_than`                              | Prevents older RSS entries from being treated as new live streams.                                            |
+| `max_requests_per_second`                        | Safety limit for channel checks.                                                                              |
+| `member_downloader`                              | Downloader used for members-only streams. Default: `"livestream_dl"`.                                         |
+| `download_wait_retries`                          | Stop a stalled YouTube downloader after this many `[wait]` retry lines.                                       |
+| `retry_same_downloader_with_timestamp_when_live` | Retry an early live completion with a timestamped output if no alternate downloader is available.             |
+| `retry_offline_without_live_args`                | After an early completion, retry the final VOD with yt-dlp live-wait args removed once the stream is offline. |
 
 `working_directory` can be relative to where you run streammon, or absolute.
 Examples:
