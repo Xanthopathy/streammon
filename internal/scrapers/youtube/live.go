@@ -64,9 +64,50 @@ func CheckYouTubeViaLivePage(ctx context.Context, httpClient *http.Client, chann
 	}
 	body := string(bodyBytes)
 
+	// Extract Video ID from canonical URL - much safer than finding the first "videoId" match anywhere
+	canonicalRegex := regexp.MustCompile(`<link rel="canonical" href="https://www.youtube.com/watch\?v=([a-zA-Z0-9_-]{11})">`)
+	canonicalMatch := canonicalRegex.FindStringSubmatch(body)
+
+	var videoID string
+	if len(canonicalMatch) >= 2 {
+		videoID = canonicalMatch[1]
+	}
+
+	// Verify channel ID parity to ensure we aren't catching sidebar/featured channels
+	// Look for the owner of the main content (watch page or channel page)
+	chanIDRegex := regexp.MustCompile(`"(?:channelId|externalId|ownerDocId)":"(UC[a-zA-Z0-9_-]{22})"`)
+	chanIDMatches := chanIDRegex.FindAllStringSubmatch(body, -1)
+	idMatched := false
+	for _, match := range chanIDMatches {
+		if match[1] == channelID {
+			idMatched = true
+			break
+		}
+	}
+
+	if !idMatched {
+		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("%s%s%s /live page did not contain the expected channel ID %s. Likely redirect to suggestion or featured channel.", ansi.ColorOrange, channelName, ansi.ColorReset, channelID))
+		return models.LiveInfo{IsLive: false}, nil
+	}
+
 	// Check for strict live indicators.
 	// If the channel is offline, /live often redirects to the last VOD, which looks like a video page but has isLive:false (or missing).
-	isStatusLive := strings.Contains(body, `"status":"LIVE"`)
+	// We anchor the check to the video ID to avoid false positives from suggested live videos.
+	var isStatusLive bool
+	if videoID != "" {
+		// Look for "status":"LIVE" or "isLive":true in proximity to the video ID (within ~1KB)
+		// This ensures the live status belongs to the main video.
+		idPos := strings.Index(body, fmt.Sprintf(`"videoId":"%s"`, videoID))
+		if idPos != -1 {
+			searchRange := body[idPos : min(idPos+1024, len(body))]
+			isStatusLive = strings.Contains(searchRange, `"status":"LIVE"`) || strings.Contains(searchRange, `"isLive":true`)
+		}
+	}
+
+	// Double check: if we didn't find videoID from canonical, fall back to global check but still be cautious
+	if !isStatusLive {
+		isStatusLive = strings.Contains(body, `"status":"LIVE"`)
+	}
 
 	// Check for scheduled start time (detect upcoming streams/premieres)
 	// "scheduledStartTime":"1678900000"
@@ -103,14 +144,16 @@ func CheckYouTubeViaLivePage(ctx context.Context, httpClient *http.Client, chann
 		return models.LiveInfo{IsLive: false}, nil
 	}
 
-	// Extract Video ID
-	videoIDRegex := regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
-	videoIDMatch := videoIDRegex.FindStringSubmatch(body)
-	if len(videoIDMatch) < 2 {
-		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", ansi.ColorOrange, channelName, ansi.ColorReset))
-		return models.LiveInfo{IsLive: false}, nil
+	// Extract Video ID (if not already found via canonical)
+	if videoID == "" {
+		videoIDRegex := regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
+		videoIDMatch := videoIDRegex.FindStringSubmatch(body)
+		if len(videoIDMatch) < 2 {
+			logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", ansi.ColorOrange, channelName, ansi.ColorReset))
+			return models.LiveInfo{IsLive: false}, nil
+		}
+		videoID = videoIDMatch[1]
 	}
-	videoID := videoIDMatch[1]
 
 	// Extract Title (fallback to HTML title tag if JSON parsing is too complex for regex)
 	title := "Unknown Title"

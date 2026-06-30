@@ -74,9 +74,6 @@ func (b *BaseMonitor) Run() {
 		}
 	}
 
-	// Start the download manager in the background
-	go b.manageDownloads()
-
 	// Connection monitoring is now handled globally by GetGlobalConnectionMonitor()
 	// so we don't start a separate monitorConnection goroutine here.
 
@@ -87,6 +84,7 @@ func (b *BaseMonitor) Run() {
 	}
 
 	consecutiveErrors := 0
+	isFirstPoll := true
 
 	for {
 		// Check connection status before doing any work
@@ -100,6 +98,13 @@ func (b *BaseMonitor) Run() {
 
 		// Run check and track errors
 		errorCount := b.checkAllChannels()
+
+		// Start the download manager in the background after the first successful poll.
+		// This ensures we have a clean status for all channels before we start acting on them.
+		if isFirstPoll {
+			isFirstPoll = false
+			go b.manageDownloads()
+		}
 
 		// Report stats if supported (e.g. YouTube fallback summary)
 		if reporter, ok := b.controller.(interface{ LogStats() }); ok {
