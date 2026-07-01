@@ -4,44 +4,87 @@
 |       `-- main.go
 |-- configs
 |   |-- streammon_config.example.toml
-|   |-- streammon_config.toml
 |   |-- streammon_config_twitch.example.toml
-|   |-- streammon_config_twitch.toml
 |   |-- streammon_config_yt.example.toml
-|   `-- streammon_config_yt.toml
+|   `-- youtube_cookies.example.txt
 |-- docs
 |   |-- PROCESS.md
 |   |-- README.md
+|   |-- VERSION_HISTORY.md
 |   `-- todo.txt
 |-- go.mod
 |-- go.sum
 |-- internal
 |   |-- config
-|   |   |-- config.go
-|   |   `-- defaults.go
+|   |   |-- defaults.go
+|   |   |-- loaders.go
+|   |   |-- timezone.go
+|   |   |-- types.go
+|   |   `-- validation.go
 |   |-- models
 |   |   `-- live_info.go
 |   |-- monitor
+|   |   |-- archive_paths.go
 |   |   |-- base_monitor.go
+|   |   |-- channel_status.go
 |   |   |-- checker.go
+|   |   |-- connection.go
 |   |   |-- controller.go
+|   |   |-- download_cleanup.go
+|   |   |-- download_cleanup_test.go
+|   |   |-- download_fallback.go
+|   |   |-- download_success.go
+|   |   |-- download_wait.go
+|   |   |-- download_wait_test.go
 |   |   |-- downloader.go
+|   |   |-- downloader_name.go
+|   |   |-- downloader_name_test.go
 |   |   |-- limiter.go
 |   |   |-- manager.go
 |   |   |-- monitor_loop.go
+|   |   |-- network_errors.go
+|   |   |-- pending_success.go
+|   |   |-- pending_success_test.go
 |   |   |-- twitch.go
-|   |   `-- youtube.go
+|   |   |-- youtube.go
+|   |   |-- youtube_checker.go
+|   |   |-- youtube_downloader.go
+|   |   `-- youtube_downloader_test.go
 |   |-- scrapers
 |   |   |-- twitch
 |   |   |   `-- gql.go
 |   |   `-- youtube
 |   |       |-- client.go
 |   |       |-- live.go
+|   |       |-- members.go
 |   |       `-- rss.go
 |   `-- util
-|       |-- logger.go
-|       |-- stats.go
-|       `-- utils.go
+|       |-- ansi
+|       |   `-- colors.go
+|       |-- fileio
+|       |   `-- fileio.go
+|       |-- lockfile
+|       |   `-- lockfile.go
+|       |-- logging
+|       |   |-- debug.go
+|       |   |-- logger.go
+|       |   |-- logger_test.go
+|       |   |-- stats.go
+|       |   |-- subprocess.go
+|       |   `-- subprocess_test.go
+|       |-- netcheck
+|       |   `-- netcheck.go
+|       |-- terminal
+|       |   `-- terminal.go
+|       |-- text
+|       |   `-- text.go
+|       |-- timefmt
+|       |   `-- timefmt.go
+|       |-- updatecheck
+|       |   `-- updatecheck.go
+|       `-- utcoffset
+|           |-- utcoffset.go
+|           `-- utcoffset_test.go
 |-- scripts
 |   `-- build.ps1
 `-- tests
@@ -52,4 +95,4 @@
         |-- test_yt_live.go
         `-- test_yt_live.log
 
-16 directories, 36 files
+26 directories, 69 files
