@@ -13,6 +13,7 @@ args = [
     "--write-thumbnail",
     "--retries", "10",
     "--color", "always",
+	"--restrict-filenames",
     "--output", "[%(upload_date)s] [%(id)s] [%(title)s] [%(channel)s].%(ext)s",
 	# "--concurrent-fragments", "4",
     # "--ignore-errors",
