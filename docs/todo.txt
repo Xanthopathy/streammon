@@ -2,5 +2,7 @@
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 [shafted] holodex or invidious api as a third option (important for member streams)
 
+parse ytInitialPlayerResponse JSON from /live page instead of regex-hunting — current approach (canonical URL, "channelId"/"status":"LIVE"/"scheduledStartTime" keys) works today but will silently break if YouTube renames/deeply nests any of those JS keys
+
 dockerize?
 (netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.)
