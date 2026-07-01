@@ -156,6 +156,7 @@ func collectTwitchConfigWarnings(path string, meta toml.MetaData, cfg, defaults 
 	}
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "poll_interval"}, defaults.Scraper.PollInterval)
 	addMissingWarning(&warnings, path, meta, []string{"scraper", "max_requests_per_second"}, defaults.Scraper.MaxRequestsPerSecond)
+	addMissingWarning(&warnings, path, meta, []string{"scraper", "download_wait_retries"}, defaults.Scraper.DownloadWaitRetries)
 
 	if strings.TrimSpace(cfg.StreamMon.WorkingDirectory) == "" {
 		addInvalidWarning(&warnings, path, "streammon.working_directory", cfg.StreamMon.WorkingDirectory, defaults.StreamMon.WorkingDirectory, "must not be empty")
@@ -169,6 +170,10 @@ func collectTwitchConfigWarnings(path string, meta toml.MetaData, cfg, defaults 
 	if cfg.Scraper.MaxRequestsPerSecond <= 0 {
 		addInvalidWarning(&warnings, path, "scraper.max_requests_per_second", cfg.Scraper.MaxRequestsPerSecond, defaults.Scraper.MaxRequestsPerSecond, "must be greater than 0")
 		cfg.Scraper.MaxRequestsPerSecond = defaults.Scraper.MaxRequestsPerSecond
+	}
+	if cfg.Scraper.DownloadWaitRetries < 0 {
+		addInvalidWarning(&warnings, path, "scraper.download_wait_retries", cfg.Scraper.DownloadWaitRetries, defaults.Scraper.DownloadWaitRetries, "must be 0 or greater")
+		cfg.Scraper.DownloadWaitRetries = defaults.Scraper.DownloadWaitRetries
 	}
 	addChannelWarnings(&warnings, path, cfg.Channels)
 

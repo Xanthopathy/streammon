@@ -68,6 +68,7 @@ type TwitchConfig struct {
 	Scraper   struct {
 		PollInterval         string  `toml:"poll_interval"`
 		MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
+		DownloadWaitRetries  int     `toml:"download_wait_retries"`
 	} `toml:"scraper"`
 	Channels []Channel `toml:"channel"`
 }

@@ -100,7 +100,6 @@ func GetDefaultTwitchConfig() *TwitchConfig {
 		},
 		TwitchDLP: DownloaderConfig{
 			Args: []string{
-				"--live-from-start",
 				"--retry-streams", "60",
 				"--output", "[%(upload_date)s] [%(id)s] [%(uploader)s] [%(title)s].%(ext)s",
 			},
@@ -108,9 +107,11 @@ func GetDefaultTwitchConfig() *TwitchConfig {
 		Scraper: struct {
 			PollInterval         string  `toml:"poll_interval"`
 			MaxRequestsPerSecond float64 `toml:"max_requests_per_second"`
+			DownloadWaitRetries  int     `toml:"download_wait_retries"`
 		}{
 			PollInterval:         "30s",
 			MaxRequestsPerSecond: 2,
+			DownloadWaitRetries:  3,
 		},
 	}
 }

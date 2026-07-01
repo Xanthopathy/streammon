@@ -31,6 +31,7 @@ type downloadProcess struct {
 	processCrashed        *atomic.Bool // Tracks if subprocess crashed or was killed unexpectedly
 	downloadWaitCount     *atomic.Int32
 	downloadWaitTriggered *atomic.Bool
+	hadDownloadActivity   *atomic.Bool // True once any download progress line has been seen; gates live-from-start fallback
 	status                models.LiveInfo
 	outputCallback        func(string)
 	fallbackAttempted     bool

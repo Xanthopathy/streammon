@@ -248,16 +248,29 @@ false and set `member_check = true` only on specific `[[channel]]` entries.
 
 In `streammon_config_twitch.toml`:
 
-| Setting                   | What it does                            |
-| ------------------------- | --------------------------------------- |
-| `working_directory`       | Where Twitch files go.                  |
-| `[twitch-dlp].args`       | Arguments passed to `twitch-dlp`.       |
-| `poll_interval`           | Delay between full channel-list checks. |
-| `max_requests_per_second` | Safety limit for GraphQL checks.        |
+| Setting                   | What it does                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `working_directory`       | Where Twitch files go.                                                                                                          |
+| `[twitch-dlp].args`       | Arguments passed to `twitch-dlp`.                                                                                               |
+| `poll_interval`           | Delay between full channel-list checks.                                                                                         |
+| `max_requests_per_second` | Safety limit for GraphQL checks.                                                                                                |
+| `download_wait_retries`   | Fall back to live-edge capture after this many consecutive `--live-from-start` playlist failures with no data downloaded yet.   |
 
 Twitch uses the same `working_directory`, `poll_interval`, and
 `max_requests_per_second` ideas as YouTube. Twitch is generally more lenient
 than YouTube, but keeping a reasonable request rate is still good practice.
+
+`--live-from-start` is not included in the default twitch-dlp args because
+streammon's polling already catches streams within seconds to a couple of
+minutes of going live. `--live-from-start` is only useful when you want to
+recover content that aired before streammon detected the stream, and it only
+works on channels that have past broadcasts enabled. If you add it and the
+channel does not save VODs, twitch-dlp will loop indefinitely printing
+`[live-from-start] Cannot find the playlist` until the stream ends. The
+`download_wait_retries` guard catches this: after that many consecutive
+failures with no data downloaded, streammon kills the stalled process and
+restarts twitch-dlp without `--live-from-start` so live-edge capture continues
+normally. Set `download_wait_retries = 0` to disable this fallback.
 
 ## What The Logs Mean
 

@@ -17,6 +17,9 @@ poll_interval = "30s"
 # Rate limit for channel checks.
 max_requests_per_second = 2
 
+# Stop a stalled --live-from-start recovery after this many failed playlist attempts and fall back to live-edge capture. Set to 0 to disable.
+download_wait_retries = 3
+
 # ========================== Channels ========================== #
 # Use filters = [".*"] to download every live stream.
 

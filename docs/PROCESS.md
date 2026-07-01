@@ -346,6 +346,7 @@ The Twitch monitor (`twitch.go` → `base_monitor.go`):
    - Poll interval from `streammon_config_twitch.toml`
    - List of channels to monitor
    - twitch-dlp arguments and working directory
+   - `download_wait_retries` threshold for ending stalled `--live-from-start` recovery loops
 3. Prints startup log with channel count and working directory
 
 ### 2. Continuous Polling Loop
@@ -470,9 +471,10 @@ For each configured Twitch channel:
 
    d. **Output Callback Setup**
    - Register callback function to detect subprocess state:
-     - If line contains `[retry-streams]`: Set `isWaiting = true` (waiting for stream to go live)
-     - If line contains `frame=` or `[download]`: Set `isWaiting = false` (actively downloading)
-   - Purpose: Detect download state for intelligent progress reporting
+     - If line contains `[retry-streams]` or `[live-from-start] Cannot find the playlist`: Set `isWaiting = true` (waiting for stream or VOD playlist)
+     - If line contains `frame=` or `[download]`: Set `isWaiting = false` and `hadDownloadActivity = true` (actively downloading); also resets the wait counter
+     - `hadDownloadActivity` is a one-way latch: once set to true, it never resets
+   - Purpose: Detect download state for intelligent progress reporting and stall detection
 
    e. **Build Downloader Command**
    - Twitch uses `twitch-dlp` via npm/npx
@@ -543,6 +545,15 @@ For each configured Twitch channel:
 - If the subprocess is only waiting/retrying (`[retry-streams]`), mark it as forced termination and interrupt the process
 - Forced termination is treated as successful capture because meaningful data may already be on disk
 - This prevents premature abortion during API lag while still breaking out of endless retry/wait states after a stream really ends
+
+**`--live-from-start` stall guard (`download_wait_retries`):**
+
+- If `--live-from-start` is in the twitch-dlp args and the channel does not have past broadcasts enabled, twitch-dlp loops indefinitely printing `[live-from-start] Cannot find the playlist`
+- After `download_wait_retries` consecutive occurrences of this message **with no download data seen at all**, streammon interrupts the process
+- Because no output file was produced, the normal failure path runs `BuildFallbackDownloaderCmd`, which rebuilds the command with `--live-from-start` stripped out
+- twitch-dlp restarts and captures from the live edge; a `[Fallback]` warning is logged
+- The guard only fires when `hadDownloadActivity` is false — if any fragment was already downloaded before the stall, the count resets and the fallback is suppressed
+- Set `download_wait_retries = 0` to disable this guard entirely
 
 ---
 

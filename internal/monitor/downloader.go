@@ -46,6 +46,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 	authFailure := &atomic.Bool{}
 	diskFailure := &atomic.Bool{}
 	processCrashed := &atomic.Bool{}
+	hadDownloadActivity := &atomic.Bool{}
 	downloadWaitRetries := 0
 	if controller, ok := b.controller.(interface{ GetDownloadWaitRetries() int }); ok {
 		downloadWaitRetries = controller.GetDownloadWaitRetries()
@@ -59,6 +60,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		} else if strings.Contains(line, "frame=") || logging.IsSubprocessProgressLine(line) {
 			// If we see active download progress, we are no longer waiting.
 			isWaiting.Store(false)
+			hadDownloadActivity.Store(true)
 			if proc != nil && proc.downloadWaitCount != nil {
 				proc.downloadWaitCount.Store(0)
 			}
@@ -67,6 +69,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		if proc != nil &&
 			proc.downloadWaitCount != nil &&
 			proc.downloadWaitTriggered != nil &&
+			proc.hadDownloadActivity != nil &&
+			!proc.hadDownloadActivity.Load() &&
 			downloadWaitRetries > 0 &&
 			logging.IsSubprocessWaitLine(line) {
 			count := proc.downloadWaitCount.Add(1)
@@ -251,6 +255,7 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 		downloadCompleted:     downloadCompleted,
 		downloadWaitCount:     &atomic.Int32{},
 		downloadWaitTriggered: &atomic.Bool{},
+		hadDownloadActivity:   hadDownloadActivity,
 		status:                status,
 		outputCallback:        outputCallback,
 		retryMode:             retryMode,

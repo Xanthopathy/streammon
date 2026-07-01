@@ -33,7 +33,9 @@ func IsSubprocessProgressLine(output string) bool {
 }
 
 func IsSubprocessWaitLine(output string) bool {
-	return strings.Contains(output, "[wait]") || strings.Contains(output, "[retry-streams]")
+	return strings.Contains(output, "[wait]") ||
+		strings.Contains(output, "[retry-streams]") ||
+		(strings.Contains(output, "[live-from-start]") && strings.Contains(output, "Cannot find the playlist"))
 }
 
 func IsYouTubeNoLongerLiveWarning(output string) bool {
