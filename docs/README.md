@@ -80,7 +80,7 @@ To find a YouTube channel ID, use `yt-dlp` against the channel handle or URL.
 streammon wants the `UC...` channel ID, not the `@handle`.
 
 ```powershell
-yt-dlp --flat-playlist --playlist-items 1 --print "%(channel_id)s" "https://www.youtube.com/@SayaSairroxs"
+yt-dlp --playlist-items 1 --print "%(channel_id)s" "https://www.youtube.com/@SayaSairroxs"
 ```
 
 Twitch channel example:
