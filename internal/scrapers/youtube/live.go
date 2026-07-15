@@ -2,6 +2,7 @@ package youtube
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,139 @@ import (
 	"streammon/internal/util/ansi"
 	"streammon/internal/util/logging"
 )
+
+var (
+	canonicalVideoRegex          = regexp.MustCompile(`<link rel="canonical" href="https://www.youtube.com/watch\?v=([a-zA-Z0-9_-]{11})">`)
+	playerResponseScriptRegex    = regexp.MustCompile(`(?s)ytInitialPlayerResponse\s*=\s*(\{.*?\})\s*;`)
+	channelIDLooseRegex          = regexp.MustCompile(`"(?:channelId|externalId|ownerDocId)":"(UC[a-zA-Z0-9_-]{22})"`)
+	videoIDLooseRegex            = regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
+	titleTagRegex                = regexp.MustCompile(`<title>(.*?) - YouTube</title>`)
+	scheduledStartTimeLooseRegex = regexp.MustCompile(`"scheduledStartTime":"(\d+)"`)
+)
+
+type ytPlayerResponse struct {
+	VideoDetails struct {
+		VideoID   string `json:"videoId"`
+		ChannelID string `json:"channelId"`
+		IsLive    bool   `json:"isLive"`
+		Title     string `json:"title"`
+	} `json:"videoDetails"`
+	Microformat struct {
+		PlayerMicroformatRenderer struct {
+			LiveBroadcastDetails struct {
+				IsLiveNow          bool   `json:"isLiveNow"`
+				StartTimestamp     string `json:"startTimestamp"`
+				ScheduledStartTime string `json:"scheduledStartTime"`
+			} `json:"liveBroadcastDetails"`
+		} `json:"playerMicroformatRenderer"`
+	} `json:"microformat"`
+	PlayabilityStatus struct {
+		LiveStreamability interface{} `json:"liveStreamability"`
+		Status            string      `json:"status"`
+	} `json:"playabilityStatus"`
+}
+
+type livePageEvaluation struct {
+	isLive        bool
+	videoID       string
+	title         string
+	scheduledTime time.Time
+	isScheduled   bool
+	hasOwnerMatch bool
+}
+
+func evaluateLivePageBody(body string, channelID string) livePageEvaluation {
+	eval := livePageEvaluation{}
+
+	canonicalMatch := canonicalVideoRegex.FindStringSubmatch(body)
+	if len(canonicalMatch) >= 2 {
+		eval.videoID = canonicalMatch[1]
+	}
+
+	playerMatch := playerResponseScriptRegex.FindStringSubmatch(body)
+	if len(playerMatch) >= 2 {
+		var pr ytPlayerResponse
+		if err := json.Unmarshal([]byte(playerMatch[1]), &pr); err == nil {
+			ownerID := pr.VideoDetails.ChannelID
+			if ownerID != "" && ownerID == channelID {
+				eval.hasOwnerMatch = true
+			}
+
+			if eval.videoID != "" && pr.VideoDetails.VideoID != "" && pr.VideoDetails.VideoID != eval.videoID {
+				return eval
+			}
+
+			if eval.videoID == "" && pr.VideoDetails.VideoID != "" {
+				eval.videoID = pr.VideoDetails.VideoID
+			}
+
+			micro := pr.Microformat.PlayerMicroformatRenderer.LiveBroadcastDetails
+			if micro.ScheduledStartTime != "" {
+				if ts, err := strconv.ParseInt(micro.ScheduledStartTime, 10, 64); err == nil {
+					eval.scheduledTime = time.Unix(ts, 0)
+					eval.isScheduled = true
+				}
+			}
+
+			if pr.VideoDetails.Title != "" {
+				eval.title = pr.VideoDetails.Title
+			}
+
+			isLiveStructured := pr.VideoDetails.IsLive || micro.IsLiveNow || pr.PlayabilityStatus.LiveStreamability != nil
+			eval.isLive = eval.hasOwnerMatch && eval.videoID != "" && isLiveStructured
+			return eval
+		}
+	}
+
+	// Conservative fallback when structured payload is unavailable.
+	// We require canonical video ID anchoring and owner presence, but avoid global LIVE checks.
+	if eval.videoID != "" {
+		idPos := strings.Index(body, fmt.Sprintf(`"videoId":"%s"`, eval.videoID))
+		if idPos != -1 {
+			searchRange := body[idPos:min(idPos+2048, len(body))]
+			ownerInRange := strings.Contains(searchRange, fmt.Sprintf(`"channelId":"%s"`, channelID)) || strings.Contains(searchRange, fmt.Sprintf(`"ownerChannelName":"%s"`, channelID))
+			if ownerInRange {
+				eval.hasOwnerMatch = true
+				eval.isLive = strings.Contains(searchRange, `"isLive":true`) || strings.Contains(searchRange, `"isLiveNow":true`) || strings.Contains(searchRange, `"status":"LIVE"`)
+			}
+		}
+	}
+
+	if !eval.hasOwnerMatch {
+		for _, match := range channelIDLooseRegex.FindAllStringSubmatch(body, -1) {
+			if len(match) >= 2 && match[1] == channelID {
+				eval.hasOwnerMatch = true
+				break
+			}
+		}
+	}
+
+	if eval.videoID == "" {
+		videoIDMatch := videoIDLooseRegex.FindStringSubmatch(body)
+		if len(videoIDMatch) >= 2 {
+			eval.videoID = videoIDMatch[1]
+		}
+	}
+
+	if len(eval.title) == 0 {
+		titleMatch := titleTagRegex.FindStringSubmatch(body)
+		if len(titleMatch) >= 2 {
+			eval.title = titleMatch[1]
+		}
+	}
+
+	if !eval.isScheduled {
+		scheduledMatch := scheduledStartTimeLooseRegex.FindStringSubmatch(body)
+		if len(scheduledMatch) >= 2 {
+			if ts, err := strconv.ParseInt(scheduledMatch[1], 10, 64); err == nil {
+				eval.scheduledTime = time.Unix(ts, 0)
+				eval.isScheduled = true
+			}
+		}
+	}
+
+	return eval
+}
 
 // CheckYouTubeViaLivePage performs a check by navigating to the channel's /live endpoint.
 // YouTube redirects this URL to the active livestream if one exists.
@@ -64,111 +198,44 @@ func CheckYouTubeViaLivePage(ctx context.Context, httpClient *http.Client, chann
 	}
 	body := string(bodyBytes)
 
-	// Extract Video ID from canonical URL - much safer than finding the first "videoId" match anywhere
-	canonicalRegex := regexp.MustCompile(`<link rel="canonical" href="https://www.youtube.com/watch\?v=([a-zA-Z0-9_-]{11})">`)
-	canonicalMatch := canonicalRegex.FindStringSubmatch(body)
+	eval := evaluateLivePageBody(body, channelID)
 
-	var videoID string
-	if len(canonicalMatch) >= 2 {
-		videoID = canonicalMatch[1]
-	}
-
-	// Verify channel ID parity to ensure we aren't catching sidebar/featured channels
-	// Look for the owner of the main content (watch page or channel page)
-	chanIDRegex := regexp.MustCompile(`"(?:channelId|externalId|ownerDocId)":"(UC[a-zA-Z0-9_-]{22})"`)
-	chanIDMatches := chanIDRegex.FindAllStringSubmatch(body, -1)
-	idMatched := false
-	for _, match := range chanIDMatches {
-		if match[1] == channelID {
-			idMatched = true
-			break
-		}
-	}
-
-	if !idMatched {
+	if !eval.hasOwnerMatch {
 		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("%s%s%s /live page did not contain the expected channel ID %s. Likely redirect to suggestion or featured channel.", ansi.ColorOrange, channelName, ansi.ColorReset, channelID))
 		return models.LiveInfo{IsLive: false}, nil
 	}
 
-	// Check for strict live indicators.
-	// If the channel is offline, /live often redirects to the last VOD, which looks like a video page but has isLive:false (or missing).
-	// We anchor the check to the video ID to avoid false positives from suggested live videos.
-	var isStatusLive bool
-	if videoID != "" {
-		// Look for "status":"LIVE" or "isLive":true in proximity to the video ID (within ~1KB)
-		// This ensures the live status belongs to the main video.
-		idPos := strings.Index(body, fmt.Sprintf(`"videoId":"%s"`, videoID))
-		if idPos != -1 {
-			searchRange := body[idPos : min(idPos+1024, len(body))]
-			isStatusLive = strings.Contains(searchRange, `"status":"LIVE"`) || strings.Contains(searchRange, `"isLive":true`)
-		}
-	}
-
-	// Double check: if we didn't find videoID from canonical, fall back to global check but still be cautious
-	if !isStatusLive {
-		isStatusLive = strings.Contains(body, `"status":"LIVE"`)
-	}
-
-	// Check for scheduled start time (detect upcoming streams/premieres)
-	// "scheduledStartTime":"1678900000"
-	scheduledTimeRegex := regexp.MustCompile(`"scheduledStartTime":"(\d+)"`)
-	scheduledMatch := scheduledTimeRegex.FindStringSubmatch(body)
-	var isScheduled bool
-	var scheduledTime time.Time
-
-	if len(scheduledMatch) >= 2 {
-		ts, err := strconv.ParseInt(scheduledMatch[1], 10, 64)
-		if err == nil {
-			scheduledTime = time.Unix(ts, 0)
-			isScheduled = true
-		}
-	}
-
-	if isScheduled {
-		timeUntil := time.Until(scheduledTime)
-		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("/live redirect for %s%s%s is a scheduled event. Starts: %s (in %v)", ansi.ColorOrange, channelName, ansi.ColorReset, scheduledTime, timeUntil))
+	if eval.isScheduled {
+		timeUntil := time.Until(eval.scheduledTime)
+		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("/live redirect for %s%s%s is a scheduled event. Starts: %s (in %v)", ansi.ColorOrange, channelName, ansi.ColorReset, eval.scheduledTime, timeUntil))
 
 		// If it's scheduled but not explicitly LIVE yet, treat it as offline.
 		// This filters out "glorified chatrooms" (streams scheduled far in the future).
-		if !isStatusLive {
+		if !eval.isLive {
 			return models.LiveInfo{IsLive: false}, nil
 		}
 	}
 
-	// Fallback: If not scheduled, check for generic isLive flag.
-	// We only use this loose check if we didn't find specific scheduling info to avoid false positives on upcoming events.
-	isLiveLoose := strings.Contains(body, `"isLive":true`)
-
-	if !isStatusLive && !isLiveLoose {
+	if !eval.isLive {
 		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("%s%s%s /live page did not contain live indicators (likely redirect to VOD or channel home).", ansi.ColorOrange, channelName, ansi.ColorReset))
 		return models.LiveInfo{IsLive: false}, nil
 	}
 
-	// Extract Video ID (if not already found via canonical)
-	if videoID == "" {
-		videoIDRegex := regexp.MustCompile(`"videoId":"([a-zA-Z0-9_-]{11})"`)
-		videoIDMatch := videoIDRegex.FindStringSubmatch(body)
-		if len(videoIDMatch) < 2 {
-			logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", ansi.ColorOrange, channelName, ansi.ColorReset))
-			return models.LiveInfo{IsLive: false}, nil
-		}
-		videoID = videoIDMatch[1]
+	if eval.videoID == "" {
+		logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Detected live status for %s%s%s but could not extract Video ID.", ansi.ColorOrange, channelName, ansi.ColorReset))
+		return models.LiveInfo{IsLive: false}, nil
 	}
 
-	// Extract Title (fallback to HTML title tag if JSON parsing is too complex for regex)
-	title := "Unknown Title"
-	// HTML title usually follows: <title>Stream Title - YouTube</title>
-	titleRegex := regexp.MustCompile(`<title>(.*?) - YouTube</title>`)
-	titleMatch := titleRegex.FindStringSubmatch(body)
-	if len(titleMatch) >= 2 {
-		title = titleMatch[1]
+	title := eval.title
+	if title == "" {
+		title = "Unknown Title"
 	}
 
-	logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Found live stream via /live: %s (%s)", title, videoID))
+	logger.Debug(logging.DebugYouTubeAPI, fmt.Sprintf("Found live stream via /live: %s (%s)", title, eval.videoID))
 
 	return models.LiveInfo{
 		IsLive:    true,
-		VideoID:   videoID,
+		VideoID:   eval.videoID,
 		Title:     title,
 		CreatedAt: time.Now(), // Approximate since we don't parse the exact start time
 	}, nil
