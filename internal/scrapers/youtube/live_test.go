@@ -1,6 +1,17 @@
 package youtube
 
-import "testing"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"streammon/internal/config"
+	"streammon/internal/util/logging"
+)
 
 const (
 	testChannelID      = "UCaaaaaaaaaaaaaaaaaaaaaa"
@@ -8,6 +19,23 @@ const (
 	testVideoID        = "WSrznNCR8LA"
 	otherVideoID       = "XSrznNCR8LB"
 )
+
+type rewritingTransport struct {
+	target *url.URL
+	base   http.RoundTripper
+}
+
+func (t rewritingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	clone.URL.Scheme = t.target.Scheme
+	clone.URL.Host = t.target.Host
+	clone.Host = t.target.Host
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return base.RoundTrip(clone)
+}
 
 func TestEvaluateLivePageBody_RejectsDifferentOwnerFromStructuredPayload(t *testing.T) {
 	body := `<html><head>` +
@@ -93,5 +121,75 @@ func TestEvaluateLivePageBody_AcceptsStructuredOwnedLive(t *testing.T) {
 	}
 	if eval.title != "Owned Live" {
 		t.Fatalf("expected title from structured payload, got %q", eval.title)
+	}
+}
+
+func TestCheckYouTubeViaLivePage_UsesExpectedRequestAndParsesResponse(t *testing.T) {
+	logger := logging.NewLogger(&config.GlobalConfig{Timezone: "UTC"}, "YT", "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/channel/"+testChannelID+"/live" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if got := r.Header.Get("User-Agent"); got == "" {
+			t.Fatalf("expected User-Agent header to be set")
+		}
+		if got := r.Header.Get("Accept"); !strings.Contains(got, "text/html") {
+			t.Fatalf("expected browser-style Accept header, got %q", got)
+		}
+		if got := r.Header.Get("Sec-Fetch-Mode"); got != "navigate" {
+			t.Fatalf("expected Sec-Fetch-Mode navigate, got %q", got)
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = fmt.Fprint(w, `<html><head>`+
+			`<link rel="canonical" href="https://www.youtube.com/watch?v=`+testVideoID+`">`+
+			`<script>var ytInitialPlayerResponse = {"videoDetails":{"videoId":"`+testVideoID+`","channelId":"`+testChannelID+`","isLive":true,"title":"HTTP Live"},"microformat":{"playerMicroformatRenderer":{"liveBroadcastDetails":{"isLiveNow":true}}}};</script>`+
+			`</head><body></body></html>`)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	client := &http.Client{
+		Transport: rewritingTransport{target: targetURL, base: server.Client().Transport},
+	}
+
+	info, err := CheckYouTubeViaLivePage(context.Background(), client, testChannelID, "Test Channel", logger)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !info.IsLive {
+		t.Fatalf("expected live result")
+	}
+	if info.VideoID != testVideoID {
+		t.Fatalf("expected video id %s, got %s", testVideoID, info.VideoID)
+	}
+	if info.Title != "HTTP Live" {
+		t.Fatalf("expected title from HTTP response, got %q", info.Title)
+	}
+}
+
+func TestCheckYouTubeViaLivePage_ReturnsErrorOnNonOK(t *testing.T) {
+	logger := logging.NewLogger(&config.GlobalConfig{Timezone: "UTC"}, "YT", "")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	targetURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatalf("parse server url: %v", err)
+	}
+
+	client := &http.Client{
+		Transport: rewritingTransport{target: targetURL, base: server.Client().Transport},
+	}
+
+	_, err = CheckYouTubeViaLivePage(context.Background(), client, testChannelID, "Test Channel", logger)
+	if err == nil {
+		t.Fatalf("expected error for non-200 response")
 	}
 }
