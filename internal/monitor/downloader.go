@@ -55,6 +55,8 @@ func (b *BaseMonitor) launchDownloader(ch config.Channel, status models.LiveInfo
 
 	// Callback to detect waiting state and completion markers from subprocess output
 	outputCallback := func(line string) {
+		line = logging.NormalizeSubprocessOutput(line)
+
 		if logging.IsSubprocessWaitLine(line) {
 			isWaiting.Store(true)
 		} else if strings.Contains(line, "frame=") || logging.IsSubprocessProgressLine(line) {

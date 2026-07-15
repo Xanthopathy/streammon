@@ -13,7 +13,13 @@ import (
 
 var livestreamDownloadedPattern = regexp.MustCompile(`~[0-9]+(?:\.[0-9]+)?\s+[KMGT]?B downloaded`)
 
+// NormalizeSubprocessOutput removes terminal control sequences before output is classified.
+func NormalizeSubprocessOutput(output string) string {
+	return stripANSI(output)
+}
+
 func IsSubprocessProgressLine(output string) bool {
+	output = NormalizeSubprocessOutput(output)
 	if strings.Contains(output, "[download]") {
 		return true
 	}
@@ -33,14 +39,15 @@ func IsSubprocessProgressLine(output string) bool {
 }
 
 func IsSubprocessWaitLine(output string) bool {
+	output = NormalizeSubprocessOutput(output)
 	return strings.Contains(output, "[wait]") ||
 		strings.Contains(output, "[retry-streams]") ||
 		(strings.Contains(output, "[live-from-start]") && strings.Contains(output, "Cannot find the playlist"))
 }
 
 func IsYouTubeNoLongerLiveWarning(output string) bool {
-	plainOutput := stripANSI(output)
-	return strings.Contains(plainOutput, "WARNING: [youtube]") && strings.Contains(plainOutput, "Video is no longer live")
+	output = NormalizeSubprocessOutput(output)
+	return strings.Contains(output, "WARNING: [youtube]") && strings.Contains(output, "Video is no longer live")
 }
 
 func colorizeLivestreamDLOutput(output string) string {

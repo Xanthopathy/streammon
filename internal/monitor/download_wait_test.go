@@ -115,6 +115,8 @@ func TestWaitForDownload_YTDLP_PostprocessDetection(t *testing.T) {
 
 // Helper that mirrors the output parsing used in launchDownloader to set flags.
 func applyOutputLine(proc *downloadProcess, line string) {
+	line = logging.NormalizeSubprocessOutput(line)
+
 	if strings.Contains(line, "[Merger]") || strings.Contains(line, "Merging formats") || strings.Contains(line, "Successfully merged files into:") {
 		proc.mergerDetected.Store(true)
 	}
@@ -177,6 +179,31 @@ func TestOutputDetectionFlags(t *testing.T) {
 	applyOutputLine(proc, "Traceback (most recent call last):\n  File \"/usr/local/bin/yt-dlp\", line 10, in <module>")
 	if !proc.processCrashed.Load() {
 		t.Fatal("processCrashed not detected")
+	}
+}
+
+func TestOutputDetectionFlagsIgnoreANSI(t *testing.T) {
+	proc := &downloadProcess{
+		mergerDetected:    &atomic.Bool{},
+		postprocessFailed: &atomic.Bool{},
+		fragmentFailure:   &atomic.Bool{},
+		extractorFailed:   &atomic.Bool{},
+		authFailure:       &atomic.Bool{},
+		diskFailure:       &atomic.Bool{},
+		processCrashed:    &atomic.Bool{},
+	}
+
+	applyOutputLine(proc, "\x1b[33m[Merger]\x1b[0m Merging formats")
+	applyOutputLine(proc, "\x1b[31mERROR: Postprocessing: Conversion failed!\x1b[0m")
+	applyOutputLine(proc, "\x1b[31mDid not get any data blocks\x1b[0m")
+	applyOutputLine(proc, "\x1b[31mERROR: Unable to download webpage\x1b[0m")
+	applyOutputLine(proc, "\x1b[31mThis video is private and requires authentication\x1b[0m")
+	applyOutputLine(proc, "\x1b[31mNo space left on device\x1b[0m")
+	applyOutputLine(proc, "\x1b[31mKilled\x1b[0m")
+
+	if !proc.mergerDetected.Load() || !proc.postprocessFailed.Load() || !proc.fragmentFailure.Load() ||
+		!proc.extractorFailed.Load() || !proc.authFailure.Load() || !proc.diskFailure.Load() || !proc.processCrashed.Load() {
+		t.Fatal("expected ANSI-colored output to set every detection flag")
 	}
 }
 

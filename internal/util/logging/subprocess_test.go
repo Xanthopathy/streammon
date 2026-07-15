@@ -19,6 +19,11 @@ func TestIsSubprocessProgressLine(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "ANSI-colored yt-dlp download",
+			line: "\x1b[32m[download]\x1b[0m 245.96MiB at 2.81MiB/s",
+			want: true,
+		},
+		{
 			name: "livestream_dl text stats",
 			line: "8F22yBCpXRc: Video: 19474/19472 (Recording) Audio: 19474/19472 (Recording) ~10.55 GB downloaded",
 			want: true,
@@ -45,14 +50,23 @@ func TestIsSubprocessProgressLine(t *testing.T) {
 }
 
 func TestIsSubprocessWaitLine(t *testing.T) {
-	if !IsSubprocessWaitLine("[wait] Waiting for video") {
-		t.Fatal("expected [wait] line to be classified as wait")
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{name: "wait", line: "[wait] Waiting for video", want: true},
+		{name: "retry streams", line: "[retry-streams] Waiting for stream", want: true},
+		{name: "ANSI-colored wait", line: "\x1b[33m[wait]\x1b[0m Waiting for video", want: true},
+		{name: "no-longer-live warning", line: "WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...", want: false},
 	}
-	if !IsSubprocessWaitLine("[retry-streams] Waiting for stream") {
-		t.Fatal("expected [retry-streams] line to be classified as wait")
-	}
-	if IsSubprocessWaitLine("WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...") {
-		t.Fatal("expected YouTube no-longer-live warning not to affect wait state")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsSubprocessWaitLine(tt.line); got != tt.want {
+				t.Fatalf("IsSubprocessWaitLine() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
