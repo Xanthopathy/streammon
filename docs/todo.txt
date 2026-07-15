@@ -5,3 +5,48 @@
 dockerize? (netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.)
 
 override_args in addition to additional_args? (probably not needed)
+
+Avoid a polling goroutine per check cycle
+checker.go creates a goroutine that wakes every 250 ms solely to check connectivity. A connection-state notification channel, or checking at the existing request/sleep boundaries, would remove periodic wakeups and simplify cancellation. This is a small CPU/goroutine improvement, not a headline performance gain.
+
+Improve archive persistence only if archive volume grows
+download_success.go opens and appends to the archive file for each successful download. It is correct and durable today. For a high-throughput setup, an archive writer goroutine with a buffered channel could batch writes and Sync on shutdown. The tradeoff is a short crash window for unflushed IDs, so I would retain the current approach unless many downloads complete per minute.
+
+Avoid rewriting the entire archive during legacy migration
+archive_paths.go reads both archives, deduplicates, sorts, and rewrites the destination. This runs only during migration, so it is low priority, but can delay startup for large archives. A streaming append of IDs absent from the destination, without a sort, would use substantially less memory and I/O.
+
+Move network-error patterns out of the hot function
+network_errors.go allocates the pattern slice every time isConnectivityError runs. Define it as a package-level array/slice. It only matters during repeated error conditions, but it is a simple, risk-free cleanup.
+
+Tune HTTP pooling deliberately for high channel counts
+base_monitor.go uses Go’s default transport, which already reuses connections, so there is no “new connection for every request” bug. However, the default per-host idle connection capacity is conservative. If you regularly monitor many channels, a custom shared transport with sensible MaxIdleConnsPerHost, MaxConnsPerHost, and IdleConnTimeout would make the intended concurrency more reliable. This should be paired with load/rate-limit testing, rather than added blindly.
+
+
+
+Make request concurrency meaningful, or remove it
+The same checker spaces every channel request serially before launching it. With the configured spacing around 2-3 seconds, checks will normally finish before the next starts, so the four-slot semaphore rarely provides real concurrency. Either:
++ keep strict global rate pacing and eliminate the semaphore, or
++ use a rate limiter to control request starts while allowing multiple slower HTTP checks in flight.
+The second option improves poll-cycle completion when responses are slow without exceeding the request rate.
+
+The worthwhile refinements are:
+
+Do not delay the first request in each poll cycle
+The current loop sleeps before every channel, including the first. Check channel one immediately, then space subsequent request starts by the jittered interval. That makes each poll more responsive without changing the sustained rate.
+
+Use a shared YouTube request-start limiter
+Keep the four in-flight cap, but make every YouTube HTTP check acquire from one limiter that governs request starts across all YouTube methods. This guarantees RSS, /live, members checks, retries, and any future calls cannot accidentally combine into a burst.
+
+Conceptually: start rate ≤ 1 / request spacing
+while: in-flight requests ≤ 4
+
+Make the limiter cancellation-aware
+You already do this for the inter-channel sleep. The limiter should release immediately on shutdown or connectivity loss, so it never leaves goroutines waiting for their turn after a poll has been cancelled.
+
+Add response-aware backoff only for YouTube rate signals
+On HTTP 429, 403, or a clear temporary throttling response, temporarily reduce the request-start rate and gradually recover after successful checks. Do not treat normal offline results as failures.
+
+Keep jitter, but make it bounded and observable
+Your existing ±25% jitter is reasonable. Log effective average spacing once at startup, which you already largely do, and avoid making timing perfectly periodic.
+
+The only straightforward code change I would advocate now is item 1. The first check currently waits roughly one full spacing period, so with 39 channels at about 3 seconds spacing it adds avoidable latency at the beginning of every poll, while preserving no rate-limit benefit.
