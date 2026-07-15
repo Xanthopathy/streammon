@@ -39,7 +39,8 @@ func IsSubprocessWaitLine(output string) bool {
 }
 
 func IsYouTubeNoLongerLiveWarning(output string) bool {
-	return strings.Contains(output, "WARNING: [youtube]") && strings.Contains(output, "Video is no longer live")
+	plainOutput := stripANSI(output)
+	return strings.Contains(plainOutput, "WARNING: [youtube]") && strings.Contains(plainOutput, "Video is no longer live")
 }
 
 func colorizeLivestreamDLOutput(output string) string {

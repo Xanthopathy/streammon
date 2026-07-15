@@ -147,8 +147,11 @@ In `streammon_config.toml`:
 `subprocess_progress_interval` and `subprocess_wait_interval` are in seconds and
 apply to both `.log` files and terminal subprocess output. Progress throttling
 covers yt-dlp `[download]` lines, twitch-dlp progress, and livestream_dl text or
-JSON stats lines. Set progress interval to `0` to log every progress update, or
-increase it if download logs are too noisy.
+JSON stats lines. It also throttles repeated yt-dlp `Video is no longer live`
+warnings after a live stream ends. These settings only control what Streammon
+writes; they do not disable retry attempts performed internally by a downloader.
+Set progress interval to `0` to log every progress update and warning, or increase
+it if download logs are too noisy.
 
 In `streammon_config_yt.toml`:
 

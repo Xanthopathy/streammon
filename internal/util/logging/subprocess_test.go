@@ -57,11 +57,34 @@ func TestIsSubprocessWaitLine(t *testing.T) {
 }
 
 func TestIsYouTubeNoLongerLiveWarning(t *testing.T) {
-	if !IsYouTubeNoLongerLiveWarning("WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...") {
-		t.Fatal("expected YouTube no-longer-live warning to match")
+	tests := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{
+			name: "plain warning",
+			line: "WARNING: [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...",
+			want: true,
+		},
+		{
+			name: "ANSI-colored warning",
+			line: "\x1b[33mWARNING:\x1b[0m [youtube] Vm7xAYtmZcE: Video is no longer live. Retrying (1/3)...",
+			want: true,
+		},
+		{
+			name: "unrelated YouTube warning",
+			line: "WARNING: [youtube] Unable to download webpage",
+			want: false,
+		},
 	}
-	if IsYouTubeNoLongerLiveWarning("WARNING: [youtube] Unable to download webpage") {
-		t.Fatal("expected unrelated YouTube warning not to match")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsYouTubeNoLongerLiveWarning(tt.line); got != tt.want {
+				t.Fatalf("IsYouTubeNoLongerLiveWarning() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

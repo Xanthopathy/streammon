@@ -825,16 +825,20 @@ LAUNCH DOWNLOAD ✓
 
 - Location: `{channel_dir}/{sanitized_channel_name}-{videoID}.log`
 - Contains subprocess command executed (logged on startup)
-- All subprocess output from twitch-dlp/yt-dlp/livestream_dl (every line captured)
+- All subprocess output from twitch-dlp/yt-dlp/livestream_dl, subject to the configured throttling
 - Each line tagged with its canonical source, such as `[yt-dlp]`, `[livestream_dl]`, or `[twitch-dlp]`
 - Throttling applied per line type (separate throttling counters):
   - Subprocess progress lines: Throttled by `subprocess_progress_interval` (30s default)
   - `[wait]`/`[retry-streams]` lines: Throttled by `subprocess_wait_interval` (600s default)
-  - yt-dlp `WARNING: [youtube] Video is no longer live` lines: Throttled by `subprocess_progress_interval` to suppress repeated end-of-stream spam
+   - yt-dlp `WARNING: [youtube] Video is no longer live` lines: Throttled by `subprocess_progress_interval` to suppress repeated end-of-stream spam, including ANSI-colored output
   - All other lines: Logged immediately
 - Log files opened in append mode; partial logs from a previous run are not truncated
-- Log file always receives all output (independent of debug flags)
+- Log file capture is independent of debug flags, with progress and end-of-stream warnings subject to throttling
 - Created via `NewLoggerForDownload()` with full metadata
+
+Throttling affects Streammon's log and terminal output only. It does not stop
+yt-dlp's own retries; use downloader arguments such as `--retries` to control
+those attempts.
 
 #### Terminal Output
 
