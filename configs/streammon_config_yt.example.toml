@@ -94,10 +94,13 @@ member_check_args = [
 # Yabai-ish: ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
 # Yabai-er: ["(?i)(unarc(hiv(e|ed))?|unlisted|no\\s?arch(ive)?|vod|karaok(e|ey)|sing(ing|ies)?|(^|[^[:alnum:]])songs?([^[:alnum:]]|$)|music|acapella|3dio|asmr|handcam|watch-?a-?long|birthday|off[- ]?collab|guer(r)?illa|gowilla|goril(l)?a|ゲリラ|歌枠|アーカイブなし|はメン限)"]
 # Extra yab markers: ["(?i)(limited[- ]?time|member[- ]?only|歌回|同時視聴|ウォッチパーティ|watch[- ]?party|rebroadcast|再放送|endurance|耐久|凸待ち|call[- ]?in|drunk|飲酒|罰ゲーム|batsu|実写|irl)"]
+# Optional additional_args are appended to the global yt-dlp or livestream_dl args.
+# YouTube currently does not need the Twitch-specific --strip-live-from-start option.
 
 # Example:
 # [[channel]]
 # id = "UCFzQd4pZ43ZNEdWBFe7QOKA"
 # name = "Saya Sairroxs"
 # filters = ["(?i).*karaoke.*|.*archive.*|.*guerilla.*|.*gorilla.*|.*gorila.*|.*surprise.*|.*handcam.*|.*asmr.*"]
+# additional_args = []
 # member_check = false

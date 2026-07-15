@@ -26,21 +26,22 @@ func hasCookieArg(args []string) bool {
 func (m *YTMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	isMemberStream := status.Source == models.LiveSourceMembers
 	if isMemberStream {
-		return m.buildDownloaderByName(m.cfg.Scraper.MemberDownloader, status, true)
+		return m.buildDownloaderByName(m.cfg.Scraper.MemberDownloader, ch, status, true)
 	}
 
-	return m.buildDownloaderByName(m.cfg.Scraper.DownloaderMethod, status, false)
+	return m.buildDownloaderByName(m.cfg.Scraper.DownloaderMethod, ch, status, false)
 }
 
-func (m *YTMonitor) buildDownloaderByName(name string, status models.LiveInfo, includeCookies bool) *exec.Cmd {
+func (m *YTMonitor) buildDownloaderByName(name string, ch config.Channel, status models.LiveInfo, includeCookies bool) *exec.Cmd {
 	if name == "livestream_dl" {
-		return m.buildLivestreamDLCmd(status, includeCookies)
+		return m.buildLivestreamDLCmd(ch, status, includeCookies)
 	}
-	return m.buildYTDLPCmd(status, includeCookies)
+	return m.buildYTDLPCmd(ch, status, includeCookies)
 }
 
-func (m *YTMonitor) buildYTDLPCmd(status models.LiveInfo, includeCookies bool) *exec.Cmd {
+func (m *YTMonitor) buildYTDLPCmd(ch config.Channel, status models.LiveInfo, includeCookies bool) *exec.Cmd {
 	args := append([]string{}, m.cfg.YTDLP.Args...)
+	args = append(args, ch.AdditionalArgs...)
 	return m.buildYTDLPCmdWithArgs(status, includeCookies, args)
 }
 
@@ -57,8 +58,9 @@ func (m *YTMonitor) buildYTDLPCmdWithArgs(status models.LiveInfo, includeCookies
 	return cmd
 }
 
-func (m *YTMonitor) buildLivestreamDLCmd(status models.LiveInfo, includeCookies bool) *exec.Cmd {
+func (m *YTMonitor) buildLivestreamDLCmd(ch config.Channel, status models.LiveInfo, includeCookies bool) *exec.Cmd {
 	args := append([]string{}, m.cfg.LivestreamDL.Args...)
+	args = append(args, ch.AdditionalArgs...)
 	cookiesFile := m.cookiesFileAbs()
 	if includeCookies && cookiesFile != "" && !hasCookieArg(args) {
 		args = append(args, "--cookies", cookiesFile)
@@ -129,12 +131,12 @@ func (m *YTMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status models.
 
 	switch primary {
 	case "livestream_dl":
-		return m.buildYTDLPCmd(status, isMemberStream), "yt-dlp", true
+		return m.buildYTDLPCmd(ch, status, isMemberStream), "yt-dlp", true
 	case "yt-dlp":
 		if !isMemberStream && !m.cfg.LivestreamDL.Enabled {
 			return nil, "", false
 		}
-		return m.buildLivestreamDLCmd(status, isMemberStream), "livestream_dl", true
+		return m.buildLivestreamDLCmd(ch, status, isMemberStream), "livestream_dl", true
 	default:
 		return nil, "", false
 	}
@@ -152,9 +154,9 @@ func (m *YTMonitor) BuildRetryDownloaderCmd(ch config.Channel, status models.Liv
 			if !isMemberStream && !m.cfg.LivestreamDL.Enabled {
 				return nil, "", false
 			}
-			return m.buildLivestreamDLCmd(status, isMemberStream), "livestream_dl", true
+			return m.buildLivestreamDLCmd(ch, status, isMemberStream), "livestream_dl", true
 		case "livestream_dl":
-			return m.buildYTDLPCmd(status, isMemberStream), "yt-dlp", true
+			return m.buildYTDLPCmd(ch, status, isMemberStream), "yt-dlp", true
 		default:
 			return nil, "", false
 		}
@@ -164,10 +166,14 @@ func (m *YTMonitor) BuildRetryDownloaderCmd(ch config.Channel, status models.Liv
 		}
 		switch retry.completedDownloader {
 		case "yt-dlp":
-			args := buildTimestampedOutputArgs(m.cfg.YTDLP.Args, "live-retry")
+			args := append([]string{}, m.cfg.YTDLP.Args...)
+			args = append(args, ch.AdditionalArgs...)
+			args = buildTimestampedOutputArgs(args, "live-retry")
 			return m.buildYTDLPCmdWithArgs(status, isMemberStream, args), "yt-dlp", true
 		case "livestream_dl":
-			args := buildTimestampedOutputArgs(m.cfg.LivestreamDL.Args, "live-retry")
+			args := append([]string{}, m.cfg.LivestreamDL.Args...)
+			args = append(args, ch.AdditionalArgs...)
+			args = buildTimestampedOutputArgs(args, "live-retry")
 			cookiesFile := m.cookiesFileAbs()
 			if isMemberStream && cookiesFile != "" && !hasCookieArg(args) {
 				args = append(args, "--cookies", cookiesFile)
@@ -181,7 +187,9 @@ func (m *YTMonitor) BuildRetryDownloaderCmd(ch config.Channel, status models.Liv
 		if !m.cfg.Scraper.RetryOfflineWithoutLiveArgs {
 			return nil, "", false
 		}
-		args := removeLiveWaitArgs(m.cfg.YTDLP.Args)
+		args := append([]string{}, m.cfg.YTDLP.Args...)
+		args = append(args, ch.AdditionalArgs...)
+		args = removeLiveWaitArgs(args)
 		args = buildTimestampedOutputArgs(args, "vod-retry")
 		return m.buildYTDLPCmdWithArgs(status, isMemberStream, args), "yt-dlp", true
 	default:

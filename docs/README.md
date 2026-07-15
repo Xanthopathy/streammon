@@ -171,6 +171,10 @@ In `streammon_config_yt.toml`:
 | `retry_same_downloader_with_timestamp_when_live` | Retry an early live completion with a timestamped output if no alternate downloader is available.             |
 | `retry_offline_without_live_args`                | After an early completion, retry the final VOD with yt-dlp live-wait args removed once the stream is offline. |
 
+Each YouTube `[[channel]]` can define an optional `additional_args` list for
+downloader-specific options. YouTube currently has no equivalent of Twitch's
+`--strip-live-from-start` control token.
+
 `working_directory` can be relative to where you run streammon, or absolute.
 Examples:
 
@@ -251,13 +255,22 @@ false and set `member_check = true` only on specific `[[channel]]` entries.
 
 In `streammon_config_twitch.toml`:
 
-| Setting                   | What it does                                                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `working_directory`       | Where Twitch files go.                                                                                                          |
-| `[twitch-dlp].args`       | Arguments passed to `twitch-dlp`.                                                                                               |
-| `poll_interval`           | Delay between full channel-list checks.                                                                                         |
-| `max_requests_per_second` | Safety limit for GraphQL checks.                                                                                                |
-| `download_wait_retries`   | Fall back to live-edge capture after this many consecutive `--live-from-start` playlist failures with no data downloaded yet.   |
+| Setting                   | What it does                                                                                                                  |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `working_directory`       | Where Twitch files go.                                                                                                        |
+| `[twitch-dlp].args`       | Arguments passed to `twitch-dlp`.                                                                                             |
+| `poll_interval`           | Delay between full channel-list checks.                                                                                       |
+| `max_requests_per_second` | Safety limit for GraphQL checks.                                                                                              |
+| `download_wait_retries`   | Fall back to live-edge capture after this many consecutive `--live-from-start` playlist failures with no data downloaded yet. |
+
+Each channel can define an optional `additional_args` list. These arguments
+are appended to the platform's global downloader args. Use
+`additional_args = ["--strip-live-from-start"]` for a Twitch channel whose VOD settings do
+not preserve the beginning of the stream. The control token is consumed by
+streammon and is not passed to `twitch-dlp`; it is safe to use even when the
+global argument list does not contain `--live-from-start`. Ordinary options in
+the same list are passed through unchanged. YouTube currently does not need
+this Twitch-specific control token.
 
 Twitch uses the same `working_directory`, `poll_interval`, and
 `max_requests_per_second` ideas as YouTube. Twitch is generally more lenient

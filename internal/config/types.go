@@ -31,10 +31,11 @@ type DownloaderConfig struct {
 }
 
 type Channel struct {
-	ID          string   `toml:"id"`
-	Name        string   `toml:"name"`
-	Filters     []string `toml:"filters"`
-	MemberCheck bool     `toml:"member_check"`
+	ID             string   `toml:"id"`
+	Name           string   `toml:"name"`
+	Filters        []string `toml:"filters"`
+	AdditionalArgs []string `toml:"additional_args"`
+	MemberCheck    bool     `toml:"member_check"`
 }
 
 type YTConfig struct {

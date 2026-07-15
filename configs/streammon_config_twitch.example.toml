@@ -22,9 +22,12 @@ download_wait_retries = 3
 
 # ========================== Channels ========================== #
 # Use filters = [".*"] to download every live stream.
+# Optional additional_args are appended to the global twitch-dlp args.
+# Twitch-only: use "--strip-live-from-start" for channels that do not preserve VODs.
 
 # Example:
 # [[channel]]
 # id = "sayasairroxs"
 # name = "Saya Sairroxs"
 # filters = [".*"]
+# additional_args = ["--strip-live-from-start"]

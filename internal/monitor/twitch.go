@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os/exec"
+	"slices"
 	"time"
 
 	"streammon/internal/config"
@@ -74,11 +75,30 @@ func (m *TwitchMonitor) CheckChannelStatus(ctx context.Context, ch config.Channe
 
 func (m *TwitchMonitor) BuildDownloaderCmd(ch config.Channel, status models.LiveInfo) *exec.Cmd {
 	url := "https://www.twitch.tv/" + ch.ID
-	args := append([]string{}, m.cfg.TwitchDLP.Args...)
+	args := twitchDownloaderArgs(m.cfg.TwitchDLP.Args, ch.AdditionalArgs)
 	args = append(args, url)
 	npxArgs := append([]string{"-y", "twitch-dlp"}, args...)
 	cmd := exec.Command("npx", npxArgs...)
 	return cmd
+}
+
+const stripLiveFromStartArg = "--strip-live-from-start"
+
+func twitchDownloaderArgs(globalArgs, channelArgs []string) []string {
+	stripLiveFromStart := slices.Contains(channelArgs, stripLiveFromStartArg)
+	args := make([]string, 0, len(globalArgs)+len(channelArgs))
+	for _, arg := range globalArgs {
+		if stripLiveFromStart && arg == "--live-from-start" {
+			continue
+		}
+		args = append(args, arg)
+	}
+	for _, arg := range channelArgs {
+		if arg != stripLiveFromStartArg {
+			args = append(args, arg)
+		}
+	}
+	return args
 }
 
 // GetDownloadWaitRetries returns how many [live-from-start] "Cannot find the
@@ -94,7 +114,7 @@ func (m *TwitchMonitor) GetDownloadWaitRetries() int {
 func (m *TwitchMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status models.LiveInfo) (*exec.Cmd, string, bool) {
 	// Only fall back if --live-from-start was actually requested.
 	hasLiveFromStart := false
-	for _, a := range m.cfg.TwitchDLP.Args {
+	for _, a := range twitchDownloaderArgs(m.cfg.TwitchDLP.Args, ch.AdditionalArgs) {
 		if a == "--live-from-start" {
 			hasLiveFromStart = true
 			break
@@ -105,8 +125,8 @@ func (m *TwitchMonitor) BuildFallbackDownloaderCmd(ch config.Channel, status mod
 	}
 
 	// Strip --live-from-start from the args.
-	filtered := make([]string, 0, len(m.cfg.TwitchDLP.Args))
-	for _, a := range m.cfg.TwitchDLP.Args {
+	filtered := make([]string, 0, len(m.cfg.TwitchDLP.Args)+len(ch.AdditionalArgs))
+	for _, a := range twitchDownloaderArgs(m.cfg.TwitchDLP.Args, ch.AdditionalArgs) {
 		if a != "--live-from-start" {
 			filtered = append(filtered, a)
 		}
