@@ -93,7 +93,7 @@ func evaluateLivePageBody(body string, channelID string) livePageEvaluation {
 				eval.title = pr.VideoDetails.Title
 			}
 
-			isLiveStructured := pr.VideoDetails.IsLive || micro.IsLiveNow || pr.PlayabilityStatus.LiveStreamability != nil
+			isLiveStructured := pr.VideoDetails.IsLive || micro.IsLiveNow
 			eval.isLive = eval.hasOwnerMatch && eval.videoID != "" && isLiveStructured
 			return eval
 		}

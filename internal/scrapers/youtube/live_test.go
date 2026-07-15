@@ -91,7 +91,7 @@ func TestEvaluateLivePageBody_CanonicalMissingDoesNotPromoteRandomVideoID(t *tes
 func TestEvaluateLivePageBody_ScheduledButNotLiveFromStructuredPayload(t *testing.T) {
 	body := `<html><head>` +
 		`<link rel="canonical" href="https://www.youtube.com/watch?v=` + testVideoID + `">` +
-		`<script>var ytInitialPlayerResponse = {"videoDetails":{"videoId":"` + testVideoID + `","channelId":"` + testChannelID + `","isLive":false,"title":"Upcoming"},"microformat":{"playerMicroformatRenderer":{"liveBroadcastDetails":{"scheduledStartTime":"1999999999","isLiveNow":false}}}};</script>` +
+		`<script>var ytInitialPlayerResponse = {"videoDetails":{"videoId":"` + testVideoID + `","channelId":"` + testChannelID + `","isLive":false,"title":"Upcoming"},"microformat":{"playerMicroformatRenderer":{"liveBroadcastDetails":{"scheduledStartTime":"1999999999","isLiveNow":false}}},"playabilityStatus":{"liveStreamability":{"liveStreamabilityRenderer":{}}}};</script>` +
 		`</head><body></body></html>`
 
 	eval := evaluateLivePageBody(body, testChannelID)
