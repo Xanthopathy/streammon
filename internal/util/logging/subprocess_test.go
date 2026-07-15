@@ -119,12 +119,12 @@ func TestColorizeSubprocessOutputOnlyTouchesLivestreamDL(t *testing.T) {
 
 func TestColorizeLivestreamDLSeverityTags(t *testing.T) {
 	warning := "[WARNING] [5a5f6URAlIs] segment failed"
-	if got := colorizeLivestreamDLOutput(warning); !strings.Contains(got, ansi.ColorYellow+"[WARNING]"+ansi.ColorReset) {
-		t.Fatalf("expected warning tag to be yellow, got %q", got)
+	if got, want := colorizeLivestreamDLOutput(warning), "["+ansi.ColorYellow+"WARNING"+ansi.ColorReset+"] [5a5f6URAlIs] segment failed"; got != want {
+		t.Fatalf("expected only warning text to be yellow, got %q", got)
 	}
 
 	info := "[INFO] [5a5f6URAlIs] merge complete"
-	if got := colorizeLivestreamDLOutput(info); !strings.Contains(got, ansi.ColorBlue+"[INFO]"+ansi.ColorReset) {
-		t.Fatalf("expected info tag to be blue, got %q", got)
+	if got, want := colorizeLivestreamDLOutput(info), "["+ansi.ColorBlue+"INFO"+ansi.ColorReset+"] [5a5f6URAlIs] merge complete"; got != want {
+		t.Fatalf("expected only info text to be blue, got %q", got)
 	}
 }

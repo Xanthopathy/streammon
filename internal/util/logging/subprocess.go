@@ -51,9 +51,9 @@ func IsYouTubeNoLongerLiveWarning(output string) bool {
 }
 
 func colorizeLivestreamDLOutput(output string) string {
-	output = strings.ReplaceAll(output, "[WARNING]", ansi.ColorYellow+"[WARNING]"+ansi.ColorReset)
+	output = strings.ReplaceAll(output, "[WARNING]", "["+ansi.ColorYellow+"WARNING"+ansi.ColorReset+"]")
 	output = strings.ReplaceAll(output, "WARNING:", ansi.ColorYellow+"WARNING:"+ansi.ColorReset)
-	output = strings.ReplaceAll(output, "[INFO]", ansi.ColorBlue+"[INFO]"+ansi.ColorReset)
+	output = strings.ReplaceAll(output, "[INFO]", "["+ansi.ColorBlue+"INFO"+ansi.ColorReset+"]")
 
 	return livestreamDownloadedPattern.ReplaceAllStringFunc(output, func(match string) string {
 		return ansi.ColorBlue + match + ansi.ColorReset
