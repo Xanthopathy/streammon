@@ -2,5 +2,6 @@
 [shafted] update configs if config files update (probably set as a flag in global config, 0 default / doesn't do this)
 [shafted] holodex or invidious api as a third option (important for member streams)
 
-dockerize?
-(netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.)
+dockerize? (netcheck.go probes public DNS servers over TCP port 53. Some container networks block that while HTTPS still works. Consider configurable probes or an HTTPS fallback.)
+
+override_args in addition to additional_args? (probably not needed)
