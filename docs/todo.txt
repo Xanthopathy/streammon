@@ -21,6 +21,8 @@ network_errors.go allocates the pattern slice every time isConnectivityError run
 Tune HTTP pooling deliberately for high channel counts
 base_monitor.go uses Go’s default transport, which already reuses connections, so there is no “new connection for every request” bug. However, the default per-host idle connection capacity is conservative. If you regularly monitor many channels, a custom shared transport with sensible MaxIdleConnsPerHost, MaxConnsPerHost, and IdleConnTimeout would make the intended concurrency more reliable. This should be paired with load/rate-limit testing, rather than added blindly.
 
+Add assurance: /live scraping is intended to catch currently live streams. Scheduled unarchived karaoke may not be detected until it transitions to actual live state. A livestream may be missed if it's not scheduled. Should write scripts to review
+
 
 
 Make request concurrency meaningful, or remove it

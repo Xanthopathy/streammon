@@ -3,6 +3,7 @@
 build/
 download_twitch/
 download_yt/
+tests/live/data/
 streammon_config.toml
 streammon_config_yt.toml
 streammon_config_twitch.toml
